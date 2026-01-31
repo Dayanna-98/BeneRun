@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Utilisateur;
+use App\Models\User;
 
 class Benevole extends Model
 {
@@ -14,8 +14,8 @@ class Benevole extends Model
     public $timestamps = false;
 
 
-     public function utilisateur() {
-        return $this->belongsTo(Utilisateur::class, 'id_utilisateur');
+     public function user() {
+        return $this->belongsTo(User::class, 'id_utilisateur');
     }
 
 }

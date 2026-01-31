@@ -13,7 +13,7 @@ class Admin extends Model
 
     public $timestamps = false;
 
-        public function utilisateur() {
-        return $this->belongsTo(Utilisateur::class, 'id_utilisateur');
+        public function user() {
+        return $this->belongsTo(User::class, 'id_utilisateur');
     }
 }
