@@ -8,7 +8,7 @@ class Affectation extends Model
 {
     protected $table = 'affectations';
     protected $primaryKey = 'id_affectation';
-    protected $fillable = ['id_benevole', 'id_mission', 'statut_affectation', 'remarque_affectation', 'estResponsable_affectation'];
+    protected $fillable = ['id_benevole', 'id_mission', 'statut_affectation', 'remarque_affectation', 'est_responsable_affectation'];
 
     public function benevole()
     {
