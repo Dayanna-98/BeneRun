@@ -13,14 +13,15 @@ return new class extends Migration
     {
         Schema::create('benevoles', function (Blueprint $table) {
             $table->id('id_benevole');
-             // clé étrangère vers utilisateur (héritage)
-            $table->foreignId('id_utilisateur')
-                ->constrained('utilisateurs', 'id_utilisateur')
-                ->onDelete('cascade');
-            $table->integer('nb_missions_benevole');
+            $table->unsignedBigInteger('id_utilisateur'); 
+            $table->foreign('id_utilisateur')
+                  ->references('id_utilisateur')   
+                  ->on('users')
+                  ->onDelete('cascade');
 
-            //$table->timestamps();
-        });
+            $table->integer('nb_missions_benevole');
+    });
+
     }
 
     /**
