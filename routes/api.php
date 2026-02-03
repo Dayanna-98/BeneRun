@@ -31,3 +31,7 @@ Route::apiResource('/document', DocumentController::class)->middleware('auth:san
 Route::apiResource('/mission', MissionController::class)->middleware('auth:sanctum');
 Route::apiResource('/postulation', PostulationController::class)->middleware('auth:sanctum');
 Route::apiResource('/telephone', TelephoneController::class)->middleware('auth:sanctum');
+
+
+
+
