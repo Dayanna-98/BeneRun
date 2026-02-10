@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AffectationController;
 use App\Http\Controllers\BadgeController;
@@ -19,18 +20,18 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-
-Route::apiResource('/admin', AdminController::class)->middleware('auth:sanctum');
-Route::apiResource('/affectation', AffectationController::class)->middleware('auth:sanctum');
-Route::apiResource('/badge', BadgeController::class)->middleware('auth:sanctum');
-Route::apiResource('/benevole', BenevoleController::class)->middleware('auth:sanctum');
-Route::apiResource('/certificat', CertificatController::class)->middleware('auth:sanctum');
-Route::apiResource('/competence', CompetenceController::class)->middleware('auth:sanctum');
-Route::apiResource('/course', CourseController::class)->middleware('auth:sanctum');
-Route::apiResource('/document', DocumentController::class)->middleware('auth:sanctum');
-Route::apiResource('/mission', MissionController::class)->middleware('auth:sanctum');
-Route::apiResource('/postulation', PostulationController::class)->middleware('auth:sanctum');
-Route::apiResource('/telephone', TelephoneController::class)->middleware('auth:sanctum');
+Route::apiResource('/users', UserController::class);
+Route::apiResource('/admins', AdminController::class);//->middleware('auth:sanctum');
+Route::apiResource('/affectations', AffectationController::class);//->middleware('auth:sanctum');
+Route::apiResource('/badges', BadgeController::class);//->middleware('auth:sanctum');
+Route::apiResource('/benevoles', BenevoleController::class);//->middleware('auth:sanctum');
+Route::apiResource('/certificats', CertificatController::class);//->middleware('auth:sanctum');
+Route::apiResource('/competences', CompetenceController::class);//->middleware('auth:sanctum');
+Route::apiResource('/courses', CourseController::class);//->middleware('auth:sanctum');
+Route::apiResource('/documents', DocumentController::class);//->middleware('auth:sanctum');
+Route::apiResource('/missions', MissionController::class);//->middleware('auth:sanctum');
+Route::apiResource('/postulations', PostulationController::class);//->middleware('auth:sanctum');
+Route::apiResource('/telephones', TelephoneController::class);//->middleware('auth:sanctum');
 
 
 
