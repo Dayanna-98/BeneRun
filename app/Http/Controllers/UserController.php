@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-
 use App\Models\User;
+
 
 class UserController extends Controller
 {
-        public function index(Request $request)
-    {
-        $user= User::allUsers($request);
-        return response()->json($user);
-    }
+public function index(Request $request)
+{
+    // Récupère tous les utilisateurs
+    $users = User::all();
+    return response()->json($users);
+}
 
     public function show($id)
     {
@@ -34,14 +35,14 @@ class UserController extends Controller
         $user = new User;
         $user->nom_utilisateur = $request->nom_utilisateur;
         $user->prenom_utilisateur = $request->prenom_utilisateur;
-        $user->email_utilisateur = $request->email_utilisateur;
-        $user->password_utilisateur = $request->password_utilisateur;
+        $user->email = $request->email;
+        $user->password = $request->password;
 
 
         $user->save();
         return response()->json([
             'message'=>'User ajouté'
-        ], 201);
+        ], 200);
     }
  
     public function update(Request $request, $id)
@@ -51,7 +52,10 @@ class UserController extends Controller
             $user = User::find($id);
             $user->nom_utilisateur = $request->nom_utilisateur;
             $user->prenom_utilisateur = $request->prenom_utilisateur;
-            $user->email_utilisateur = $request->email_utilisateur;
+            $user->email = $request->email;
+            $user->password = $request->password;
+
+
 
             $user->save();
             return response()->json([

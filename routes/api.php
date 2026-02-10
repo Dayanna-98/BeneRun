@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AffectationController;
 use App\Http\Controllers\BadgeController;
@@ -19,7 +20,7 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-
+Route::apiResource('/users', UserController::class);
 Route::apiResource('/admin', AdminController::class)->middleware('auth:sanctum');
 Route::apiResource('/affectation', AffectationController::class)->middleware('auth:sanctum');
 Route::apiResource('/badge', BadgeController::class)->middleware('auth:sanctum');
