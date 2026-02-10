@@ -10,15 +10,18 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
+    protected $primaryKey = 'id_utilisateur';
+
+
     protected $fillable = [
         'nom_utilisateur',
         'prenom_utilisateur',
-        'email',
-        'password',
+        'email_utilisateur',
+        'password_utilisateur',
     ];
 
     protected $hidden = [
-        'password',
+        'password_utilisateur',
         'remember_token',
     ];
 
@@ -26,7 +29,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password_utilisateur' => 'hashed',
         ];
     }
 
