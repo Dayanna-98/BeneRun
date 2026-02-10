@@ -8,6 +8,7 @@ use App\Models\User;
 
 class UserController extends Controller
 {
+
 public function index(Request $request)
 {
     // Récupère tous les utilisateurs
@@ -60,7 +61,7 @@ public function index(Request $request)
             $user->save();
             return response()->json([
                 'message'=>'User mis à jour'
-            ], 202);
+            ], 200);
         } else {
             return response()->json([
                 'message'=>'User inexistant'
@@ -76,7 +77,7 @@ public function index(Request $request)
             $user->delete();
             return response()->json([
                 'message'=>'User supprimé'
-            ], 202);
+            ], 200);
         } else {
             return response()->json([
                 'message'=>'User inexistant'
