@@ -16,15 +16,12 @@ return new class extends Migration
             $table->string('nom_course');
             $table->string('lieu_course');
             $table->string('informations_course');
-            $table->date('date_debut_course');
-            $table->date('date_fin_course');
-            $table->time('heure_debut_course');
-            $table->time('heure_fin_course');
+            $table->dateTime('date_debut_course');
+            $table->dateTime('date_fin_course');
             $table->boolean('annule_course')->default(false);
-            $table->date('date_annulation_course');
-            $table->string('raison_annulation_course');
+            $table->date('date_annulation_course')->nullable();;
+            $table->string('raison_annulation_course')->nullable();
             $table->boolean('publie_course')->default(false);
-
         });
     }
 

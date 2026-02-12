@@ -45,7 +45,8 @@ class BenevoleController extends Controller
         $benevole->save();
 
         return response()->json([
-            'message'=>'Bénévole  ajouté'
+            'message'=>'Bénévole  ajouté',
+            'benevole' => $benevole
         ], 200);
     }
  
@@ -55,10 +56,8 @@ class BenevoleController extends Controller
         {
             $benevole = Benevole::find($id);
             $benevole->nb_missions_benevole = $request->nb_missions_benevole;
+            $benevole->id_utilisateur = $request->id_utilisateur;
            
-
-
-
             $benevole->save();
             return response()->json([
                 'message'=>'Bénévole mis à jour'

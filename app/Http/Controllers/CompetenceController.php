@@ -41,7 +41,8 @@ class CompetenceController extends Controller
 
         $competence->save();
         return response()->json([
-            'message'=>'Compétence ajoutée'
+            'message'=>'Compétence ajoutée',
+            'competence' => $competence
         ], 200);
     }
  

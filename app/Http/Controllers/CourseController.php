@@ -10,7 +10,7 @@ class CourseController extends Controller
 {
       public function index(Request $request)
 {
-    // Récupère tous les utilisateurs
+    // Récupère toutes les courses
     $courses = Course::all();
     return response()->json($courses);
 }
@@ -28,87 +28,53 @@ class CourseController extends Controller
         }
     }
  
-    public function store(Request $request)
+    public function store(Request $request) // Ajouter une course
     {
-       	
-    //    protected $fillable = ['nom_course', 'lieu_course', 'informations_course', 'date_debut_course', 'date_fin_course', 'heure_debut_course', 'heure_fin_course', 'annule_course','date_annulation_course', 'raison_annulation_course', 'publie_course' ];
-
-        $course= new Course;
-        $course->nom_course = $request->nom_course;
-        $course->lieu_course = $request->lieu_course;
-        $course->informations_course = $request->informations_course;
-        $course->date_debut_course = $request->date_debut_course;
-        $course->date_fin_course = $request->date_fin_course;
-        $course->heure_debut_course = $request->heure_debut_course;
-        $course->heure_fin_course = $request->heure_fin_course;
-        $course->annule_course = $request->annule_course;
-        $course->date_annulation_course = $request->date_annulation_course;
-        $course->raison_annulation_course = $request->raison_annulation_course;
-        $course->publie_course = $request->publie_course;
-
-
-        $request->validate([
+        $validated = $request->validate([ 
             'nom_course' => 'required|string|max:255',
             'lieu_course' => 'required|string|max:255',
-            'date_debut_course' => 'required|date',
-            'date_fin_course' => 'required|date',
-            'heure_debut_course' => 'required|date_format:H:i:s',
-            'heure_fin_course' => 'required|date_format:H:i:s',
+            'informations_course' => 'required|string',
+            'date_debut_course' => 'required|date_format:Y-m-d H:i:s',
+            'date_fin_course' => 'required|date_format:Y-m-d H:i:s|after:date_debut_course',
             'annule_course' => 'required|boolean',
             'publie_course' => 'required|boolean',
         ]);
 
-        $course->save();
-        return response()->json([
-            'message'=>'Course ajoutée'
-        ], 200);
+        $course = Course::create($validated);
+
+        return response()->json(['message' => 'Course crée', 'course' => $course],201);
     }
- 
-    public function update(Request $request, $id)
+
+    public function update(Request $request, $id) // Modifier un certificat en le recherchant selon son id
     {
-        if (Course::where('id_course', $id)->exists())
-        {
-            $course = Course::find($id);
-            $course->nom_course = $request->nom_course;
-            $course->lieu_course = $request->lieu_course;
-            $course->informations_course = $request->informations_course;
-            $course->date_debut_course = $request->date_debut_course;
-            $course->date_fin_course = $request->date_fin_course;
-            $course->heure_debut_course = $request->heure_debut_course;
-            $course->heure_fin_course = $request->heure_fin_course;
-            $course->annule_course = $request->annule_course;
-            $course->date_annulation_course = $request->date_annulation_course;
-            $course->raison_annulation_course = $request->raison_annulation_course;
-            $course->publie_course = $request->publie_course;
-     
-
-
-
-            $course->save();
-            return response()->json([
-                'message'=>'Course mise à jour'
-            ], 200);
-        } else {
-            return response()->json([
-                'message'=>'Course inexistante'
-            ], 404);
+        $course = Course::find($id);
+        if (!$course) {
+            return response()->json(['message' => 'Course inexistante'], 404);
         }
+
+        $validated = $request->validate([
+            'nom_course' => 'required|string|max:255',
+            'lieu_course' => 'required|string|max:255',
+            'date_debut_course' => 'required|date',
+            'date_fin_course' => 'required|date|after:date_debut_course',
+            'annule_course' => 'required|boolean',
+            'publie_course' => 'required|boolean',
+        ]);
+
+        $course->update($validated);
+
+        return response()->json(['message' => 'Course mise à jour', 'course'   => $course], 200);
     }
  
-    public function destroy($id)
+    public function destroy($id) // Supprimer une course
     {
-        if (Course::where('id_course', $id)->exists())
-        {
+        if(Course::where('id_course', $id)->exists()){
             $course = Course::find($id);
             $course->delete();
-            return response()->json([
-                'message'=>'Course supprimée'
-            ], 200);
+            return response()->json(['message'=>'Course supprimée'], 200);
         } else {
-            return response()->json([
-                'message'=>'Course inexistante'
-            ], 404);
+            return response()->json(['message'=>'Course inexistante'], 404);
         }
-    } 
+    }
 
 }
