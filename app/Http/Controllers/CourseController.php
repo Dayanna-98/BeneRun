@@ -31,8 +31,6 @@ class CourseController extends Controller
     public function store(Request $request)
     {
        	
-    //    protected $fillable = ['nom_course', 'lieu_course', 'informations_course', 'date_debut_course', 'date_fin_course', 'heure_debut_course', 'heure_fin_course', 'annule_course','date_annulation_course', 'raison_annulation_course', 'publie_course' ];
-
         $course= new Course;
         $course->nom_course = $request->nom_course;
         $course->lieu_course = $request->lieu_course;
@@ -45,8 +43,6 @@ class CourseController extends Controller
         $course->date_annulation_course = $request->date_annulation_course;
         $course->raison_annulation_course = $request->raison_annulation_course;
         $course->publie_course = $request->publie_course;
-
-
 
         $course->save();
         return response()->json([
@@ -71,8 +67,6 @@ class CourseController extends Controller
             $course->raison_annulation_course = $request->raison_annulation_course;
             $course->publie_course = $request->publie_course;
      
-
-
 
             $course->save();
             return response()->json([

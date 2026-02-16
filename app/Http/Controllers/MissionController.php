@@ -24,56 +24,64 @@ class MissionController extends Controller
         }
     }
 
-    public function store(Request $request) // Ajouter une mission
+        public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_course' => 'required|exists:courses,id_course',
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'titre_mission' => 'required|string',
-            'type_mission' => 'required|string',
-            'description_mission' => 'required|string',
-            'date_debut_mission' => 'required|date',
-            'date_fin_mission' => 'required|date',
-            'heure_debut_mission' => 'required|time',
-            'heure_fin_mission' => 'required|time',
-            'lieu_mission' => 'required|string',
-            'nombre_mission' => 'required|int',
-            'statut_mission' => 'required|string',
-            'publie_mission' => 'required|boolean'
-        ]);
+        $mission = new Mission;
+        $mission->id_course = $request->id_course;
+        $mission->id_benevole = $request->id_benevole;
+        $mission->titre_mission = $request->titre_mission;
+        $mission->type_mission = $request->type_mission;
+        $mission->description_mission = $request->description_mission;
+        $mission->date_debut_mission = $request->date_debut_mission;
+        $mission->date_fin_mission = $request->date_fin_mission;
+        $mission->heure_debut_mission = $request->heure_debut_mission;
+        $mission->heure_fin_mission = $request->heure_fin_mission;
+        $mission->lieu_mission = $request->lieu_mission;
+        $mission->nombre_mission = $request->nombre_mission;
+        $mission->statut_mission = $request->statut_mission;
+        $mission->publie_mission = $request->publie_mission;
 
-        $mission = Mission::create($validated);
+        $mission->save();
 
-        return response()->json(['message' => 'Mission créée', 'mission' => $mission],201);
+        return response()->json([
+            'message' => 'Mission ajoutée'
+        ], 201);
     }
 
-    public function update(Request $request, $id) // Modifier une mission en la recherchant selon son id
+    public function update(Request $request, $id) // Modifier une mission
     {
+    if (Mission::where('id_mission', $id)->exists())
+    {
+    
         $mission = Mission::find($id);
-        if (!$mission) {
-            return response()->json(['message' => 'Mission inexistante'], 404);
-        }
+        $mission->id_course = $request->id_course;
+        $mission->id_benevole = $request->id_benevole;
+        $mission->titre_mission = $request->titre_mission;
+        $mission->type_mission = $request->type_mission;
+        $mission->description_mission = $request->description_mission;
+        $mission->date_debut_mission = $request->date_debut_mission;
+        $mission->date_fin_mission = $request->date_fin_mission;
+        $mission->heure_debut_mission = $request->heure_debut_mission;
+        $mission->heure_fin_mission = $request->heure_fin_mission;
+        $mission->lieu_mission = $request->lieu_mission;
+        $mission->nombre_mission = $request->nombre_mission;
+        $mission->statut_mission = $request->statut_mission;
+        $mission->publie_mission = $request->publie_mission;
 
-        $validated = $request->validate([
-            'id_course' => 'required|exists:courses,id_course',
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'titre_mission' => 'required|string',
-            'type_mission' => 'required|string',
-            'description_mission' => 'required|string',
-            'date_debut_mission' => 'required|date',
-            'date_fin_mission' => 'required|date',
-            'heure_debut_mission' => 'required|time',
-            'heure_fin_mission' => 'required|time',
-            'lieu_mission' => 'required|string',
-            'nombre_mission' => 'required|int',
-            'statut_mission' => 'required|string',
-            'publie_mission' => 'required|boolean'
-        ]);
+        $mission->save();
 
-        $mission->update($validated);
-
-        return response()->json(['message' => 'Mission mise à jour', 'mission' => $mission], 200);
+        return response()->json([
+            'message' => 'Mission mise à jour',
+            'mission' => $mission
+        ], 200);
     }
+    else {
+        return response()->json([
+            'message' => 'Mission inexistante'
+            ], 404);
+        }
+    }
+
 
     public function destroy($id) // Supprimer une mission
     {

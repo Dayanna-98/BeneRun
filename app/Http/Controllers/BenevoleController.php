@@ -31,24 +31,18 @@ class BenevoleController extends Controller
     public function store(Request $request)
     {
 
-        // Valider que l'id_utilisateur est présent
-        $request->validate([
-            'nb_missions_benevole' => 'required|integer',
-            'id_utilisateur' => 'required|exists:users,id_utilisateur'
-        ]);
-
         $benevole = new Benevole;
         $benevole->id_utilisateur = $request->id_utilisateur;
         $benevole->nb_missions_benevole = $request->nb_missions_benevole;
-
 
         $benevole->save();
 
         return response()->json([
             'message'=>'Bénévole  ajouté',
-            'benevole' => $benevole
         ], 200);
     }
+
+
  
     public function update(Request $request, $id)
     {

@@ -24,39 +24,41 @@ class DocumentController extends Controller
         }
     }
 
-    public function store(Request $request) // Ajouter un document
+    public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_mission' => 'required|exists:missions,id_mission',
-            'id_course' => 'required|exists:courses,id_course',
-            'nom_fichier_document' => 'required|string',
-            'type_mime_document' => 'required|string',
-            'date_document' => 'required|date'
-        ]);
-
-        $document = Document::create($validated);
-
-        return response()->json(['message' => 'Document crée', 'document' => $document],201);
+        $document= new Document();
+        $document->id_mission = $request->id_mission;
+        $document->id_course = $request->id_course;
+        $document->nom_fichier_document = $request->nom_fichier_document;
+        $document->type_mime_document = $request->type_mime_document;
+        $document->date_document = $request->date_document;
+        
+        $document->save();
+        return response()->json([
+            'message'=>'Document ajouté'
+        ], 200);
     }
 
-    public function update(Request $request, $id) // Modifier un document en le recherchant selon son id
+        public function update(Request $request, $id)
     {
-        $document = Document::find($id);
-        if (!$document) {
-            return response()->json(['message' => 'Document inexistant'], 404);
+        if (Document::where('id_course', $id)->exists())
+        {
+            $document = Document::find($id);
+            $document->id_mission = $request->id_mission;
+            $document->id_course = $request->id_course;
+            $document->nom_fichier_document = $request->nom_fichier_document;
+            $document->type_mime_document = $request->type_mime_document;
+            $document->date_document = $request->date_document;
+     
+            $document->save();
+            return response()->json([
+                'message'=>'Document mise à jour'
+            ], 200);
+        } else {
+            return response()->json([
+                'message'=>'Document inexistante'
+            ], 404);
         }
-
-        $validated = $request->validate([
-            'id_mission' => 'required|exists:missions,id_mission',
-            'id_course' => 'required|exists:courses,id_course',
-            'nom_fichier_document' => 'required|string',
-            'type_mime_document' => 'required|int',
-            'date_document' => 'required|date'
-        ]);
-
-        $document->update($validated);
-
-        return response()->json(['message' => 'Document mise à jour', 'document' => $document], 200);
     }
 
     public function destroy($id) // Supprimer un document

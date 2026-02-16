@@ -24,33 +24,36 @@ class CertificatController extends Controller
         }
     }
 
-    public function store(Request $request) // Ajouter un certificat
+       public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'titre_certificat' => 'required|string',
-        ]);
+        $certificat = new Certificat;
+        $certificat->id_benevole = $request->id_benevole;
+        $certificat->titre_certificat = $request->titre_certificat;
+        $certificat->save();
 
-        $certificat = Certificat::create($validated);
-
-        return response()->json(['message' => 'Certificat crée', 'certificat' => $certificat],201);
+        return response()->json([
+            'message'=>'Certificat  ajouté',
+        ], 200);
     }
 
-    public function update(Request $request, $id) // Modifier un certificat en le recherchant selon son id
+
+        public function update(Request $request, $id)
     {
-        $certificat = Certificat::find($id);
-        if (!$certificat) {
-            return response()->json(['message' => 'Certificat inexistant'], 404);
+        if (Certificat::where('id_certificat', $id)->exists())
+        {
+            $certificat = Certificat::find($id);
+            $certificat->id_benevole = $request->id_benevole;
+            $certificat->titre_certificat = $request->titre_certificat;
+           
+            $certificat->save();
+            return response()->json([
+                'message'=>'Certificat mis à jour'
+            ], 200);
+        } else {
+            return response()->json([
+                'message'=>'Certificat inexistant'
+            ], 404);
         }
-
-        $validated = $request->validate([
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'titre_certificat' => 'required|string',
-        ]);
-
-        $certificat->update($validated);
-
-        return response()->json(['message' => 'Certificat mise à jour', 'certificat'   => $certificat], 200);
     }
 
     public function destroy($id) // Supprimer un certificat

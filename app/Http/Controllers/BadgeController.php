@@ -24,37 +24,39 @@ class BadgeController extends Controller
         }
     }
 
-    public function store(Request $request) // Ajouter un badge
+    public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'titre_badge' => 'required|string',
-            'valeur_badge' => 'required|int',
-            'regle_auto_badge' => 'required|string'
-        ]);
+        $badge= new Badge;
+        $badge->id_benevole = $request->id_benevole;
+        $badge->titre_badge = $request->titre_badge;
+        $badge->valeur_badge = $request->valeur_badge;
+        $badge->regle_auto_badge = $request->regle_auto_badge;
 
-        $badge = Badge::create($validated);
-
-        return response()->json(['message' => 'Badge crée', 'badge' => $badge],201);
+        $badge->save();
+        return response()->json([
+            'message'=>'Badge ajouté'
+        ], 200);
     }
-
-    public function update(Request $request, $id) // Modifier un badge en le recherchant selon son id
+ 
+    public function update(Request $request, $id)
     {
-        $badge = Badge::find($id);
-        if (!$badge) {
-            return response()->json(['message' => 'Badge inexistant'], 404);
+        if (Badge::where('id_badge', $id)->exists())
+        {
+            $badge = Badge::find($id);
+            $badge->id_benevole = $request->id_benevole;
+            $badge->titre_badge = $request->titre_badge;
+            $badge->valeur_badge = $request->valeur_badge;
+            $badge->regle_auto_badge = $request->regle_auto_badge;
+     
+            $badge->save();
+            return response()->json([
+                'message'=>'Badge mise à jour'
+            ], 200);
+        } else {
+            return response()->json([
+                'message'=>'Badge inexistant'
+            ], 404);
         }
-
-        $validated = $request->validate([
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'titre_badge' => 'required|string',
-            'valeur_badge' => 'required|int',
-            'regle_auto_badge' => 'required|string'
-        ]);
-
-        $badge->update($validated);
-
-        return response()->json(['message' => 'Badge mise à jour', 'badge' => $badge], 200);
     }
 
     public function destroy($id) // Supprimer un badge

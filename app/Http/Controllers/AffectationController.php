@@ -24,50 +24,60 @@ class AffectationController extends Controller
         }
     }
 
-    public function store(Request $request) // Ajouter une affectation
+        public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'id_mission' => 'required|exists:missions,id_mission',
-            'statut_affectation' => 'required|string',
-            'remarque_affectation' => 'nullable|string',
-            'est_responsable_affectation' => 'nullable|boolean'
-        ]);
+       	
+        $affectation= new Affectation;
+        $affectation->id_benevole = $request->id_benevole;
+        $affectation->id_mission = $request->id_mission;
+        $affectation->statut_affectation = $request->statut_affectation;
+        $affectation->remarque_affectation = $request->remarque_affectation;
+        $affectation->est_responsable_affectation = $request->est_responsable_affectation;
 
-        $affectation = Affectation::create($validated);
-
-        return response()->json(['message' => 'Affectation créée', 'affectation' => $affectation],201);
+        $affectation->save();
+        return response()->json([
+            'message'=>'Affectation ajoutée'
+        ], 200);
     }
 
-    public function update(Request $request, $id) // Modifier une affectation en la recherchant selon son id
+
+        public function update(Request $request, $id)
     {
-        $affectation = Affectation::find($id);
-        if (!$affectation) {
-            return response()->json(['message' => 'Affectation inexistante'], 404);
+        if (Affectation::where('id_affectation', $id)->exists())
+        {
+            $affectation = Affectation::find($id);
+            $affectation->id_benevole = $request->id_benevole;
+            $affectation->id_mission = $request->id_mission;
+            $affectation->statut_affectation = $request->statut_affectation;
+            $affectation->remarque_affectation = $request->remarque_affectation;
+            $affectation->est_responsable_affectation = $request->est_responsable_affectation;
+     
+
+            $affectation->save();
+            return response()->json([
+                'message'=>'Affectation mise à jour'
+            ], 200);
+        } else {
+            return response()->json([
+                'message'=>'Affectation inexistante'
+            ], 404);
         }
-
-       $validated = $request->validate([
-            'id_benevole' => 'exists:benevoles,id_benevole',
-            'id_mission' => 'exists:missions,id_mission',
-            'statut_affectation' => 'sometimes|string',
-            'remarque_affectation' => 'sometimes|nullable|string',
-            'est_responsable_affectation'  => 'sometimes|boolean'
-        ]);
-
-        $affectation->update($validated);
-
-        return response()->json(['message' => 'Affectation mise à jour', 'affectation' => $affectation], 200);
     }
 
-    public function destroy($id) // Supprimer une affectation
+         public function destroy($id)
     {
-        if(Affectation::where('id_affectation', $id)->exists()){
+        if (Affectation::where('id_affectation', $id)->exists())
+        {
             $affectation = Affectation::find($id);
             $affectation->delete();
-            return response()->json(['message'=>'Affectation supprimée'], 200);
+            return response()->json([
+                'message'=>'Affectation supprimée'
+            ], 200);
         } else {
-            return response()->json(['message'=>'Affectation inexistante'], 404);
+            return response()->json([
+                'message'=>'Affectation inexistante'
+            ], 404);
         }
-    }
+    } 
 
 }

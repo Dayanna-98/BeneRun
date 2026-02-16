@@ -26,46 +26,55 @@ class PostulationController extends Controller
 
     public function store(Request $request) // Ajouter une postulation
     {
-        $validated = $request->validate([
-            'id_mission' => 'required|exists:missions,id_mission',
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'date_postulation' => 'required|date',
-            'date_acceptation_refus_postulation' => 'required|date',
-            'date_annulation_postulation' => 'required|date',
-            'remarque_postulation' => 'sometimes|nullable|string',
-            'presence_postulation' => 'required|boolean',
-            'commentaire_postulation' => 'sometimes|nullable|string', 
-            'statut_postulation' => 'required|string'
-        ]);
 
-        $postulation = Postulation::create($validated);
+    $postulation = new Postulation;
+    $postulation->id_mission = $request->id_mission;
+    $postulation->id_benevole = $request->id_benevole;
+    $postulation->date_postulation = $request->date_postulation;
+    $postulation->date_acceptation_refus_postulation = $request->date_acceptation_refus_postulation;
+    $postulation->date_annulation_postulation = $request->date_annulation_postulation;
+    $postulation->remarque_postulation = $request->remarque_postulation;
+    $postulation->presence_postulation = $request->presence_postulation;
+    $postulation->commentaire_postulation = $request->commentaire_postulation;
+    $postulation->statut_postulation = $request->statut_postulation;
 
-        return response()->json(['message' => 'Postulation créée', 'postulation' => $postulation],201);
+    $postulation->save();
+
+    return response()->json([
+        'message' => 'Postulation créée',
+        'postulation' => $postulation
+        ], 201);
     }
 
-    public function update(Request $request, $id) // Modifier une postulation en la recherchant selon son id
+
+    public function update(Request $request, $id) // Modifier une postulation
     {
-        $postulation = Postulation::find($id);
-        if (!$postulation) {
-            return response()->json(['message' => 'Postulation inexistante'], 404);
-        }
 
-        $validated = $request->validate([
-            'id_mission' => 'required|exists:missions,id_mission',
-            'id_benevole' => 'required|exists:benevoles,id_benevole',
-            'date_postulation' => 'required|date',
-            'date_acceptation_refus_postulation' => 'required|date',
-            'date_annulation_postulation' => 'required|date',
-            'remarque_postulation' => 'sometimes|nullable|string',
-            'presence_postulation' => 'required|boolean',
-            'commentaire_postulation' => 'sometimes|nullable|string', 
-            'statut_postulation' => 'required|string'
-        ]);
-
-        $postulation->update($validated);
-
-        return response()->json(['message' => 'Postulation mise à jour', 'postulation' => $postulation], 200);
+    if (!Postulation::where('id_postulation', operator: $id)->exists()) {
+        return response()->json([
+            'message' => 'Postulation inexistante'
+        ], 404);
     }
+
+    $postulation = Postulation::find($id);
+    $postulation->id_mission = $request->id_mission;
+    $postulation->id_benevole = $request->id_benevole;
+    $postulation->date_postulation = $request->date_postulation;
+    $postulation->date_acceptation_refus_postulation = $request->date_acceptation_refus_postulation;
+    $postulation->date_annulation_postulation = $request->date_annulation_postulation;
+    $postulation->remarque_postulation = $request->remarque_postulation;
+    $postulation->presence_postulation = $request->presence_postulation;
+    $postulation->commentaire_postulation = $request->commentaire_postulation;
+    $postulation->statut_postulation = $request->statut_postulation;
+
+    $postulation->save();
+
+    return response()->json([
+        'message' => 'Postulation mise à jour',
+        'postulation' => $postulation
+    ], 200);
+    }
+
 
     public function destroy($id) // Supprimer une postulation
     {

@@ -26,38 +26,46 @@ class TelephoneController extends Controller
 
     public function store(Request $request) // Ajouter un téléphone
     {
-        $validated = $request->validate([
-            'id_mission' => 'required|exists:missions,id_mission',
-            'id_course' => 'required|exists:courses,id_course',
-            'description_telephone' => 'required|string',
-            'numero_telephone' => 'required|long',
-            'detail_telephone' => 'required|string'
-        ]);
 
-        $telephone = Telephone::create($validated);
+    $telephone = new Telephone;
+    $telephone->id_mission = $request->id_mission;
+    $telephone->id_course = $request->id_course;
+    $telephone->description_telephone = $request->description_telephone;
+    $telephone->numero_telephone = $request->numero_telephone;
+    $telephone->detail_telephone = $request->detail_telephone;
 
-        return response()->json(['message' => 'Téléphone crée', 'telephone' => $telephone],201);
+    $telephone->save();
+
+    return response()->json([
+        'message' => 'Téléphone créé',
+        'telephone' => $telephone
+        ], 201);
     }
 
-    public function update(Request $request, $id) // Modifier un téléphone en le recherchant selon son id
+
+    public function update(Request $request, $id) // Modifier un téléphone
     {
-        $telephone = Telephone::find($id);
-        if (!$telephone) {
-            return response()->json(['message' => 'Téléphone inexistant'], 404);
-        }
-
-        $validated = $request->validate([
-            'id_mission' => 'required|exists:missions,id_mission',
-            'id_course' => 'required|exists:courses,id_course',
-            'description_telephone' => 'required|string',
-            'numero_telephone' => 'required|long',
-            'detail_telephone' => 'required|string'
-        ]);
-
-        $telephone->update($validated);
-
-        return response()->json(['message' => 'Téléphone mise à jour', 'telephone' => $telephone], 200);
+    if (!Telephone::where('id_telephone', $id)->exists()) {
+        return response()->json([
+            'message' => 'Téléphone inexistant'
+        ], 404);
     }
+
+    $telephone = Telephone::find($id);
+    $telephone->id_mission = $request->id_mission;
+    $telephone->id_course = $request->id_course;
+    $telephone->description_telephone = $request->description_telephone;
+    $telephone->numero_telephone = $request->numero_telephone;
+    $telephone->detail_telephone = $request->detail_telephone;
+
+    $telephone->save();
+
+    return response()->json([
+        'message' => 'Téléphone mis à jour',
+        'telephone' => $telephone
+        ], 200);
+    }
+
 
     public function destroy($id) // Supprimer un téléphone
     {
