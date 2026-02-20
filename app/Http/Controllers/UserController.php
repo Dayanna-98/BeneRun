@@ -42,7 +42,8 @@ public function index(Request $request)
 
         $user->save();
         return response()->json([
-            'message'=>'User ajouté'
+            'message'=>'User ajouté',
+            'user' => $user 
         ], 200);
     }
  

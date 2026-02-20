@@ -12,7 +12,7 @@ class CompetenceController extends Controller
 
     public function index(Request $request)
 {
-    // Récupère tous les utilisateurs
+    // Récupère toutes les compétences
     $competences = Competence::all();
     return response()->json($competences);
 }
@@ -32,16 +32,13 @@ class CompetenceController extends Controller
  
     public function store(Request $request)
     {
-       	
-
         $competence= new Competence;
         $competence->nom_competence = $request->nom_competence;
 
-
-
         $competence->save();
         return response()->json([
-            'message'=>'Compétence ajoutée'
+            'message'=>'Compétence ajoutée',
+            'competence' => $competence
         ], 200);
     }
  
@@ -52,9 +49,6 @@ class CompetenceController extends Controller
             $competence = Competence::find($id);
             $competence->nom_competence = $request->nom_competence;
      
-
-
-
             $competence->save();
             return response()->json([
                 'message'=>'Compétence mise à jour'
