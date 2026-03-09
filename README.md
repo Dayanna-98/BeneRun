@@ -2,7 +2,7 @@
 Application de gestion des bénévoles pour les courses de l'association Béné'Run.
 
 # Démarches à suivre pour l'installation du projet en local
-Avant toute chose, pour l'installation et l'utilisation du projet il est nécessaire d'avoir sur son poste : 
+Avant toute chose, pour l'installation et l'utilisation du projet il est nécessaire de rejoindre le repository sur GitHub et d'avoir sur son poste : 
     - Un compte GitHub pour rejoindre le repository GitHub
     - Visual Studio Code
     - XAMPP ou WAMPP
@@ -11,7 +11,7 @@ Avant toute chose, pour l'installation et l'utilisation du projet il est nécess
 1. Cloner le repository en copiant l'URL. Dans un invite de commande ou le terminal de Visual Studio Code se placer à l'emplacement où l'on souhaite cloner le projet : 
     git clone https://github.com/Dayanna-98/BeneRun.git
 
-2. Après le clonage ouvrir le projet et se placer sur le projet. Dans un invite de commande ou le terminal de Visual Studio Code : 
+2. Après le clonage ouvrir le projet et se placer à la racine du projet. Dans un invite de commande ou le terminal de Visual Studio Code : 
     cd BeneRun
 
 3. Installer les dépendances du projet Composer dans un invite de commande ou le terminal de Visual Studio Code :
