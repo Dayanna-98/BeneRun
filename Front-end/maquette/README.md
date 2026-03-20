@@ -21,6 +21,8 @@ Interface de gestion de bénévoles pour événements sportifs (Running Geneva).
 
 ```bash
 git clone https://github.com/votre-repo/maquette.git
+
+Se placer dans le dossier "maquette"
 cd maquette
 
 2. Installer les dépendances
