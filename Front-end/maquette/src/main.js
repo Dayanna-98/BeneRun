@@ -5,12 +5,14 @@ import router from './router/index.js'
 
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
-import './assets/main.css'
+
+import './assets/css/theme.css'
+import './assets/css/index.css'   // ← si tu l'as copié
 
 import Toast from 'vue-toastification'
 import 'vue-toastification/dist/index.css'
 
-// ── Composants UI globaux ─────────────────────────────────────────────────────
+// Composants UI globaux
 import Accordion       from '@/components/ui/Accordion.vue'
 import Alert           from '@/components/ui/Alert.vue'
 import AlertDialog     from '@/components/ui/AlertDialog.vue'
@@ -38,7 +40,6 @@ app.use(createPinia())
 app.use(router)
 app.use(Toast, { position: 'bottom-right', timeout: 4000 })
 
-// ── Enregistrement global ─────────────────────────────────────────────────────
 app.component('Accordion',    Accordion)
 app.component('Alert',        Alert)
 app.component('AlertDialog',  AlertDialog)

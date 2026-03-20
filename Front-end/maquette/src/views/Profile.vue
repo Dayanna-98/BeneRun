@@ -115,13 +115,15 @@
             <div>
               <div class="x-small text-muted mb-2">Allergies</div>
               <div class="d-flex flex-wrap gap-2">
-                <span v-for="a in user.allergies" :key="a" class="badge bg-secondary-subtle text-secondary border">{{ a }}</span>
+                <span v-for="a in user.allergies" :key="a"
+                  class="badge bg-secondary-subtle text-secondary border">{{ a }}</span>
               </div>
             </div>
             <div>
               <div class="x-small text-muted mb-2">Problèmes de santé</div>
               <div class="d-flex flex-wrap gap-2">
-                <span v-for="h in user.healthIssues" :key="h" class="badge bg-secondary-subtle text-secondary border">{{ h }}</span>
+                <span v-for="h in user.healthIssues" :key="h"
+                  class="badge bg-secondary-subtle text-secondary border">{{ h }}</span>
               </div>
             </div>
           </div>
@@ -161,7 +163,9 @@
               </ul>
             </div>
             <div v-if="user.warnings >= 3">
-              <span class="badge bg-danger-subtle text-danger border border-danger">🚫 Badge: Utilisateur Non Fiable</span>
+              <span class="badge bg-danger-subtle text-danger border border-danger">
+                🚫 Badge: Utilisateur Non Fiable
+              </span>
             </div>
           </div>
         </div>
@@ -201,10 +205,12 @@
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Compétences</h5></div>
           <div class="card-body d-flex flex-column gap-3">
-            <div v-for="skill in skills" :key="skill.id"
-              class="d-flex align-items-center gap-2">
+            <div v-for="skill in skills" :key="skill.id" class="d-flex align-items-center gap-2">
               <span class="small flex-fill">{{ skill.name }}</span>
-              <span :class="['badge', skill.level === 'Expert' ? 'bg-primary' : skill.level === 'Avancé' ? 'bg-secondary' : 'bg-light text-dark border']">
+              <span :class="['badge',
+                skill.level === 'Expert' ? 'bg-primary' :
+                skill.level === 'Avancé' ? 'bg-secondary' :
+                'bg-light text-dark border']">
                 {{ skill.level }}
               </span>
               <button class="btn btn-link p-1" @click="removeSkill(skill.id)">
@@ -217,7 +223,7 @@
               <div>
                 <label class="x-small text-muted">Nom de la compétence</label>
                 <input v-model="newSkillName" type="text" class="form-control form-control-sm mt-1"
-                  placeholder="Ex: Premiers secours, Logistique..." autofocus />
+                  placeholder="Ex: Premiers secours, Logistique..." />
               </div>
               <div>
                 <label class="x-small text-muted">Niveau</label>
@@ -226,11 +232,13 @@
                 </select>
               </div>
               <div class="d-flex gap-2 pt-1">
-                <button class="btn btn-primary btn-sm flex-fill" :disabled="!newSkillName.trim()" @click="addSkill">Ajouter</button>
+                <button class="btn btn-primary btn-sm flex-fill"
+                  :disabled="!newSkillName.trim()" @click="addSkill">Ajouter</button>
                 <button class="btn btn-outline-secondary btn-sm" @click="cancelAddSkill">Annuler</button>
               </div>
             </div>
-            <button v-else class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center gap-2"
+            <button v-else
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center gap-2"
               @click="isAddingSkill = true">
               <Plus style="width:16px;height:16px" /> Ajouter une compétence
             </button>
@@ -264,7 +272,9 @@
                 <div class="fs-1 mb-2">{{ badge.icon }}</div>
                 <div class="fw-semibold small mb-1">{{ badge.name }}</div>
                 <div class="x-small text-muted mb-1">{{ badge.description }}</div>
-                <div class="x-small text-muted">{{ new Date(badge.earnedDate).toLocaleDateString('fr-FR') }}</div>
+                <div class="x-small text-muted">
+                  {{ new Date(badge.earnedDate).toLocaleDateString('fr-FR') }}
+                </div>
               </div>
             </div>
           </div>
@@ -287,10 +297,13 @@
             </div>
             <div class="x-small text-muted mb-3">
               Délivré le {{ new Date(cert.issueDate).toLocaleDateString('fr-FR') }}
-              <span v-if="cert.expiryDate"> • Expire le {{ new Date(cert.expiryDate).toLocaleDateString('fr-FR') }}</span>
+              <span v-if="cert.expiryDate">
+                • Expire le {{ new Date(cert.expiryDate).toLocaleDateString('fr-FR') }}
+              </span>
             </div>
-            <button class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
-              @click="alert(`Export du certificat \"${cert.name}\" en PDF`)">
+            <button
+              class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
+              @click="exportCert(cert.name)">
               <Download style="width:16px;height:16px" /> Exporter en PDF
             </button>
           </div>
@@ -341,26 +354,38 @@ const router = useRouter()
 const user = getCurrentUser()
 if (!user) router.push('/login')
 
-const activeTab      = ref('info')
-const permissions    = ref({ ...user.permissions })
-const skills         = ref([...initialSkills])
-const isAddingSkill  = ref(false)
-const newSkillName   = ref('')
-const newSkillLevel  = ref('Débutant')
-const skillLevels    = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert']
+const activeTab     = ref('info')
+const permissions   = ref({ ...user.permissions })
+const skills        = ref([...initialSkills])
+const isAddingSkill = ref(false)
+const newSkillName  = ref('')
+const newSkillLevel = ref('Débutant')
+const skillLevels   = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert']
 
 const addSkill = () => {
   if (newSkillName.value.trim()) {
-    skills.value.push({ id: Date.now().toString(), name: newSkillName.value.trim(), level: newSkillLevel.value })
+    skills.value.push({
+      id: Date.now().toString(),
+      name: newSkillName.value.trim(),
+      level: newSkillLevel.value
+    })
     cancelAddSkill()
   }
 }
+
 const cancelAddSkill = () => {
   isAddingSkill.value = false
   newSkillName.value  = ''
   newSkillLevel.value = 'Débutant'
 }
-const removeSkill = (id) => { skills.value = skills.value.filter(s => s.id !== id) }
+
+const removeSkill = (id) => {
+  skills.value = skills.value.filter(s => s.id !== id)
+}
+
+const exportCert = (name) => {
+  alert(`Export du certificat "${name}" en PDF`)
+}
 
 const handleLogout = () => {
   if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
@@ -368,9 +393,13 @@ const handleLogout = () => {
     router.push('/login')
   }
 }
+
 const handleChangePassword = () => {
-  if (confirm('Voulez-vous changer votre mot de passe ?')) router.push('/reset-password')
+  if (confirm('Voulez-vous changer votre mot de passe ?')) {
+    router.push('/reset-password')
+  }
 }
+
 const handleDeleteAccount = () => {
   if (confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action désactivera votre compte.')) {
     authLogout()
