@@ -44,19 +44,40 @@ Avant toute chose, pour l'installation et l'utilisation du projet il est nécess
 
 9. Vérifier que l'application est accessible en cliquant sur l'URL indiquée.
 
-Documentation API (Scramble)
+Documentation API (Scramble) :
+
+
 L’API est documentée automatiquement grâce à Scramble (dedoc/scramble), une alternative moderne à Swagger permettant une génération plus stable et compatible avec Laravel.
+
+
 📌 Accès à la documentation :
-http://localhost:8000/docs/api
+Après lancement du serveur Laravel (php artisan serve) :
+
+http://127.0.0.1:8000/docs/api#/
+
+
+📌 Installation (si nécessaire)
+Après un git pull, chaque développeur doit installer les dépendances pour activer Scramble :
+
+composer install
+
+
+Il doit également vérifier que le fichier de configuration Scramble est bien présent :
+
+config/scramble.php
+
+
 📌 Régénérer la documentation :
+
 php artisan scramble:analyze
+
 
 Scramble fournit automatiquement :
 
 la liste des endpoints
-les paramètres attendus
+les paramètres attendus(query,body,path)
 les réponses JSON
-les schémas des modèles
+les schémas des modèles Laravel
 une interface interactive
 
 
