@@ -8,6 +8,7 @@ import ResetPassword from '@/views/ResetPassword.vue'
 // Pages protégées
 import Dashboard from '@/views/Dashboard.vue'
 import Missions from '@/views/Missions.vue'
+import Events from '@/views/Events.vue'
 import EventsList from '@/views/EventsList.vue'
 import EventDetails from '@/views/EventDetails.vue'
 import MyMissions from '@/views/MyMissions.vue'
@@ -34,7 +35,8 @@ const routes = [
   // Routes protégées
   { path: '/', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/missions', component: Missions, meta: { requiresAuth: true } },
-  { path: '/events', component: EventsList, meta: { requiresAuth: true } },
+  { path: '/events', component: Events, meta: { requiresAuth: true } },
+  { path: '/events-list', component: EventsList, meta: { requiresAuth: true } },
   { path: '/event/:id', component: EventDetails, meta: { requiresAuth: true } },
   { path: '/my-missions', component: MyMissions, meta: { requiresAuth: true } },
   { path: '/profile', component: Profile, meta: { requiresAuth: true } },
