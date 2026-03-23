@@ -1,8 +1,19 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
+    <div v-if="isLoading" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="text-center text-muted">Chargement de la mission...</div>
+    </div>
+
+    <div v-else-if="loadError" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <p class="text-danger mb-3">{{ loadError }}</p>
+        <button class="btn btn-primary" @click="loadMissionDetails">Réessayer</button>
+      </div>
+    </div>
+
     <!-- Not found -->
-    <div v-if="!mission" class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div v-else-if="!mission" class="min-vh-100 d-flex align-items-center justify-content-center">
       <div class="text-center">
         <p class="text-muted mb-3">Mission non trouvée</p>
         <button class="btn btn-primary" @click="router.push('/')">Retour à l'accueil</button>
@@ -23,7 +34,12 @@
       <div class="mx-auto" style="max-width:576px">
 
         <!-- Image -->
-        <img :src="mission.imageUrl" :alt="mission.name" class="w-100 object-fit-cover" style="height:224px" />
+        <img
+          :src="mission.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'"
+          :alt="mission.name"
+          class="w-100 object-fit-cover"
+          style="height:224px"
+        />
 
         <div class="p-3 d-flex flex-column gap-3">
 
@@ -314,23 +330,120 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   ArrowLeft, MapPin, Calendar, Clock, Users, Phone, Mail,
   MessageCircle, AlertCircle, Send, Map, UserMinus, UserPlus
 } from 'lucide-vue-next'
-import { myActiveMissions, availableMissions, users } from '@/data/mockData'
+import api from '@/services/api'
 import { getCurrentUser } from '@/utils/auth'
 
 const router = useRouter()
 const route  = useRoute()
 const currentUser = getCurrentUser()
 
-const mission = myActiveMissions.find(m => m.id === route.params.id)
-             || availableMissions.find(m => m.id === route.params.id)
+const mission = ref(null)
+const isLoading = ref(false)
+const loadError = ref('')
+const availableUsers = ref([])
 
-const isActiveMission = myActiveMissions.some(m => m.id === route.params.id)
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const formatUserName = (user) => {
+  if (!user) return 'Responsable mission'
+  return `${user.prenom_utilisateur ?? ''} ${user.nom_utilisateur ?? ''}`.trim() || user.email
+}
+
+const mapMissionFromApi = (rawMission, courseName, manager, currentVolunteersCount) => ({
+  id: String(rawMission.id_mission),
+  eventName: courseName || `Course #${rawMission.id_course}`,
+  name: rawMission.titre_mission,
+  imageUrl: null,
+  date: rawMission.date_debut_mission,
+  startTime: toTime(rawMission.heure_debut_mission),
+  endTime: toTime(rawMission.heure_fin_mission),
+  location: rawMission.lieu_mission,
+  currentVolunteers: currentVolunteersCount,
+  maxVolunteers: Number(rawMission.nombre_mission) || 0,
+  description: rawMission.description_mission,
+  requiredSkills: [],
+  organizer: 'BeneRun',
+  missionManagers: [
+    {
+      id: manager?.id_utilisateur ?? String(rawMission.id_benevole),
+      name: formatUserName(manager),
+      phone: 'Non renseigné',
+      email: manager?.email || 'Non renseigné',
+      isDayContact: true,
+      isDefault: true,
+    },
+  ],
+  volunteers: [],
+  messages: [],
+  emergencyMessages: [],
+})
+
+const loadMissionDetails = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const missionId = route.params.id
+
+    const [missionResponse, coursesResponse, benevolesResponse, usersResponse, affectationsResponse] = await Promise.all([
+      api.get(`/missions/${missionId}`),
+      api.get('/courses'),
+      api.get('/benevoles'),
+      api.get('/users'),
+      api.get('/affectations'),
+    ])
+
+    const rawMission = missionResponse.data
+    if (!rawMission || !rawMission.id_mission) {
+      mission.value = null
+      return
+    }
+
+    const courses = coursesResponse.data ?? []
+    const benevoles = benevolesResponse.data ?? []
+    const users = usersResponse.data ?? []
+    const affectations = affectationsResponse.data ?? []
+
+    const course = courses.find(c => c.id_course === rawMission.id_course)
+    const managerBenevole = benevoles.find(b => b.id_benevole === rawMission.id_benevole)
+    const managerUser = users.find(u => u.id_utilisateur === managerBenevole?.id_utilisateur)
+
+    const currentVolunteersCount = affectations.filter(
+      a => String(a.id_mission) === String(rawMission.id_mission)
+    ).length
+
+    mission.value = mapMissionFromApi(
+      rawMission,
+      course?.nom_course,
+      managerUser,
+      currentVolunteersCount
+    )
+
+    availableUsers.value = users.map((user) => ({
+      id: String(user.id_utilisateur),
+      firstName: user.prenom_utilisateur,
+      lastName: user.nom_utilisateur,
+      email: user.email,
+      accountType: 'Utilisateur',
+    }))
+  } catch (error) {
+    console.error('Erreur lors du chargement de la mission:', error)
+    loadError.value = 'Impossible de charger les détails de la mission.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const isActiveMission = computed(() => false)
 
 const chatMessage       = ref('')
 const emergencyMessage  = ref('')
@@ -339,9 +452,9 @@ const showUnregisterDialog = ref(false)
 const selectedUserId    = ref('')
 const activeTab         = ref('map')
 
-const registeredUserIds = mission?.volunteers?.map(v => v.id) || []
-const availableUsers    = users.filter(u => !registeredUserIds.includes(u.id))
-const selectedUserInfo  = computed(() => users.find(u => u.id === selectedUserId.value))
+const selectedUserInfo = computed(() =>
+  availableUsers.value.find(u => u.id === selectedUserId.value)
+)
 
 const emergencyCategories = [
   { value: 'medical',       label: '🏥 Urgence Médicale',         btnClass: 'btn-danger' },
@@ -378,10 +491,12 @@ const handleUnregister = () => {
 }
 
 const handleRegisterUser = () => {
-  const u = users.find(u => u.id === selectedUserId.value)
-  if (u) {
-    alert(`L'utilisateur ${u.firstName} ${u.lastName} a été inscrit à la mission "${mission.name}".`)
+  const u = availableUsers.value.find(u => u.id === selectedUserId.value)
+  if (u && mission.value) {
+    alert(`L'utilisateur ${u.firstName} ${u.lastName} a été inscrit à la mission "${mission.value.name}".`)
     selectedUserId.value = ''
   }
 }
+
+onMounted(loadMissionDetails)
 </script>

@@ -42,8 +42,16 @@
         </button>
       </div>
 
+      <div v-if="isLoading" class="text-center py-4 text-muted">
+        Chargement des missions...
+      </div>
+
+      <div v-else-if="loadError" class="alert alert-danger" role="alert">
+        {{ loadError }}
+      </div>
+
       <!-- Mission Cards -->
-      <div class="d-flex flex-column gap-4">
+      <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
         <div v-for="mission in filteredMissions" :key="mission.id"
           class="card border-0 shadow overflow-hidden"
           style="cursor:pointer"
@@ -122,7 +130,7 @@
         </div>
       </div>
 
-      <div v-if="filteredMissions.length === 0" class="text-center py-5 text-muted">
+      <div v-if="!isLoading && !loadError && filteredMissions.length === 0" class="text-center py-5 text-muted">
         Aucune mission trouvée
       </div>
     </div>
@@ -191,10 +199,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, MapPin, Users, Star, Share2, Clock, Calendar, Filter, X } from 'lucide-vue-next'
-import { availableMissions, skills, events } from '@/data/mockData'
+import { skills } from '@/data/mockData'
+import api from '@/services/api'
 
 const router = useRouter()
 const searchQuery      = ref('')
@@ -203,11 +212,101 @@ const filterCategory   = ref('all')
 const filterDate       = ref('all')
 const filterVisibility = ref('all')
 const showFilters      = ref(false)
-const favorites        = ref(availableMissions.filter(m => m.isFavorite).map(m => m.id))
+const favorites        = ref([])
+const missions         = ref([])
+const events           = ref([])
+const isLoading        = ref(false)
+const loadError        = ref('')
 
 const userSkillNames   = skills.map(s => s.name)
-const missionTypes     = ['all', ...new Set(availableMissions.map(m => m.type))]
-const eventCategories  = ['all', ...new Set(events.map(e => e.category))]
+const missionTypes     = computed(() => ['all', ...new Set(missions.value.map(m => m.type))])
+const eventCategories  = computed(() => ['all', ...new Set(events.value.map(e => e.category))])
+
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const buildCourseMap = (courses) => {
+  const map = new Map()
+  for (const course of courses) {
+    map.set(course.id_course, {
+      id: String(course.id_course),
+      name: course.nom_course,
+      category: 'Sport',
+    })
+  }
+  return map
+}
+
+const buildAffectationCountMap = (affectations) => {
+  const map = new Map()
+  for (const affectation of affectations) {
+    const missionId = String(affectation.id_mission)
+    map.set(missionId, (map.get(missionId) || 0) + 1)
+  }
+  return map
+}
+
+const mapMissionFromApi = (mission, courseMap, affectationCountMap) => {
+  const event = courseMap.get(mission.id_course)
+  const missionId = String(mission.id_mission)
+
+  return {
+    id: missionId,
+    eventId: event?.id || String(mission.id_course),
+    eventName: event?.name || `Course #${mission.id_course}`,
+    name: mission.titre_mission,
+    date: mission.date_debut_mission,
+    startTime: toTime(mission.heure_debut_mission),
+    endTime: toTime(mission.heure_fin_mission),
+    location: mission.lieu_mission,
+    description: mission.description_mission,
+    type: mission.type_mission || 'General',
+    requiredSkills: [],
+    currentVolunteers: affectationCountMap.get(missionId) || 0,
+    maxVolunteers: Number(mission.nombre_mission) || 0,
+    imageUrl: null,
+    isFavorite: false,
+    visibility: mission.publie_mission ? 'public' : 'private',
+  }
+}
+
+const loadMissions = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const [missionsResponse, coursesResponse, affectationsResponse] = await Promise.all([
+      api.get('/missions'),
+      api.get('/courses'),
+      api.get('/affectations'),
+    ])
+
+    const courses = coursesResponse.data ?? []
+    const courseMap = buildCourseMap(courses)
+    const affectationCountMap = buildAffectationCountMap(affectationsResponse.data ?? [])
+
+    events.value = courses.map(course => ({
+      id: String(course.id_course),
+      name: course.nom_course,
+      category: 'Sport',
+    }))
+
+    missions.value = (missionsResponse.data ?? []).map(mission =>
+      mapMissionFromApi(mission, courseMap, affectationCountMap)
+    )
+
+    favorites.value = missions.value
+      .filter(mission => mission.isFavorite)
+      .map(mission => mission.id)
+  } catch (error) {
+    console.error('Erreur lors du chargement des missions:', error)
+    loadError.value = 'Impossible de charger les missions depuis le backend.'
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const activeFiltersCount = computed(() =>
   [filterType.value, filterCategory.value, filterDate.value, filterVisibility.value]
@@ -219,11 +318,11 @@ const filteredMissions = computed(() => {
   const nextWeek  = new Date(today); nextWeek.setDate(today.getDate() + 7)
   const nextMonth = new Date(today); nextMonth.setMonth(today.getMonth() + 1)
 
-  return availableMissions.filter(m => {
+  return missions.value.filter(m => {
     const q = searchQuery.value.toLowerCase()
     const matchSearch = [m.name, m.eventName, m.location].some(f => f.toLowerCase().includes(q))
     const matchType   = filterType.value === 'all' || m.type === filterType.value
-    const ev          = events.find(e => e.id === m.eventId)
+    const ev          = events.value.find(e => e.id === m.eventId)
     const matchCat    = filterCategory.value === 'all' || ev?.category === filterCategory.value
     const d           = new Date(m.date)
     let matchDate     = true
@@ -244,4 +343,6 @@ const toggleFavorite = (id) => {
 const clearFilters = () => {
   filterType.value = filterCategory.value = filterDate.value = filterVisibility.value = 'all'
 }
+
+onMounted(loadMissions)
 </script>
