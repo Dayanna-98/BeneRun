@@ -31,8 +31,16 @@
         />
       </div>
 
+      <div v-if="isLoading" class="text-center py-4 text-muted">
+        Chargement des missions...
+      </div>
+
+      <div v-else-if="loadError" class="alert alert-danger" role="alert">
+        {{ loadError }}
+      </div>
+
       <!-- Mission Cards -->
-      <div class="d-flex flex-column gap-4">
+      <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
         <div v-for="mission in filteredMissions" :key="mission.id"
           class="card border-0 shadow overflow-hidden"
           style="cursor:pointer"
@@ -111,7 +119,7 @@
       </div>
 
       <!-- Empty state -->
-      <div v-if="filteredMissions.length === 0" class="text-center py-5 text-muted">
+      <div v-if="!isLoading && !loadError && filteredMissions.length === 0" class="text-center py-5 text-muted">
         Aucune mission trouvée
       </div>
 
@@ -120,18 +128,76 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, MapPin, Users, Star, Share2, Clock } from 'lucide-vue-next'
-import { availableMissions, skills } from '@/data/mockData'
+import { skills } from '@/data/mockData'
+import api from '@/services/api'
 
 const router = useRouter()
 const searchQuery = ref('')
-const favorites = ref(availableMissions.filter(m => m.isFavorite).map(m => m.id))
+const missions = ref([])
+const favorites = ref([])
+const isLoading = ref(false)
+const loadError = ref('')
 const userSkillNames = skills.map(s => s.name)
 
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const buildCourseMap = (courses) => {
+  const map = new Map()
+  for (const course of courses) {
+    map.set(course.id_course, course.nom_course)
+  }
+  return map
+}
+
+const mapMissionFromApi = (mission, courseNames) => ({
+  id: String(mission.id_mission),
+  name: mission.titre_mission,
+  eventName: courseNames.get(mission.id_course) || `Course #${mission.id_course}`,
+  location: mission.lieu_mission,
+  date: mission.date_debut_mission,
+  startTime: toTime(mission.heure_debut_mission),
+  currentVolunteers: 0,
+  maxVolunteers: Number(mission.nombre_mission) || 0,
+  requiredSkills: [],
+  imageUrl: null,
+  isFavorite: false,
+})
+
+const loadMissions = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const [missionsResponse, coursesResponse] = await Promise.all([
+      api.get('/missions'),
+      api.get('/courses'),
+    ])
+
+    const courseNames = buildCourseMap(coursesResponse.data ?? [])
+
+    missions.value = (missionsResponse.data ?? [])
+      .filter(mission => mission.publie_mission)
+      .map(mission => mapMissionFromApi(mission, courseNames))
+
+    favorites.value = missions.value
+      .filter(mission => mission.isFavorite)
+      .map(mission => mission.id)
+  } catch (error) {
+    console.error('Erreur lors du chargement des missions:', error)
+    loadError.value = "Impossible de charger les missions depuis le backend."
+  } finally {
+    isLoading.value = false
+  }
+}
+
 const filteredMissions = computed(() =>
-  availableMissions.filter(m =>
+  missions.value.filter(m =>
     [m.name, m.eventName, m.location].some(f =>
       f.toLowerCase().includes(searchQuery.value.toLowerCase())
     )
@@ -147,4 +213,6 @@ const toggleFavorite = (id) => {
   const i = favorites.value.indexOf(id)
   i === -1 ? favorites.value.push(id) : favorites.value.splice(i, 1)
 }
+
+onMounted(loadMissions)
 </script>
