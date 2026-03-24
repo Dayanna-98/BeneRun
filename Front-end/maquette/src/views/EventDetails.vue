@@ -1,8 +1,19 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
+    <div v-if="isLoading" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="text-center text-muted">Chargement de l'evenement...</div>
+    </div>
+
+    <div v-else-if="loadError" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <p class="text-danger mb-3">{{ loadError }}</p>
+        <button class="btn btn-primary" @click="loadEventDetails">Reessayer</button>
+      </div>
+    </div>
+
     <!-- Not found -->
-    <div v-if="!event" class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div v-else-if="!event" class="min-vh-100 d-flex align-items-center justify-content-center">
       <div class="text-center">
         <p class="text-muted mb-3">Événement non trouvé</p>
         <button class="btn btn-primary" @click="router.push('/events')">Retour aux événements</button>
@@ -12,7 +23,11 @@
     <template v-else>
       <!-- Header Image -->
       <div class="position-relative" style="height:256px">
-        <img :src="event.imageUrl" :alt="event.name" class="w-100 h-100 object-fit-cover" />
+        <img
+          :src="event.imageUrl || 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&h=700&fit=crop'"
+          :alt="event.name"
+          class="w-100 h-100 object-fit-cover"
+        />
         <div class="position-absolute inset-0 w-100 h-100"
           style="background:linear-gradient(to top, rgba(0,0,0,.6), transparent)"></div>
 
@@ -142,21 +157,111 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, MapPin, Calendar, Users, Tag, Briefcase } from 'lucide-vue-next'
-import { events, availableMissions, skills } from '@/data/mockData'
+import { skills } from '@/data/mockData'
+import api from '@/services/api'
 
 const router = useRouter()
 const route = useRoute()
 
-const event = events.find(e => e.id === route.params.id)
-const eventMissions = availableMissions.filter(m => m.eventId === route.params.id)
+const event = ref(null)
+const eventMissions = ref([])
+const isLoading = ref(false)
+const loadError = ref('')
 const userSkillNames = skills.map(s => s.name)
 
-const completionPercentage = event
-  ? Math.round((event.currentVolunteers / event.totalVolunteersNeeded) * 100)
-  : 0
+const completionPercentage = computed(() => {
+  if (!event.value || event.value.totalVolunteersNeeded === 0) return 0
+  return Math.round((event.value.currentVolunteers / event.value.totalVolunteersNeeded) * 100)
+})
+
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const buildAffectationCountMap = (affectations) => {
+  const map = new Map()
+  for (const affectation of affectations) {
+    const missionId = String(affectation.id_mission)
+    map.set(missionId, (map.get(missionId) || 0) + 1)
+  }
+  return map
+}
+
+const loadEventDetails = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const eventId = route.params.id
+
+    const [courseResponse, missionsResponse, affectationsResponse] = await Promise.all([
+      api.get(`/courses/${eventId}`),
+      api.get('/missions'),
+      api.get('/affectations'),
+    ])
+
+    const course = courseResponse.data
+    if (!course || !course.id_course) {
+      event.value = null
+      eventMissions.value = []
+      return
+    }
+
+    const affectationCountMap = buildAffectationCountMap(affectationsResponse.data ?? [])
+
+    const missionsForEvent = (missionsResponse.data ?? [])
+      .filter(mission => String(mission.id_course) === String(course.id_course))
+      .map(mission => {
+        const missionId = String(mission.id_mission)
+        return {
+          id: missionId,
+          eventId: String(course.id_course),
+          name: mission.titre_mission,
+          date: mission.date_debut_mission,
+          startTime: toTime(mission.heure_debut_mission),
+          endTime: toTime(mission.heure_fin_mission),
+          location: mission.lieu_mission,
+          currentVolunteers: affectationCountMap.get(missionId) || 0,
+          maxVolunteers: Number(mission.nombre_mission) || 0,
+          requiredSkills: [],
+        }
+      })
+
+    const totalVolunteersNeeded = missionsForEvent.reduce((sum, mission) => sum + mission.maxVolunteers, 0)
+    const currentVolunteers = missionsForEvent.reduce((sum, mission) => sum + mission.currentVolunteers, 0)
+
+    event.value = {
+      id: String(course.id_course),
+      name: course.nom_course,
+      description: course.informations_course,
+      date: course.date_debut_course,
+      location: course.lieu_course,
+      imageUrl: null,
+      category: 'Sport',
+      organizer: 'BeneRun',
+      totalVolunteersNeeded,
+      currentVolunteers,
+      missionsCount: missionsForEvent.length,
+    }
+
+    eventMissions.value = missionsForEvent
+  } catch (error) {
+    console.error("Erreur lors du chargement de l'evenement:", error)
+    if (error.response?.status === 404) {
+      event.value = null
+      eventMissions.value = []
+      loadError.value = ''
+    } else {
+      loadError.value = "Impossible de charger l'evenement depuis le backend."
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const spotsLeft = (mission) => mission.maxVolunteers - mission.currentVolunteers
 
@@ -165,4 +270,10 @@ const canApplyToMission = (mission) =>
 
 const formatDate = (date) =>
   new Date(date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+onMounted(loadEventDetails)
+
+watch(() => route.params.id, () => {
+  loadEventDetails()
+})
 </script>
