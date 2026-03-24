@@ -1,9 +1,63 @@
 import { users } from '@/data/mockData'
 
+const rolePermissions = {
+  volunteer: { location: true, messaging: true },
+  organizer: { location: true, messaging: true, manageMissions: true },
+  mission_manager: { location: true, messaging: true, manageMissions: true },
+  admin: { location: true, messaging: true, manageMissions: true, manageEvents: true, assignMissions: true },
+  superadmin: {
+    location: true,
+    messaging: true,
+    manageMissions: true,
+    manageEvents: true,
+    assignMissions: true,
+    manageAccounts: true,
+    manageReferentials: true,
+    exportStatistics: true,
+  },
+}
+
+const roleAccountType = {
+  volunteer: 'Benevole',
+  organizer: 'Organisateur',
+  mission_manager: 'Responsable de mission',
+  admin: 'Admin',
+  superadmin: 'Super-admin',
+}
+
+const buildStoredUser = (email) => {
+  const role = localStorage.getItem('userRole') || 'volunteer'
+  const firstName = localStorage.getItem('userFirstName') || 'Utilisateur'
+  const lastName = localStorage.getItem('userLastName') || ''
+
+  return {
+    id: localStorage.getItem('token') || email,
+    firstName,
+    lastName,
+    email,
+    role,
+    accountType: localStorage.getItem('userAccountType') || roleAccountType[role] || 'Benevole',
+    permissions: rolePermissions[role] || rolePermissions.volunteer,
+  }
+}
+
+export const saveBackendUserSession = (user) => {
+  if (!user) return
+  if (user.firstName) localStorage.setItem('userFirstName', user.firstName)
+  if (user.lastName) localStorage.setItem('userLastName', user.lastName)
+  if (user.role) localStorage.setItem('userRole', user.role)
+  if (user.accountType) localStorage.setItem('userAccountType', user.accountType)
+}
+
 export const getCurrentUser = () => {
   const userEmail = localStorage.getItem('userEmail')
   if (!userEmail) return null
-  return users.find(u => u.email === userEmail) || null
+
+  const mockUser = users.find(u => u.email === userEmail)
+  if (mockUser) return mockUser
+
+  // Fallback backend user profile stored in localStorage.
+  return buildStoredUser(userEmail)
 }
 
 export const login = (email, password) => {
@@ -21,6 +75,10 @@ export const logout = () => {
   localStorage.removeItem('isLoggedIn')
   localStorage.removeItem('userEmail')
   localStorage.removeItem('token')  // ✅ supprime aussi le token
+  localStorage.removeItem('userRole')
+  localStorage.removeItem('userFirstName')
+  localStorage.removeItem('userLastName')
+  localStorage.removeItem('userAccountType')
 }
 
 export const hasPermission = (permission) => {
