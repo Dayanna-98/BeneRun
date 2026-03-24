@@ -63,7 +63,7 @@ class DatabaseSeeder extends Seeder
                 ]);
             }
 
-            $allUsers = DB::table('users')->pluck('id_utilisateur')->values();
+            $allUsers = DB::table('users')->orderBy('id_utilisateur')->pluck('id_utilisateur')->values();
             $benevoleIds = [];
 
             foreach ($allUsers->take(5) as $userId) {
@@ -139,6 +139,19 @@ class DatabaseSeeder extends Seeder
                     'raison_annulation_course' => null,
                     'publie_course' => true,
                 ],
+                [
+                    'nom_course' => 'Marche Sante Geneve',
+                    'lieu_course' => 'Parc de la Grange, Geneve',
+                    'informations_course' => 'Marche organisee pour la promotion de la sante et du bien-etre.',
+                    'date_debut_course' => '2026-03-24',
+                    'date_fin_course' => '2026-03-24',
+                    'heure_debut_course' => '09:00:00',
+                    'heure_fin_course' => '12:00:00',
+                    'annule_course' => false,
+                    'date_annulation_course' => null,
+                    'raison_annulation_course' => null,
+                    'publie_course' => true,
+                ],
             ];
 
             foreach ($courses as $course) {
@@ -163,7 +176,7 @@ class DatabaseSeeder extends Seeder
                 ],
                 [
                     'id_course' => $courseIds[0],
-                    'id_benevole' => $benevoleIds[1],
+                    'id_benevole' => $benevoleIds[0],
                     'titre_mission' => 'Signalisation virage centre-ville',
                     'description_mission' => 'Orienter les coureurs et securiser les traverses pietonnes.',
                     'date_debut_mission' => '2026-05-09',
@@ -186,6 +199,20 @@ class DatabaseSeeder extends Seeder
                     'heure_fin_mission' => '09:30:00',
                     'lieu_mission' => 'Salle communale de Veyrier',
                     'nombre_mission' => 5,
+                    'statut_mission' => 'ouverte',
+                    'publie_mission' => true,
+                ],
+                [
+                    'id_course' => $courseIds[2],
+                    'id_benevole' => $benevoleIds[3],
+                    'titre_mission' => 'Accueil et orientation marche',
+                    'description_mission' => 'Accueillir les marchers et les orienter sur le parcours.',
+                    'date_debut_mission' => '2026-03-24',
+                    'date_fin_mission' => '2026-03-24',
+                    'heure_debut_mission' => '08:30:00',
+                    'heure_fin_mission' => '12:30:00',
+                    'lieu_mission' => 'Parc de la Grange - Entree principale',
+                    'nombre_mission' => 4,
                     'statut_mission' => 'ouverte',
                     'publie_mission' => true,
                 ],
@@ -258,6 +285,15 @@ class DatabaseSeeder extends Seeder
                     'id_mission' => $missionIds[2],
                     'statut_affectation' => 'provisoire',
                     'remarque_affectation' => 'A confirmer 48h avant la course.',
+                    'estResponsable_affectation' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'id_benevole' => $benevoleIds[1],
+                    'id_mission' => $missionIds[3],
+                    'statut_affectation' => 'confirmee',
+                    'remarque_affectation' => 'Mission d accueil pour la marche de ce jour.',
                     'estResponsable_affectation' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
