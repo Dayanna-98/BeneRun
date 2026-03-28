@@ -19,6 +19,19 @@
 
     <div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:1024px">
 
+      <div v-if="isLoading" class="text-center text-muted py-3">
+        Chargement des missions...
+      </div>
+
+      <div v-else-if="loadError" class="alert alert-danger mb-0">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+          <span>{{ loadError }}</span>
+          <button class="btn btn-sm btn-outline-danger" @click="loadMissions">Réessayer</button>
+        </div>
+      </div>
+
+      <template v-else>
+
       <!-- Stats -->
       <div class="row g-3">
         <div class="col-6 col-md-3">
@@ -114,34 +127,115 @@
         </div>
       </div>
 
+      </template>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, MapPin, Clock } from 'lucide-vue-next'
-import { availableMissions } from '@/data/mockData'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
+import api from '@/services/api'
 
 const router = useRouter()
 const user = getCurrentUser()
 if (!user || !hasMinRole('organizer')) router.push('/')
 
-const missions = ref([...availableMissions])
+const missions = ref([])
+const isLoading = ref(false)
+const loadError = ref('')
 
 const availableCount = computed(() => missions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
 const fullCount       = computed(() => missions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
 const totalVolunteers = computed(() => missions.value.reduce((s, m) => s + m.currentVolunteers, 0))
 
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const buildCourseMap = (courses) => {
+  const map = new Map()
+  courses.forEach(course => {
+    map.set(Number(course.id_course), course.nom_course || 'Evenement')
+  })
+  return map
+}
+
+const buildAffectationCountMap = (affectations) => {
+  const map = new Map()
+  affectations.forEach(affectation => {
+    const missionId = Number(affectation.id_mission)
+    map.set(missionId, (map.get(missionId) || 0) + 1)
+  })
+  return map
+}
+
+const mapMissionFromApi = (mission, courseNames, affectationCountMap) => {
+  const maxVolunteers = Number(mission.nombre_mission) || 0
+  const currentVolunteers = affectationCountMap.get(Number(mission.id_mission)) || 0
+
+  return {
+    id: String(mission.id_mission),
+    name: mission.titre_mission,
+    eventName: courseNames.get(Number(mission.id_course)) || `Course #${mission.id_course}`,
+    date: mission.date_debut_mission,
+    startTime: toTime(mission.heure_debut_mission),
+    endTime: toTime(mission.heure_fin_mission),
+    location: mission.lieu_mission,
+    currentVolunteers,
+    maxVolunteers,
+    requiredSkills: [],
+  }
+}
+
+const loadMissions = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const [missionsResponse, coursesResponse, affectationsResponse] = await Promise.all([
+      api.get('/missions'),
+      api.get('/courses'),
+      api.get('/affectations'),
+    ])
+
+    const missionsData = missionsResponse.data ?? []
+    const coursesData = coursesResponse.data ?? []
+    const affectationsData = affectationsResponse.data ?? []
+
+    const courseNames = buildCourseMap(coursesData)
+    const affectationCountMap = buildAffectationCountMap(affectationsData)
+
+    missions.value = missionsData.map(mission =>
+      mapMissionFromApi(mission, courseNames, affectationCountMap)
+    )
+  } catch (error) {
+    console.error('Erreur lors du chargement des missions:', error)
+    loadError.value = 'Impossible de charger les missions depuis le backend.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
 const formatDate = (d) =>
   new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const handleDeleteMission = (id) => {
+const handleDeleteMission = async (id) => {
   if (confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) {
-    missions.value = missions.value.filter(m => m.id !== id)
-    alert('Mission supprimée avec succès')
+    try {
+      await api.delete(`/missions/${id}`)
+      missions.value = missions.value.filter(m => m.id !== String(id))
+      alert('Mission supprimée avec succès')
+    } catch (error) {
+      console.error('Erreur suppression mission:', error)
+      alert('Impossible de supprimer la mission.')
+    }
   }
 }
+
+onMounted(loadMissions)
 </script>
