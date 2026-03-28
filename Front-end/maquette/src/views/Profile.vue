@@ -26,7 +26,7 @@
         <div class="d-flex align-items-center gap-3 mb-4">
           <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold fs-3 border border-4 shadow"
             style="width:80px;height:80px;background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border-color:rgba(255,255,255,.2)!important;flex-shrink:0">
-            {{ user.firstName[0] }}{{ user.lastName[0] }}
+            {{ user.firstName?.[0] || '?' }}{{ user.lastName?.[0] || '' }}
           </div>
           <div>
             <h5 class="fw-bold text-white mb-1">{{ user.firstName }} {{ user.lastName }}</h5>
@@ -340,27 +340,184 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   User, Award, FileText, Briefcase, MapPin, MessageSquare,
   Edit, Download, Star, Calendar, Plus, Trash2, Lock,
   UserX, LogOut, AlertTriangle
 } from 'lucide-vue-next'
-import { badges, certificates, skills as initialSkills, missionHistory } from '@/data/mockData'
 import { getCurrentUser, logout as authLogout, hasMinRole } from '@/utils/auth'
+import api from '@/services/api'
 
 const router = useRouter()
-const user = getCurrentUser()
-if (!user) router.push('/login')
+const currentSessionUser = getCurrentUser()
+if (!currentSessionUser) router.push('/login')
+
+const user = ref({
+  id: currentSessionUser?.id || '',
+  firstName: currentSessionUser?.firstName || 'Utilisateur',
+  lastName: currentSessionUser?.lastName || '',
+  email: currentSessionUser?.email || '',
+  phone: '',
+  registrationDate: null,
+  accountType: currentSessionUser?.accountType || 'Benevole',
+  permissions: currentSessionUser?.permissions || { location: true, messaging: true },
+  allergies: [],
+  healthIssues: [],
+  warnings: 0,
+  suspended: false,
+})
 
 const activeTab     = ref('info')
-const permissions   = ref({ ...user.permissions })
-const skills        = ref([...initialSkills])
+const permissions   = ref({ ...(user.value.permissions || { location: true, messaging: true }) })
+const skills        = ref([])
+const badges        = ref([])
+const certificates  = ref([])
+const missionHistory = ref([])
 const isAddingSkill = ref(false)
 const newSkillName  = ref('')
 const newSkillLevel = ref('Débutant')
 const skillLevels   = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert']
+
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const computeDuration = (start, end) => {
+  if (!start || !end) return ''
+  const startDate = new Date(`1970-01-01T${start}`)
+  const endDate = new Date(`1970-01-01T${end}`)
+  const diffMs = endDate.getTime() - startDate.getTime()
+  if (Number.isNaN(diffMs) || diffMs <= 0) return `${toTime(start)} - ${toTime(end)}`
+  const hours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+  return `${hours} h`
+}
+
+const loadProfileData = async () => {
+  if (!user.value.email) return
+
+  try {
+    const [
+      usersResponse,
+      adminsResponse,
+      benevolesResponse,
+      badgesResponse,
+      certificatsResponse,
+      affectationsResponse,
+      missionsResponse,
+      coursesResponse,
+    ] = await Promise.all([
+      api.get('/users'),
+      api.get('/admins'),
+      api.get('/benevoles'),
+      api.get('/badges'),
+      api.get('/certificats'),
+      api.get('/affectations'),
+      api.get('/missions'),
+      api.get('/courses'),
+    ])
+
+    const users = usersResponse.data ?? []
+    const admins = adminsResponse.data ?? []
+    const benevoles = benevolesResponse.data ?? []
+    const badgesData = badgesResponse.data ?? []
+    const certificatsData = certificatsResponse.data ?? []
+    const affectations = affectationsResponse.data ?? []
+    const missions = missionsResponse.data ?? []
+    const courses = coursesResponse.data ?? []
+
+    const rawUser = users.find(u => (u.email || '').toLowerCase() === user.value.email.toLowerCase())
+    if (!rawUser) return
+
+    const currentBenevole = benevoles.find(
+      b => Number(b.id_utilisateur) === Number(rawUser.id_utilisateur)
+    )
+    const isAdmin = admins.some(
+      a => Number(a.id_utilisateur) === Number(rawUser.id_utilisateur)
+    )
+
+    user.value = {
+      ...user.value,
+      id: String(rawUser.id_utilisateur),
+      firstName: rawUser.prenom_utilisateur || user.value.firstName,
+      lastName: rawUser.nom_utilisateur || user.value.lastName,
+      email: rawUser.email || user.value.email,
+      phone: rawUser.telephone_utilisateur || '',
+      registrationDate: rawUser.created_at || null,
+      allergies: [],
+      healthIssues: [],
+      warnings: 0,
+      suspended: false,
+      accountType: isAdmin ? 'Admin' : (user.value.accountType || 'Benevole'),
+      permissions: {
+        ...(user.value.permissions || {}),
+      },
+    }
+
+    permissions.value = {
+      location: user.value.permissions?.location !== false,
+      messaging: user.value.permissions?.messaging !== false,
+    }
+
+    if (!currentBenevole) {
+      badges.value = []
+      certificates.value = []
+      missionHistory.value = []
+      skills.value = []
+      return
+    }
+
+    badges.value = badgesData
+      .filter(b => Number(b.id_benevole) === Number(currentBenevole.id_benevole))
+      .map((b, index) => ({
+        id: String(b.id_badge),
+        name: b.titre_badge,
+        description: b.regle_auto_badge || '',
+        icon: '🏅',
+        earnedDate: b.created_at || new Date().toISOString(),
+        order: index,
+      }))
+
+    certificates.value = certificatsData
+      .filter(c => Number(c.id_benevole) === Number(currentBenevole.id_benevole))
+      .map(c => ({
+        id: String(c.id_certificat),
+        name: c.titre_certificat,
+        issuer: 'BeneRun',
+        issueDate: c.created_at || new Date().toISOString(),
+        expiryDate: null,
+        type: 'platform',
+      }))
+
+    const missionMap = new Map(missions.map(m => [Number(m.id_mission), m]))
+    const courseMap = new Map(courses.map(c => [Number(c.id_course), c]))
+
+    missionHistory.value = affectations
+      .filter(a => Number(a.id_benevole) === Number(currentBenevole.id_benevole))
+      .map((a, index) => {
+        const mission = missionMap.get(Number(a.id_mission))
+        const course = mission ? courseMap.get(Number(mission.id_course)) : null
+
+        return {
+          id: String(a.id_affectation || `${a.id_mission}-${index}`),
+          missionName: mission?.titre_mission || 'Mission',
+          eventName: course?.nom_course || 'Evenement',
+          date: mission?.date_debut_mission || a.created_at || new Date().toISOString(),
+          duration: computeDuration(mission?.heure_debut_mission, mission?.heure_fin_mission),
+          role: a.estResponsable_affectation ? 'Responsable de mission' : 'Benevole',
+          rating: 0,
+        }
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+
+    // Endpoint utilisateur_competences n'est pas expose; laisse vide cote backend.
+    skills.value = []
+  } catch (error) {
+    console.error('Erreur chargement profil:', error)
+  }
+}
 
 const addSkill = () => {
   if (newSkillName.value.trim()) {
@@ -407,4 +564,6 @@ const handleDeleteAccount = () => {
     router.push('/login')
   }
 }
+
+onMounted(loadProfileData)
 </script>
