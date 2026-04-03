@@ -3,6 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Evenement; // ← ici
+use App\Models\User;
+use App\Models\MissionMedia;
+use App\Models\MissionContact;
+use App\Models\Competence;
 
 class Mission extends Model
 {
