@@ -4,14 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Badge extends Model 
+class Badge extends Model
 {
     protected $table = 'badges';
     protected $primaryKey = 'id_badge';
-    protected $fillable = ['id_benevole', 'titre_badge', 'valeur_badge', 'regle_auto_badge'];
+    protected $fillable = [
+        'titre_badge',
+        'description_badge',
+        'icone_badge',
+        'score_badge',
+        'regle_auto',
+    ];
 
-    public function benevole()
+    public function utilisateurs()
     {
-        return $this->belongsTo(Benevole::class, 'id_benevole');
+        return $this->belongsToMany(
+            User::class,
+            'user_badges',
+            'id_badge',
+            'id_utilisateur'
+            )
+        ->withPivot('attribue_le')
+        ->withTimestamps();
     }
+
 }

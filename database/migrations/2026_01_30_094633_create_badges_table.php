@@ -13,12 +13,11 @@ return new class extends Migration
     {
         Schema::create('badges', function (Blueprint $table) {
             $table->id('id_badge');
-            $table->unsignedBigInteger('id_benevole');
-            $table->foreign('id_benevole')->references('id_benevole')->on('benevoles');
             $table->string('titre_badge');
-            $table->integer('valeur_badge');
-            $table->string('regle_auto_badge');
-
+            $table->string('description_badge')->nullable();
+            $table->string('icone_badge')->nullable();
+            $table->unsignedInteger('score_badge')->default(0);
+            $table->string('regle_auto')->nullable();
             $table->timestamps();
         });
     }
