@@ -13,10 +13,16 @@ return new class extends Migration
     {
         Schema::create('mission_competences', function (Blueprint $table) {
             $table->unsignedBigInteger('id_mission');
-            $table->foreign('id_mission')->references('id_mission')->on('missions');
             $table->unsignedBigInteger('id_competence');
-            $table->foreign('id_competence')->references('id_competence')->on('competences');
-            
+            $table->primary(['id_mission', 'id_competence']);
+            $table->foreign('id_mission')
+                    ->references('id_mission')
+                    ->on('missions')
+                    ->cascadeOnDelete();
+            $table->foreign('id_competence')
+                    ->references('id_competence')
+                    ->on('competences')
+                    ->cascadeOnDelete();
             $table->timestamps();
         });
     }
