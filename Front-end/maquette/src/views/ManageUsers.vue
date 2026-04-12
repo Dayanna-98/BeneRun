@@ -11,7 +11,7 @@
           <h1 class="fs-5 fw-semibold mb-0">Gestion des Utilisateurs</h1>
         </div>
         <button class="btn btn-primary btn-sm d-flex align-items-center gap-2"
-          @click="router.push('/create-user')">
+          @click="router.push('/manage-users/create')">
           <Plus style="width:16px;height:16px" /> Créer
         </button>
       </div>
@@ -60,7 +60,7 @@
         <div class="card-header"><h5 class="mb-0">Tous les utilisateurs</h5></div>
         <div class="card-body d-flex flex-column gap-3">
           <div v-for="u in usersList" :key="u.id"
-            :class="['border rounded p-3', u.suspended ? 'border-danger bg-danger-subtle' : u.warnings >= 3 ? 'border-warning bg-warning-subtle' : 'border-light-subtle']">
+            :class="['border rounded p-3', u.suspended ? 'border-danger bg-danger-subtle' : 'border-light-subtle']">
 
             <div class="d-flex align-items-start justify-content-between mb-3">
               <div class="d-flex align-items-center gap-3 flex-fill">
@@ -93,18 +93,12 @@
                     <span v-if="u.anonymous" class="badge bg-secondary-subtle text-secondary border border-secondary d-inline-flex align-items-center gap-1">
                       <EyeOff style="width:12px;height:12px" /> Anonyme
                     </span>
-                    <span v-if="u.warnings > 0"
-                      :class="['badge border d-inline-flex align-items-center gap-1', u.warnings >= 3 ? 'bg-danger-subtle text-danger border-danger' : 'bg-warning-subtle text-warning border-warning']">
-                      <AlertTriangle style="width:12px;height:12px" />
-                      {{ u.warnings }} avertissement{{ u.warnings > 1 ? 's' : '' }}
-                    </span>
-                    <span v-if="u.warnings >= 3" class="badge bg-danger-subtle text-danger border border-danger">Non fiable</span>
                   </div>
                 </div>
               </div>
 
               <button class="btn btn-link p-1 text-secondary"
-                @click="router.push(`/edit-user/${u.id}`)">
+                @click="router.push(`/manage-users/edit/${u.id}`)">
                 <Edit style="width:16px;height:16px" />
               </button>
             </div>
@@ -141,25 +135,39 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone, AlertTriangle } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone } from 'lucide-vue-next'
 import { users } from '@/data/mockData'
 import { getCurrentUser, isRole } from '@/utils/auth'
+import userService from '@/services/userService'
+
+const demoUsers = users.filter(userData => userData.email === 'admin@benerun.ch')
 
 const router = useRouter()
 const user = getCurrentUser()
 if (!user || !isRole('superadmin')) router.push('/')
 
-const usersList = ref([...users])
+const usersList = ref([])
+
+onMounted(async () => {
+  try {
+    const dbUsers = await userService.getAll()
+    usersList.value = userService.mergeUsers(demoUsers, dbUsers)
+  } catch (error) {
+    console.error('Erreur chargement utilisateurs:', error)
+    usersList.value = [...demoUsers]
+  }
+})
 
 const volunteerCount  = computed(() => usersList.value.filter(u => u.role === 'volunteer').length)
-const organizerCount  = computed(() => usersList.value.filter(u => u.role === 'organizer').length)
+const organizerCount  = computed(() => usersList.value.filter(u => u.role === 'organizer' || u.role === 'mission_manager').length)
 const adminCount      = computed(() => usersList.value.filter(u => u.role === 'admin' || u.role === 'superadmin').length)
 
 const roleBadgeClass = (role) => ({
   volunteer:  'bg-primary-subtle text-primary border-primary',
   organizer:  'bg-success-subtle text-success border-success',
+  mission_manager: 'bg-success-subtle text-success border-success',
   admin:      'bg-info-subtle text-info border-info',
   superadmin: 'bg-danger-subtle text-danger border-danger',
 }[role] || 'bg-secondary-subtle text-secondary border-secondary')

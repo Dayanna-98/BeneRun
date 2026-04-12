@@ -33,11 +33,6 @@
           <span><strong>Compte anonyme.</strong> Les informations personnelles sont masquées.</span>
         </div>
 
-        <div v-if="targetUser.warnings >= 3 && !targetUser.suspended" class="alert alert-warning d-flex align-items-center gap-2 mb-0">
-          <AlertTriangle style="width:18px;height:18px;flex-shrink:0" />
-          <span><strong>Attention :</strong> Cet utilisateur a atteint {{ targetUser.warnings }} avertissements. Une suspension est recommandée.</span>
-        </div>
-
         <!-- Infos utilisateur -->
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Informations de l'utilisateur</h5></div>
@@ -65,12 +60,6 @@
                 <span :class="`badge border ${roleBadgeClass(targetUser.role)}`">{{ targetUser.accountType }}</span>
               </div>
               <div class="col-6">
-                <div class="text-muted">Avertissements</div>
-                <div class="fw-medium" :class="warningColor(targetUser.warnings)">
-                  {{ targetUser.warnings }}/3
-                </div>
-              </div>
-              <div class="col-6">
                 <div class="text-muted">Statut</div>
                 <div class="fw-medium">
                   <span v-if="targetUser.suspended" class="text-danger">Suspendu</span>
@@ -82,43 +71,36 @@
           </div>
         </div>
 
-        <!-- Avertissements -->
-        <div class="card">
-          <div class="card-header d-flex align-items-center gap-2">
-            <AlertTriangle style="width:20px;height:20px;color:#ca8a04" />
-            <h5 class="mb-0">Gestion des avertissements</h5>
-          </div>
+        <!-- Modifier infos personnelles -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Modifier les informations</h5></div>
           <div class="card-body d-flex flex-column gap-3">
-            <div>
-              <label class="form-label small fw-medium">Nombre d'avertissements</label>
-              <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-outline-secondary btn-sm px-3" :disabled="warnings === 0" @click="warnings = Math.max(0, warnings - 1)">−</button>
-                <div class="flex-fill text-center">
-                  <span class="fs-2 fw-bold" :class="warningColor(warnings)">{{ warnings }}</span>
-                  <span class="text-muted"> / 3</span>
-                </div>
-                <button class="btn btn-outline-secondary btn-sm px-3" :disabled="warnings >= 5" @click="warnings = Math.min(5, warnings + 1)">+</button>
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Prénom</label>
+                <input v-model="editForm.firstName" class="form-control" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Nom</label>
+                <input v-model="editForm.lastName" class="form-control" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Email</label>
+                <input v-model="editForm.email" type="email" class="form-control" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Téléphone</label>
+                <input v-model="editForm.phone" class="form-control" />
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-medium">Adresse</label>
+                <input v-model="editForm.address" class="form-control" />
               </div>
             </div>
 
-            <div v-if="warnings >= 3" class="alert alert-danger d-flex align-items-center gap-2 mb-0">
-              <AlertTriangle style="width:16px;height:16px;flex-shrink:0" />
-              <span class="small"><strong>Attention :</strong> À partir de 3 avertissements, le compte devrait être suspendu et le badge "Non fiable" sera visible.</span>
-            </div>
-
-            <div class="bg-light rounded p-3 small text-muted">
-              <p class="fw-medium mb-2">ℹ️ Informations</p>
-              <ul class="mb-0 ps-3">
-                <li>1 avertissement = désinscription d'une mission</li>
-                <li>3 avertissements = suspension automatique recommandée</li>
-                <li>Badge "Non fiable" visible à partir de 3 avertissements</li>
-              </ul>
-            </div>
-
-            <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2"
-              @click="alert(`Nombre d'avertissements modifié : ${warnings}`)">
+            <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2" @click="handleSaveInfo">
               <Save style="width:16px;height:16px" />
-              Enregistrer les avertissements
+              Enregistrer les informations
             </button>
           </div>
         </div>
@@ -266,28 +248,61 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Save, AlertTriangle, UserX, Eye, EyeOff } from 'lucide-vue-next'
+import { ArrowLeft, Save, UserX, Eye, EyeOff } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import { users } from '@/data/mockData'
+import userService from '@/services/userService'
+
+const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
 const router = useRouter()
 const route = useRoute()
 const currentUser = getCurrentUser()
 if (!currentUser || !isRole('superadmin')) router.push('/')
 
-const targetUser = users.find(u => u.id === route.params.id)
+const targetUser = ref(null)
 
-const selectedRole = ref(targetUser?.role || 'volunteer')
-const warnings = ref(targetUser?.warnings || 0)
+const editForm = ref({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  address: '',
+})
+
+const syncEditForm = () => {
+  if (!targetUser.value) return
+  editForm.value = {
+    firstName: targetUser.value.firstName || '',
+    lastName: targetUser.value.lastName || '',
+    email: targetUser.value.email || '',
+    phone: targetUser.value.phone || '',
+    address: targetUser.value.address || '',
+  }
+}
+
+onMounted(async () => {
+  try {
+    targetUser.value = await userService.getById(route.params.id)
+  } catch {
+    targetUser.value = demoUsers.find(u => String(u.id) === String(route.params.id)) || null
+  }
+  syncEditForm()
+  if (targetUser.value) {
+    selectedRole.value = targetUser.value.role || 'volunteer'
+  }
+})
+
+const selectedRole = ref('volunteer')
 const showSuspendDialog = ref(false)
 const showAnonymizeDialog = ref(false)
 const showReactivateDialog = ref(false)
 
 const roleOptions = [
   { value: 'volunteer',   label: 'Bénévole',    desc: 'Utilisateur de base' },
-  { value: 'organizer',   label: 'Organisateur', desc: 'Bénévole + gestion des missions' },
+  { value: 'mission_manager',   label: 'Organisateur', desc: 'Bénévole + gestion des missions' },
   { value: 'admin',       label: 'Admin',        desc: 'Organisateur + gestion des événements' },
   { value: 'superadmin',  label: 'Super-admin',  desc: 'Tous les droits de la plateforme' },
 ]
@@ -295,29 +310,126 @@ const roleOptions = [
 const roleBadgeClass = (role) => ({
   volunteer:  'bg-primary-subtle text-primary border-primary',
   organizer:  'bg-success-subtle text-success border-success',
+  mission_manager: 'bg-success-subtle text-success border-success',
   admin:      'bg-info-subtle text-info border-info',
   superadmin: 'bg-danger-subtle text-danger border-danger',
 }[role] || 'bg-secondary-subtle text-secondary border-secondary')
 
-const warningColor = (w) =>
-  w >= 3 ? 'text-danger' : w > 0 ? 'text-warning' : 'text-success'
+const toUpdatePayload = (extra = {}) => ({
+  firstName: extra.firstName ?? editForm.value.firstName ?? targetUser.value.firstName,
+  lastName: extra.lastName ?? editForm.value.lastName ?? targetUser.value.lastName,
+  email: extra.email ?? editForm.value.email ?? targetUser.value.email,
+  phone: extra.phone ?? editForm.value.phone ?? targetUser.value.phone,
+  address: extra.address ?? editForm.value.address ?? targetUser.value.address,
+  dateOfBirth: extra.dateOfBirth ?? targetUser.value.dateOfBirth ?? '',
+  role: extra.role ?? selectedRole.value ?? targetUser.value.role,
+  allergies: extra.allergies ?? targetUser.value.allergies ?? [],
+  healthIssues: extra.healthIssues ?? targetUser.value.healthIssues ?? [],
+  hasLicense: extra.hasLicense ?? !!targetUser.value.hasLicense,
+  isMotorized: extra.isMotorized ?? !!targetUser.value.isMotorized,
+  hasVehicle: extra.hasVehicle ?? !!targetUser.value.hasVehicle,
+  bibSize: extra.bibSize ?? targetUser.value.bibSize ?? '',
+  isAnonymous: extra.isAnonymous ?? !!targetUser.value.anonymous,
+  isSuspended: extra.isSuspended ?? !!targetUser.value.suspended,
+  suspensionReason: extra.suspensionReason ?? targetUser.value.suspensionReason ?? null,
+  missionCount: extra.missionCount ?? targetUser.value.missionCount ?? 0,
+})
 
-const handleSubmit = () => {
-  alert(`Rôle de ${targetUser.firstName} ${targetUser.lastName} mis à jour avec succès !`)
-  router.push('/manage-users')
+const handleSaveInfo = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload())
+    if (response.user) {
+      targetUser.value = response.user
+      selectedRole.value = response.user.role
+      syncEditForm()
+    }
+    alert('Informations utilisateur mises à jour')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la mise à jour')
+  }
 }
-const handleSuspend = () => {
-  alert(`Utilisateur ${targetUser.firstName} ${targetUser.lastName} suspendu.`)
-  showSuspendDialog.value = false
-  router.push('/manage-users')
+
+const handleSubmit = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({ role: selectedRole.value }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Rôle de ${targetUser.value.firstName} ${targetUser.value.lastName} mis à jour avec succès !`)
+    router.push('/manage-users')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la modification du rôle')
+  }
 }
-const handleAnonymize = () => {
-  alert(`Utilisateur ${targetUser.firstName} ${targetUser.lastName} rendu anonyme.`)
-  showAnonymizeDialog.value = false
-  router.push('/manage-users')
+const handleSuspend = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de suspendre cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({
+      isSuspended: true,
+      suspensionReason: 'Suspendu par super-admin',
+    }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} suspendu.`)
+    showSuspendDialog.value = false
+    router.push('/manage-users')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la suspension')
+  }
 }
-const handleReactivate = () => {
-  alert(`Utilisateur ${targetUser.firstName} ${targetUser.lastName} réactivé.`)
-  showReactivateDialog.value = false
+const handleAnonymize = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({
+      isAnonymous: !targetUser.value.anonymous,
+    }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} ${targetUser.value.anonymous ? 'rendu anonyme' : 'désanonymisé'}.`)
+    showAnonymizeDialog.value = false
+  } catch (error) {
+    alert(error.message || 'Erreur lors de l\'anonymisation')
+  }
 }
+const handleReactivate = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de réactiver cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({
+      isSuspended: false,
+      suspensionReason: null,
+    }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} réactivé.`)
+    showReactivateDialog.value = false
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la réactivation')
+  }
+}
+
 </script>
