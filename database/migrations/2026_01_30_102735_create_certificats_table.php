@@ -19,7 +19,7 @@ return new class extends Migration
             $table->date('date_emission_certificat')->nullable();
             $table->date('date_expiration_certificat')->nullable();
             $table->enum('type_certificat', ['platform', 'external'])->default('platform');
-            $table->enum('statut_certificat', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->enum('statut_certificat', ['en attente', 'approuvé', 'rejeté'])->default('en attente');
             $table->string('chemin_fichier_certificat', 500)->nullable();
             $table->timestamps();
 

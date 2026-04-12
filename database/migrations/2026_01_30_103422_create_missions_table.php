@@ -43,17 +43,17 @@ return new class extends Migration
             $table->unsignedInteger('nombre_benevoles_max');
             $table->unsignedInteger('nombre_benevoles_backup')->default(0);
             $table->enum('statut_mission', [
-                'draft',
-                'open',
-                'closed',
-                'cancelled'
-            ])->default('draft');
+                'brouillon',
+                'ouverte',
+                'fermée',
+                'annulée'
+            ])->default('brouillon');
             $table->boolean('inscription_requise')->default(true);
             $table->enum('visibilite_mission', [
-                'public',
-                'private',
-                'restricted'
-            ])->default('public');
+                'publique',
+                'privée',
+                'limitée'
+            ])->default('publique');
             $table->text('consignes_securite')->nullable();
             $table->string('image_mission', 500)->nullable();
             $table->timestamp('publie_le_mission')->nullable();

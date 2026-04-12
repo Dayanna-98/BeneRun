@@ -13,7 +13,7 @@ class MissionMedia extends Model
         'chemin_fichier',
         'type_mime',
         'taille_fichier',
-        'televerse_par_utilisateur_id',
+        'telecharge_par_utilisateur_id',
     ];
 
     public function mission()
@@ -23,7 +23,7 @@ class MissionMedia extends Model
 
     public function utilisateur()
     {
-        return $this->belongsTo(User::class, 'televerse_par_utilisateur_id', 'id_utilisateur');
+        return $this->belongsTo(User::class, 'telecharge_par_utilisateur_id', 'id_utilisateur');
     }
 
 }
