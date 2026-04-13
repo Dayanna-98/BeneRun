@@ -43,11 +43,11 @@ return new class extends Migration
             $table->unsignedInteger('nombre_benevoles_max');
             $table->unsignedInteger('nombre_benevoles_backup')->default(0);
             $table->enum('statut_mission', [
-                'brouillon',
-                'ouverte',
-                'fermée',
-                'annulée'
-            ])->default('brouillon');
+                'À venir',
+                'En cours',
+                'Terminée',
+                'Annulée'
+            ])->default('À venir');
             $table->boolean('inscription_requise')->default(true);
             $table->enum('visibilite_mission', [
                 'publique',
