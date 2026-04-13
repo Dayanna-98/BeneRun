@@ -1,5 +1,15 @@
 <template>
-  <div class="min-vh-100 bg-light pb-5">
+  <!-- Écran d'accès refusé -->
+  <div v-if="!user || !isSuperAdmin" class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="alert alert-danger text-center">
+      <h4>Accès refusé</h4>
+      <p>Vous devez être super-admin pour créer des utilisateurs.</p>
+      <button class="btn btn-primary mt-3" @click="router.push('/')">Retour à l'accueil</button>
+    </div>
+  </div>
+
+  <!-- Formulaire de création -->
+  <div v-else class="min-vh-100 bg-light pb-5">
 
     <!-- Header -->
     <header class="bg-white border-bottom sticky-top">
@@ -59,10 +69,43 @@
               <label class="form-label small fw-medium">Rôle *</label>
               <select v-model="formData.role" class="form-select" required>
                 <option value="volunteer">Bénévole</option>
-                <option value="organizer">Organisateur</option>
+                <option value="mission_manager">Responsable</option>
                 <option value="admin">Admin</option>
                 <option value="superadmin">Super-admin</option>
               </select>
+            </div>
+
+            <div>
+              <label class="form-label small fw-medium">Taille T-shirt</label>
+              <select v-model="formData.bibSize" class="form-select">
+                <option value="">Sélectionner</option>
+                <option value="XS">XS</option>
+                <option value="S">S</option>
+                <option value="M">M</option>
+                <option value="L">L</option>
+                <option value="XL">XL</option>
+              </select>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-check-label d-flex align-items-center gap-2">
+                  <input v-model="formData.hasLicense" class="form-check-input" type="checkbox" />
+                  <span>Possède un permis</span>
+                </label>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-check-label d-flex align-items-center gap-2">
+                  <input v-model="formData.isMotorized" class="form-check-input" type="checkbox" />
+                  <span>Possède une moto</span>
+                </label>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-check-label d-flex align-items-center gap-2">
+                  <input v-model="formData.hasVehicle" class="form-check-input" type="checkbox" />
+                  <span>Possède une voiture</span>
+                </label>
+              </div>
             </div>
 
             <!-- Allergies -->
@@ -121,11 +164,15 @@
               </div>
             </div>
 
+            <div v-if="successMessage" class="alert alert-success">{{ successMessage }}</div>
+            <div v-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
             <div class="d-flex gap-3 pt-2">
-              <button type="button" class="btn btn-outline-secondary flex-fill" @click="router.go(-1)">Annuler</button>
-              <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2">
-                <Save style="width:16px;height:16px" />
-                Créer l'utilisateur
+              <button type="button" class="btn btn-outline-secondary flex-fill" @click="router.go(-1)" :disabled="isLoading">Annuler</button>
+              <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2" :disabled="isLoading">
+                <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <Save v-else style="width:16px;height:16px" />
+                {{ isLoading ? 'Création en cours...' : 'Créer l\'utilisateur' }}
               </button>
             </div>
 
@@ -141,20 +188,39 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Save, Plus, X } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
+import userService from '@/services/userService'
 
 const router = useRouter()
 const user = getCurrentUser()
-if (!user || !isRole('superadmin')) router.push('/')
+const isSuperAdmin = user && isRole('superadmin')
+
+// Log pour debug
+console.log('CreateUser.vue Debug:')
+console.log('- User:', user)
+console.log('- User role:', user?.role)
+console.log('- isSuperAdmin:', isSuperAdmin)
+
+// Ne PAS rediriger, on laisse le v-if gérer l'affichage
+if (!user) {
+  console.warn('Pas d\'utilisateur trouvé, localStorage currentUser:', localStorage.getItem('currentUser'))
+}
 
 const formData = reactive({
   firstName: '', lastName: '', email: '', password: '',
   phone: '', address: '', dateOfBirth: '', role: 'volunteer',
+  hasLicense: false,
+  isMotorized: false,
+  hasVehicle: false,
+  bibSize: '',
 })
 
 const allergies = ref([])
 const healthIssues = ref([])
 const newAllergy = ref('')
 const newHealthIssue = ref('')
+const isLoading = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
 
 const addAllergy = () => {
   if (newAllergy.value.trim()) { allergies.value.push(newAllergy.value.trim()); newAllergy.value = '' }
@@ -166,8 +232,70 @@ const addHealthIssue = () => {
 }
 const removeHealthIssue = (i) => healthIssues.value.splice(i, 1)
 
-const handleSubmit = () => {
-  alert('Utilisateur créé avec succès !')
-  router.push('/manage-users')
+const handleSubmit = async () => {
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  // Inclure la valeur en cours de saisie même si l'utilisateur n'a pas cliqué sur +
+  if (newAllergy.value.trim()) {
+    allergies.value.push(newAllergy.value.trim())
+    newAllergy.value = ''
+  }
+  if (newHealthIssue.value.trim()) {
+    healthIssues.value.push(newHealthIssue.value.trim())
+    newHealthIssue.value = ''
+  }
+  
+  // Validations
+  if (!formData.firstName.trim()) {
+    errorMessage.value = 'Le prénom est requis'
+    return
+  }
+  if (!formData.lastName.trim()) {
+    errorMessage.value = 'Le nom est requis'
+    return
+  }
+  if (!formData.email.trim()) {
+    errorMessage.value = 'L\'email est requis'
+    return
+  }
+  if (!formData.password.trim()) {
+    errorMessage.value = 'Le mot de passe est requis'
+    return
+  }
+  if (formData.password.length < 8) {
+    errorMessage.value = 'Le mot de passe doit contenir au moins 8 caractères'
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const response = await userService.create({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+      phone: formData.phone,
+      address: formData.address,
+      dateOfBirth: formData.dateOfBirth,
+      role: formData.role,
+      allergies: allergies.value,
+      healthIssues: healthIssues.value,
+      hasLicense: formData.hasLicense,
+      isMotorized: formData.isMotorized,
+      hasVehicle: formData.hasVehicle,
+      bibSize: formData.bibSize,
+    })
+    
+    successMessage.value = 'Utilisateur créé avec succès !'
+    setTimeout(() => {
+      router.push('/manage-users')
+    }, 1500)
+  } catch (error) {
+    console.error('Erreur création utilisateur:', error)
+    errorMessage.value = error.message || 'Erreur lors de la création de l\'utilisateur. Veuillez réessayer.'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>

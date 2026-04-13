@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getCurrentUser, isRole } from '@/utils/auth'
 
 // Pages publiques
 import Login from '@/views/Login.vue'
@@ -13,6 +14,7 @@ import EventsList from '@/views/EventsList.vue'
 import EventDetails from '@/views/EventDetails.vue'
 import MyMissions from '@/views/MyMissions.vue'
 import Profile from '@/views/Profile.vue'
+import EditProfile from '@/views/EditProfile.vue'
 import MissionDetails from '@/views/MissionDetails.vue'
 import Favorites from '@/views/Favorites.vue'
 import ManageMissions from '@/views/ManageMissions.vue'
@@ -40,6 +42,7 @@ const routes = [
   { path: '/event/:id', component: EventDetails, meta: { requiresAuth: true } },
   { path: '/my-missions', component: MyMissions, meta: { requiresAuth: true } },
   { path: '/profile', component: Profile, meta: { requiresAuth: true } },
+  { path: '/profile/edit', component: EditProfile, meta: { requiresAuth: true } },
   { path: '/mission/:id', component: MissionDetails, meta: { requiresAuth: true } },
   { path: '/favorites', component: Favorites, meta: { requiresAuth: true } },
   { path: '/manage-missions', component: ManageMissions, meta: { requiresAuth: true } },
@@ -49,7 +52,7 @@ const routes = [
   { path: '/manage-events/create', component: CreateEvent, meta: { requiresAuth: true } },
   { path: '/manage-events/edit/:id', component: EditEvent, meta: { requiresAuth: true } },
   { path: '/manage-users', component: ManageUsers, meta: { requiresAuth: true } },
-  { path: '/manage-users/create', component: CreateUser, meta: { requiresAuth: true } },
+  { path: '/manage-users/create', component: CreateUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
   { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true } },
   { path: '/statistics', component: Statistics, meta: { requiresAuth: true } },
 ]
@@ -59,14 +62,28 @@ const router = createRouter({
   routes,
 })
 
-// Navigation guard
-router.beforeEach((to, from, next) => {
-  const isLoggedIn = !!localStorage.getItem('token')
+// Navigation guards
+router.beforeEach((to, from) => {
+  const token = localStorage.getItem('token')
+  const user = getCurrentUser()
+  const isLoggedIn = !!token && !!user
+
+  // Si route protégée et pas connecté → login
   if (to.meta.requiresAuth && !isLoggedIn) {
-    next('/login')
-  } else {
-    next()
+    return '/login'
   }
+
+  // Si route requiert un rôle spécifique et que l'utilisateur n'est pas autorisé → accueil
+  if (to.meta.requiredRole && !isRole(to.meta.requiredRole)) {
+    return '/'
+  }
+
+  // Si déjà sur login/register et connecté → dashboard
+  if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
+    return '/'
+  }
+
+  return true
 })
 
 export default router

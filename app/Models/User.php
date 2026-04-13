@@ -18,6 +18,21 @@ class User extends Authenticatable
         'prenom_utilisateur',
         'email',
         'password',
+        'role_utilisateur',
+        'telephone_utilisateur',
+        'adresse_utilisateur',
+        'date_naissance_utilisateur',
+        'allergies_utilisateur',
+        'problemes_sante_utilisateur',
+        'possede_permis_utilisateur',
+        'est_motorise_utilisateur',
+        'possede_vehicule_utilisateur',
+        'taille_tshirt_utilisateur',
+        'est_anonyme_utilisateur',
+        'est_suspendu_utilisateur',
+        'raison_suspension_utilisateur',
+        'permissions_utilisateur',
+        'nombre_missions_utilisateur',
     ];
 
     protected $hidden = [
@@ -29,7 +44,12 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-           // 'password_utilisateur' => 'hashed',
+            'possede_permis_utilisateur' => 'boolean',
+            'est_motorise_utilisateur' => 'boolean',
+            'possede_vehicule_utilisateur' => 'boolean',
+            'est_anonyme_utilisateur' => 'boolean',
+            'est_suspendu_utilisateur' => 'boolean',
+            'nombre_missions_utilisateur' => 'integer',
         ];
     }
 

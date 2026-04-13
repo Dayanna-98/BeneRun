@@ -263,7 +263,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Calendar, Award, TrendingUp, MapPin, Briefcase, Heart, Settings, Users, BarChart3, Shield, Star } from 'lucide-vue-next'
-import { myActiveMissions, badges, missionHistory, availableMissions } from '@/data/mockData'
+import { myActiveMissions, availableMissions } from '@/data/mockData'
 import { getCurrentUser } from '@/utils/auth'
 
 const router = useRouter()
@@ -271,7 +271,9 @@ const user = getCurrentUser()
 if (!user) router.push('/login')
 
 const nextMission = myActiveMissions[0]
-const totalMissions = missionHistory.length + myActiveMissions.length
+const badges = computed(() => user?.badges || [])
+const missionHistory = computed(() => user?.missionHistory || [])
+const totalMissions = computed(() => (missionHistory.value?.length || 0) + (myActiveMissions?.length || 0))
 
 const isManager = computed(() =>
   ['mission_manager', 'admin', 'superadmin'].includes(user.role)

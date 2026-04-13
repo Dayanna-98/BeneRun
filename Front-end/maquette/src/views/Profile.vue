@@ -96,7 +96,7 @@
         <div class="card">
           <div class="card-header d-flex align-items-center justify-content-between">
             <h5 class="mb-0">Informations personnelles</h5>
-            <button class="btn btn-link p-0"><Edit style="width:16px;height:16px" /></button>
+            <button class="btn btn-link p-0" @click="handleEditProfile"><Edit style="width:16px;height:16px" /></button>
           </div>
           <div class="card-body d-flex flex-column gap-2">
             <div><div class="x-small text-muted">Email</div><div class="small">{{ user.email }}</div></div>
@@ -125,47 +125,6 @@
                 <span v-for="h in user.healthIssues" :key="h"
                   class="badge bg-secondary-subtle text-secondary border">{{ h }}</span>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Avertissements (admin+) -->
-        <div v-if="hasMinRole('admin')" class="card">
-          <div class="card-header d-flex align-items-center gap-2">
-            <AlertTriangle style="width:20px;height:20px;color:#ca8a04" />
-            <h5 class="mb-0">Avertissements</h5>
-          </div>
-          <div class="card-body d-flex flex-column gap-3">
-            <div v-if="user.warnings >= 3" class="alert alert-danger mb-0">
-              <div class="fw-bold mb-1">⚠️ Compte à risque</div>
-              <p class="small mb-0">
-                Cet utilisateur a atteint <strong>{{ user.warnings }}/3</strong> avertissements.
-                {{ user.suspended ? 'Le compte est actuellement suspendu.' : 'Le compte devrait être suspendu.' }}
-              </p>
-            </div>
-            <div v-else-if="user.warnings > 0" class="alert alert-warning mb-0">
-              <div class="fw-semibold mb-1">Avertissements : {{ user.warnings }}/3</div>
-              <p class="small mb-0">{{ 3 - user.warnings }} avertissement(s) restant(s) avant suspension.</p>
-            </div>
-            <div v-else class="alert alert-success mb-0 d-flex align-items-center gap-2">
-              <span class="fs-4">✓</span>
-              <div>
-                <div class="fw-semibold">Aucun avertissement</div>
-                <p class="small mb-0">Comportement exemplaire</p>
-              </div>
-            </div>
-            <div class="bg-light rounded p-3 x-small text-muted">
-              <p class="fw-medium mb-2">ℹ️ Informations sur les avertissements</p>
-              <ul class="mb-0 ps-3">
-                <li>1 avertissement = désinscription d'une mission</li>
-                <li>3 avertissements = suspension automatique du compte</li>
-                <li>Badge "Non fiable" visible à 3 avertissements</li>
-              </ul>
-            </div>
-            <div v-if="user.warnings >= 3">
-              <span class="badge bg-danger-subtle text-danger border border-danger">
-                🚫 Badge: Utilisateur Non Fiable
-              </span>
             </div>
           </div>
         </div>
@@ -254,8 +213,8 @@
               <Lock style="width:16px;height:16px" /> Changer le mot de passe
             </button>
             <button class="btn btn-danger d-flex align-items-center gap-2"
-              @click="handleDeleteAccount">
-              <UserX style="width:16px;height:16px" /> Supprimer le compte
+              @click="handleSuspendOwnAccount">
+              <UserX style="width:16px;height:16px" /> Suspendre mon compte
             </button>
           </div>
         </div>
@@ -340,15 +299,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   User, Award, FileText, Briefcase, MapPin, MessageSquare,
   Edit, Download, Star, Calendar, Plus, Trash2, Lock,
-  UserX, LogOut, AlertTriangle
+  UserX, LogOut
 } from 'lucide-vue-next'
-import { badges, certificates, skills as initialSkills, missionHistory } from '@/data/mockData'
-import { getCurrentUser, logout as authLogout, hasMinRole } from '@/utils/auth'
+import { getCurrentUser, logout as authLogout } from '@/utils/auth'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -356,7 +314,10 @@ if (!user) router.push('/login')
 
 const activeTab     = ref('info')
 const permissions   = ref({ ...user.permissions })
-const skills        = ref([...initialSkills])
+const skills        = ref([...(user?.skills || [])])
+const badges        = computed(() => user?.badges || [])
+const certificates  = computed(() => user?.certificates || [])
+const missionHistory = computed(() => user?.missionHistory || [])
 const isAddingSkill = ref(false)
 const newSkillName  = ref('')
 const newSkillLevel = ref('Débutant')
@@ -400,11 +361,46 @@ const handleChangePassword = () => {
   }
 }
 
-const handleDeleteAccount = () => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action désactivera votre compte.')) {
+const handleEditProfile = () => {
+  router.push('/profile/edit')
+}
+
+const handleSuspendOwnAccount = async () => {
+  if (!confirm('Voulez-vous vraiment suspendre votre compte ?')) return
+
+  const reason = prompt('Raison de suspension (optionnel)', 'Suspension demandée par l\'utilisateur') || 'Suspension demandée par l\'utilisateur'
+  const userId = user.id
+  if (!userId) {
+    alert('Impossible de suspendre ce compte (ID utilisateur manquant).')
+    return
+  }
+
+  try {
+    await userService.update(userId, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone || '',
+      address: user.address || '',
+      dateOfBirth: user.dateOfBirth || '',
+      role: user.role,
+      allergies: user.allergies || [],
+      healthIssues: user.healthIssues || [],
+      hasLicense: !!user.hasLicense,
+      isMotorized: !!user.isMotorized,
+      hasVehicle: !!user.hasVehicle,
+      bibSize: user.bibSize || '',
+      isAnonymous: !!user.anonymous,
+      isSuspended: true,
+      suspensionReason: reason,
+      missionCount: user.missionCount || 0,
+    })
+
     authLogout()
-    alert('Votre compte a été désactivé')
+    alert('Votre compte est maintenant suspendu.')
     router.push('/login')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la suspension du compte')
   }
 }
 </script>

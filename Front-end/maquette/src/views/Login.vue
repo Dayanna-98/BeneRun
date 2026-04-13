@@ -84,7 +84,7 @@
             <p class="small fw-medium text-center text-muted mb-3">Comptes de démonstration</p>
             <div class="d-flex flex-column gap-2">
               <button
-                v-for="user in users" :key="user.id"
+                v-for="user in displayUsers" :key="`${user.source || 'mock'}-${user.id}`"
                 type="button"
                 class="btn btn-outline-secondary text-start p-3 d-flex align-items-center justify-content-between"
                 @click="quickLogin(user.email)">
@@ -92,12 +92,15 @@
                   <div class="small fw-medium">{{ user.firstName }} {{ user.lastName }}</div>
                   <div class="x-small text-muted">{{ user.email }}</div>
                 </div>
-                <span class="badge" style="background:rgba(26,34,48,.1);color:#1a2230">
-                  {{ user.accountType }}
-                </span>
+                <div class="d-flex flex-column align-items-end gap-1">
+                  <span class="badge" style="background:rgba(26,34,48,.1);color:#1a2230">
+                    {{ user.accountType }}
+                  </span>
+                  <span class="x-small text-muted">BDD</span>
+                </div>
               </button>
             </div>
-            <p class="x-small text-muted text-center mt-2 mb-0">Cliquez sur un compte puis connectez-vous</p>
+            <p class="x-small text-muted text-center mt-2 mb-0">Cliquez sur un compte pour remplir l'email.</p>
           </div>
 
         </div>
@@ -109,32 +112,64 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { LogIn, User, Lock } from 'lucide-vue-next'
-import { login } from '@/utils/auth'
+import { login, setCurrentUser } from '@/utils/auth'
 import { users } from '@/data/mockData'
+import userService from '@/services/userService'
+
+const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
 const router = useRouter()
 const email = ref('')
 const password = ref('')
 const error = ref('')
+const displayUsers = ref([])
 
-const handleLogin = () => {
-  error.value = ''
-  const user = login(email.value, password.value)
-  if (user) {
-    router.push('/')
-  } else {
-    error.value = 'Email ou mot de passe incorrect'
+onMounted(async () => {
+  try {
+    const dbUsers = await userService.getAll()
+    displayUsers.value = userService.mergeUsers(demoUsers, dbUsers)
+  } catch (apiError) {
+    console.error('Erreur chargement comptes BDD:', apiError)
+    displayUsers.value = demoUsers.map(user => ({ ...user, source: 'mock' }))
   }
+})
+
+const handleLogin = async () => {
+  error.value = ''
+
+  const demoUser = login(email.value, password.value)
+  if (demoUser) {
+    router.push('/')
+    return
+  }
+
+  try {
+    const response = await userService.login(email.value, password.value)
+    if (response.user) {
+      localStorage.setItem('isLoggedIn', 'true')
+      localStorage.setItem('userEmail', response.user.email)
+      localStorage.setItem('token', String(response.user.id))
+      setCurrentUser(response.user)
+      router.push('/')
+      return
+    }
+  } catch (apiError) {
+    console.error('Erreur connexion API:', apiError)
+    error.value = apiError.message || 'Email ou mot de passe incorrect'
+    return
+  }
+
+  error.value = 'Email ou mot de passe incorrect'
 }
 
 const quickLogin = (userEmail) => {
-  const user = users.find(u => u.email === userEmail)
+  const user = displayUsers.value.find(u => u.email === userEmail)
   if (user) {
     email.value = user.email
-    password.value = user.password
+    password.value = user.source === 'mock' ? (user.password || '') : ''
   }
 }
 </script>

@@ -113,7 +113,13 @@
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 mt-2">Créer mon compte</button>
+            <button type="submit" class="btn btn-primary w-100 mt-2" :disabled="isLoading">
+              <span v-if="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              {{ isLoading ? 'Création en cours...' : 'Créer mon compte' }}
+            </button>
+
+            <!-- Erreur -->
+            <div v-if="errorMessage" class="alert alert-danger mb-3 mt-2">{{ errorMessage }}</div>
 
             <div class="text-center small d-flex flex-column gap-1">
               <p class="mb-0">
@@ -143,24 +149,73 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin } from 'lucide-vue-next'
+import userService from '@/services/userService'
+import { setCurrentUser } from '@/utils/auth'
 
 const router = useRouter()
 const showPassword        = ref(false)
 const showConfirmPassword = ref(false)
+const isLoading           = ref(false)
+const errorMessage        = ref('')
+
 const form = ref({
   firstName: '', lastName: '', email: '',
   phone: '', address: '', password: '', confirmPassword: ''
 })
 
-const handleRegister = () => {
+const handleRegister = async () => {
+  errorMessage.value = ''
+  
+  // Validations
+  if (!form.value.firstName.trim()) {
+    errorMessage.value = 'Le prénom est requis'
+    return
+  }
+  if (!form.value.lastName.trim()) {
+    errorMessage.value = 'Le nom est requis'
+    return
+  }
+  if (!form.value.email.trim()) {
+    errorMessage.value = 'L\'email est requis'
+    return
+  }
   if (form.value.password !== form.value.confirmPassword) {
-    alert('Les mots de passe ne correspondent pas'); return
+    errorMessage.value = 'Les mots de passe ne correspondent pas'
+    return
   }
   if (form.value.password.length < 8) {
-    alert('Le mot de passe doit contenir au moins 8 caractères'); return
+    errorMessage.value = 'Le mot de passe doit contenir au moins 8 caractères'
+    return
   }
-  localStorage.setItem('isLoggedIn', 'true')
-  alert('Compte créé avec succès !')
-  router.push('/')
+
+  isLoading.value = true
+  try {
+    const response = await userService.register({
+      firstName: form.value.firstName,
+      lastName: form.value.lastName,
+      email: form.value.email,
+      phone: form.value.phone,
+      address: form.value.address,
+      password: form.value.password,
+      role: 'volunteer',
+    })
+    
+    // Authentifier l'utilisateur automatiquement après inscription
+    if (response.user) {
+      const tokenValue = String(response.user.id)
+      localStorage.setItem('isLoggedIn', 'true')
+      localStorage.setItem('userEmail', response.user.email)
+      localStorage.setItem('token', tokenValue)
+      setCurrentUser(response.user)
+      
+      alert('Compte créé avec succès !')
+      router.push('/')
+    }
+  } catch (error) {
+    console.error('Erreur inscription:', error)
+    errorMessage.value = error.message || 'Erreur lors de l\'inscription. Veuillez réessayer.'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
