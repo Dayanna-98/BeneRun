@@ -21,6 +21,9 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login', [UserController::class, 'login']);
+Route::get('/users/{id}/competences', [UserController::class, 'competences']);
+Route::post('/users/{id}/competences', [UserController::class, 'addCompetence']);
+Route::delete('/users/{id}/competences/{competenceId}', [UserController::class, 'removeCompetence']);
 Route::apiResource('/users', UserController::class);
 Route::apiResource('/admins', AdminController::class);//->middleware('auth:sanctum');
 Route::apiResource('/affectations', AffectationController::class);//->middleware('auth:sanctum');

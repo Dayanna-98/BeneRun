@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Competence;
 
 class User extends Authenticatable
 {
@@ -61,5 +62,17 @@ class User extends Authenticatable
     public function admin()
     {
         return $this->hasOne(Admin::class, 'id_admin');
+    }
+
+    public function competences()
+    {
+        return $this->belongsToMany(
+            Competence::class,
+            'user_competences',
+            'id_utilisateur',
+            'id_competence',
+            'id_utilisateur',
+            'id_competence'
+        )->withTimestamps();
     }
 }
