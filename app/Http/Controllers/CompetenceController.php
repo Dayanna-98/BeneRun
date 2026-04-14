@@ -32,32 +32,41 @@ class CompetenceController extends Controller
  
     public function store(Request $request)
     {
-        $competence= new Competence;
-        $competence->nom_competence = $request->nom_competence;
+        $request->validate([
+            'nom_competence' => 'required|string|max:255|unique:competences,nom_competence',
+        ]);
 
+        $competence = new Competence;
+        $competence->nom_competence = $request->nom_competence;
         $competence->save();
+
         return response()->json([
-            'message'=>'Compétence ajoutée',
+            'message' => 'Compétence ajoutée',
             'competence' => $competence
-        ], 200);
+        ], 201);
     }
  
     public function update(Request $request, $id)
     {
-        if (Competence::where('id_competence', $id)->exists())
-        {
-            $competence = Competence::find($id);
-            $competence->nom_competence = $request->nom_competence;
-     
-            $competence->save();
+        $competence = Competence::find($id);
+
+        if (!$competence) {
             return response()->json([
-                'message'=>'Compétence mise à jour'
-            ], 200);
-        } else {
-            return response()->json([
-                'message'=>'Compétence inexistante'
+                'message' => 'Compétence inexistante'
             ], 404);
         }
+
+        $request->validate([
+            'nom_competence' => 'required|string|max:255|unique:competences,nom_competence,' . $id . ',id_competence',
+        ]);
+
+        $competence->nom_competence = $request->nom_competence;
+        $competence->save();
+
+        return response()->json([
+            'message' => 'Compétence mise à jour',
+            'competence' => $competence
+        ], 200);
     }
  
     public function destroy($id)

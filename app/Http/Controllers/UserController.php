@@ -10,6 +10,75 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
 
+public function competences($id)
+{
+    $user = User::find($id);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User inexistant'
+        ], 404);
+    }
+
+    $competences = $user->competences()->orderBy('nom_competence')->get();
+    return response()->json($competences);
+}
+
+public function addCompetence(Request $request, $id)
+{
+    $user = User::find($id);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User inexistant'
+        ], 404);
+    }
+
+    $validated = $request->validate([
+        'id_competence' => 'required|integer|exists:competences,id_competence',
+    ]);
+
+    $alreadyLinked = $user->competences()
+        ->where('competences.id_competence', $validated['id_competence'])
+        ->exists();
+
+    if ($alreadyLinked) {
+        return response()->json([
+            'message' => 'Compétence déjà associée à cet utilisateur'
+        ], 409);
+    }
+
+    $user->competences()->attach($validated['id_competence']);
+
+    return response()->json([
+        'message' => 'Compétence ajoutée au profil'
+    ], 201);
+}
+
+public function removeCompetence($id, $competenceId)
+{
+    $user = User::find($id);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User inexistant'
+        ], 404);
+    }
+
+    $exists = $user->competences()
+        ->where('competences.id_competence', $competenceId)
+        ->exists();
+
+    if (!$exists) {
+        return response()->json([
+            'message' => 'Compétence non associée à cet utilisateur'
+        ], 404);
+    }
+
+    $user->competences()->detach($competenceId);
+
+    return response()->json([
+        'message' => 'Compétence supprimée du profil'
+    ], 200);
+}
+
 public function login(Request $request)
 {
     $user = User::where('email', $request->email)->first();

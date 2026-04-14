@@ -27,6 +27,7 @@ import ManageUsers from '@/views/ManageUsers.vue'
 import CreateUser from '@/views/CreateUser.vue'
 import EditUser from '@/views/EditUser.vue'
 import Statistics from '@/views/Statistics.vue'
+import ManageCompetences from '@/views/ManageCompetences.vue'
 
 const routes = [
   // Routes publiques
@@ -55,6 +56,7 @@ const routes = [
   { path: '/manage-users/create', component: CreateUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
   { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true } },
   { path: '/statistics', component: Statistics, meta: { requiresAuth: true } },
+  { path: '/manage-competences', component: ManageCompetences, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

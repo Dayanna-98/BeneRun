@@ -146,6 +146,56 @@
           </div>
         </div>
 
+        <!-- Compétences utilisateur -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Compétences de l'utilisateur</h5></div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div v-if="skillError" class="alert alert-danger py-2 mb-0 small">{{ skillError }}</div>
+            <div v-if="skillLoading" class="small text-muted">Chargement des compétences...</div>
+
+            <div v-for="c in userCompetences" :key="c.id_competence" class="d-flex align-items-center gap-2">
+              <span class="small flex-fill">{{ c.nom_competence }}</span>
+              <button class="btn btn-link p-1" :disabled="skillLoading" @click="removeSkill(c.id_competence)">
+                <Trash2 style="width:16px;height:16px;color:#ef4444" />
+              </button>
+            </div>
+
+            <div v-if="userCompetences.length === 0 && !isAddingSkill && !skillLoading" class="small text-muted">
+              Aucune compétence pour le moment.
+            </div>
+
+            <div v-if="isAddingSkill" class="bg-light rounded p-3 d-flex flex-column gap-2">
+              <div>
+                <label class="x-small text-muted">Choisir une compétence</label>
+                <select v-model="selectedSkillId" class="form-select form-select-sm mt-1">
+                  <option value="">-- Sélectionner --</option>
+                  <option v-for="c in availableToAdd" :key="c.id_competence" :value="c.id_competence">
+                    {{ c.nom_competence }}
+                  </option>
+                </select>
+                <div v-if="availableToAdd.length === 0" class="x-small text-muted mt-1">
+                  Toutes les compétences disponibles ont déjà été ajoutées.
+                </div>
+              </div>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-primary btn-sm flex-fill" :disabled="!selectedSkillId || skillLoading" @click="addSkill">
+                  Ajouter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @click="cancelAddSkill">Annuler</button>
+              </div>
+            </div>
+
+            <button
+              v-else
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center gap-2"
+              @click="isAddingSkill = true"
+              :disabled="skillLoading"
+            >
+              <Plus style="width:16px;height:16px" /> Ajouter une compétence
+            </button>
+          </div>
+        </div>
+
         <!-- Gestion du compte -->
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Gestion du compte</h5></div>
@@ -248,12 +298,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Save, UserX, Eye, EyeOff } from 'lucide-vue-next'
+import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2 } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import { users } from '@/data/mockData'
 import userService from '@/services/userService'
+import competenceService from '@/services/competenceService'
 
 const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
@@ -289,6 +340,11 @@ onMounted(async () => {
   } catch {
     targetUser.value = demoUsers.find(u => String(u.id) === String(route.params.id)) || null
   }
+
+  if (targetUser.value?.id) {
+    await loadSkills(targetUser.value.id)
+  }
+
   syncEditForm()
   if (targetUser.value) {
     selectedRole.value = targetUser.value.role || 'volunteer'
@@ -299,6 +355,18 @@ const selectedRole = ref('volunteer')
 const showSuspendDialog = ref(false)
 const showAnonymizeDialog = ref(false)
 const showReactivateDialog = ref(false)
+const allCompetences = ref([])
+const userCompetences = ref([])
+const skillError = ref('')
+const skillLoading = ref(false)
+const isAddingSkill = ref(false)
+const selectedSkillId = ref('')
+
+const availableToAdd = computed(() =>
+  allCompetences.value.filter(
+    c => !userCompetences.value.some(u => u.id_competence === c.id_competence)
+  )
+)
 
 const roleOptions = [
   { value: 'volunteer',   label: 'Bénévole',    desc: 'Utilisateur de base' },
@@ -314,6 +382,59 @@ const roleBadgeClass = (role) => ({
   admin:      'bg-info-subtle text-info border-info',
   superadmin: 'bg-danger-subtle text-danger border-danger',
 }[role] || 'bg-secondary-subtle text-secondary border-secondary')
+
+const loadSkills = async (userId) => {
+  if (!userId) return
+  skillError.value = ''
+  skillLoading.value = true
+  try {
+    const [all, mine] = await Promise.all([
+      competenceService.getAll(),
+      competenceService.getUserCompetences(userId),
+    ])
+    allCompetences.value = all
+    userCompetences.value = mine
+  } catch {
+    skillError.value = 'Impossible de charger les compétences utilisateur.'
+  } finally {
+    skillLoading.value = false
+  }
+}
+
+const addSkill = async () => {
+  if (!targetUser.value?.id || !selectedSkillId.value) return
+  skillError.value = ''
+  skillLoading.value = true
+  try {
+    await competenceService.addToUser(targetUser.value.id, selectedSkillId.value)
+    await loadSkills(targetUser.value.id)
+    selectedSkillId.value = ''
+    isAddingSkill.value = false
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de l\'ajout de la compétence.'
+  } finally {
+    skillLoading.value = false
+  }
+}
+
+const removeSkill = async (competenceId) => {
+  if (!targetUser.value?.id) return
+  skillError.value = ''
+  skillLoading.value = true
+  try {
+    await competenceService.removeFromUser(targetUser.value.id, competenceId)
+    await loadSkills(targetUser.value.id)
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de la suppression de la compétence.'
+  } finally {
+    skillLoading.value = false
+  }
+}
+
+const cancelAddSkill = () => {
+  isAddingSkill.value = false
+  selectedSkillId.value = ''
+}
 
 const toUpdatePayload = (extra = {}) => ({
   firstName: extra.firstName ?? editForm.value.firstName ?? targetUser.value.firstName,

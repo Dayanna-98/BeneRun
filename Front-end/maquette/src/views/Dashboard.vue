@@ -240,6 +240,12 @@
                 </button>
               </div>
             </template>
+            <div v-if="user.role === 'admin' || user.role === 'superadmin'" class="col-6">
+              <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center gap-2 py-3" @click="router.push('/manage-competences')">
+                <Star style="width:24px;height:24px;color:#1a2230" />
+                <span class="x-small">Gérer Compétences</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

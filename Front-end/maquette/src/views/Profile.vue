@@ -55,7 +55,7 @@
           <div class="col-4">
             <div class="rounded-3 text-center p-3 border border-white border-opacity-25"
               style="background:rgba(255,255,255,.1)">
-              <div class="fs-5 fw-bold" style="color:#d4e645">{{ skills.length }}</div>
+              <div class="fs-5 fw-bold" style="color:#d4e645">{{ userCompetences.length }}</div>
               <div class="x-small text-white-50">Compétences</div>
             </div>
           </div>
@@ -164,35 +164,40 @@
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Compétences</h5></div>
           <div class="card-body d-flex flex-column gap-3">
-            <div v-for="skill in skills" :key="skill.id" class="d-flex align-items-center gap-2">
-              <span class="small flex-fill">{{ skill.name }}</span>
-              <span :class="['badge',
-                skill.level === 'Expert' ? 'bg-primary' :
-                skill.level === 'Avancé' ? 'bg-secondary' :
-                'bg-light text-dark border']">
-                {{ skill.level }}
-              </span>
-              <button class="btn btn-link p-1" @click="removeSkill(skill.id)">
+
+            <div v-if="skillError" class="alert alert-danger py-2 mb-0 small">{{ skillError }}</div>
+
+            <div v-for="c in userCompetences" :key="c.id_competence" class="d-flex align-items-center gap-2">
+              <span class="small flex-fill">{{ c.nom_competence }}</span>
+              <button class="btn btn-link p-1" :disabled="skillLoading" @click="removeSkill(c.id_competence)">
                 <Trash2 style="width:16px;height:16px;color:#ef4444" />
               </button>
+            </div>
+
+            <div v-if="userCompetences.length === 0 && !isAddingSkill" class="small text-muted">
+              Aucune compétence pour le moment.
             </div>
 
             <!-- Formulaire ajout -->
             <div v-if="isAddingSkill" class="bg-light rounded p-3 d-flex flex-column gap-2">
               <div>
-                <label class="x-small text-muted">Nom de la compétence</label>
-                <input v-model="newSkillName" type="text" class="form-control form-control-sm mt-1"
-                  placeholder="Ex: Premiers secours, Logistique..." />
-              </div>
-              <div>
-                <label class="x-small text-muted">Niveau</label>
-                <select v-model="newSkillLevel" class="form-select form-select-sm mt-1">
-                  <option v-for="l in skillLevels" :key="l" :value="l">{{ l }}</option>
+                <label class="x-small text-muted">Choisir une compétence</label>
+                <select v-model="selectedSkillId" class="form-select form-select-sm mt-1">
+                  <option value="">-- Sélectionner --</option>
+                  <option v-for="c in availableToAdd" :key="c.id_competence" :value="c.id_competence">
+                    {{ c.nom_competence }}
+                  </option>
                 </select>
+                <div v-if="availableToAdd.length === 0" class="x-small text-muted mt-1">
+                  Toutes les compétences disponibles ont déjà été ajoutées.
+                </div>
               </div>
               <div class="d-flex gap-2 pt-1">
                 <button class="btn btn-primary btn-sm flex-fill"
-                  :disabled="!newSkillName.trim()" @click="addSkill">Ajouter</button>
+                  :disabled="!selectedSkillId || skillLoading" @click="addSkill">
+                  <span v-if="skillLoading" class="spinner-border spinner-border-sm me-1" />
+                  Ajouter
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" @click="cancelAddSkill">Annuler</button>
               </div>
             </div>
@@ -299,7 +304,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   User, Award, FileText, Briefcase, MapPin, MessageSquare,
@@ -307,6 +312,8 @@ import {
   UserX, LogOut
 } from 'lucide-vue-next'
 import { getCurrentUser, logout as authLogout } from '@/utils/auth'
+import competenceService from '@/services/competenceService'
+import userService from '@/services/userService'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -314,34 +321,70 @@ if (!user) router.push('/login')
 
 const activeTab     = ref('info')
 const permissions   = ref({ ...user.permissions })
-const skills        = ref([...(user?.skills || [])])
 const badges        = computed(() => user?.badges || [])
 const certificates  = computed(() => user?.certificates || [])
 const missionHistory = computed(() => user?.missionHistory || [])
-const isAddingSkill = ref(false)
-const newSkillName  = ref('')
-const newSkillLevel = ref('Débutant')
-const skillLevels   = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert']
 
-const addSkill = () => {
-  if (newSkillName.value.trim()) {
-    skills.value.push({
-      id: Date.now().toString(),
-      name: newSkillName.value.trim(),
-      level: newSkillLevel.value
-    })
-    cancelAddSkill()
+// --- Compétences ---
+const allCompetences    = ref([])   // toutes les compétences dispo en bdd
+const userCompetences   = ref([])   // compétences de l'utilisateur
+const isAddingSkill     = ref(false)
+const selectedSkillId   = ref('')
+const skillError        = ref('')
+const skillLoading      = ref(false)
+
+const availableToAdd = computed(() =>
+  allCompetences.value.filter(
+    c => !userCompetences.value.some(u => u.id_competence === c.id_competence)
+  )
+)
+
+const loadSkills = async () => {
+  if (!user?.id) return
+  try {
+    const [all, mine] = await Promise.all([
+      competenceService.getAll(),
+      competenceService.getUserCompetences(user.id),
+    ])
+    allCompetences.value  = all
+    userCompetences.value = mine
+  } catch {
+    skillError.value = 'Impossible de charger les compétences.'
+  }
+}
+
+const addSkill = async () => {
+  if (!selectedSkillId.value) return
+  skillError.value  = ''
+  skillLoading.value = true
+  try {
+    await competenceService.addToUser(user.id, selectedSkillId.value)
+    await loadSkills()
+    selectedSkillId.value = ''
+    isAddingSkill.value   = false
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de l\'ajout de la compétence.'
+  } finally {
+    skillLoading.value = false
+  }
+}
+
+const removeSkill = async (competenceId) => {
+  skillError.value  = ''
+  skillLoading.value = true
+  try {
+    await competenceService.removeFromUser(user.id, competenceId)
+    await loadSkills()
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de la suppression de la compétence.'
+  } finally {
+    skillLoading.value = false
   }
 }
 
 const cancelAddSkill = () => {
-  isAddingSkill.value = false
-  newSkillName.value  = ''
-  newSkillLevel.value = 'Débutant'
-}
-
-const removeSkill = (id) => {
-  skills.value = skills.value.filter(s => s.id !== id)
+  isAddingSkill.value   = false
+  selectedSkillId.value = ''
 }
 
 const exportCert = (name) => {
@@ -403,4 +446,6 @@ const handleSuspendOwnAccount = async () => {
     alert(error.message || 'Erreur lors de la suspension du compte')
   }
 }
+
+onMounted(loadSkills)
 </script>
