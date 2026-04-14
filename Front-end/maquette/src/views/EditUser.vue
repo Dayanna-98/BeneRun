@@ -196,6 +196,57 @@
           </div>
         </div>
 
+        <!-- Badges utilisateur -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Badges de l'utilisateur</h5></div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div v-if="badgeError" class="alert alert-danger py-2 mb-0 small">{{ badgeError }}</div>
+            <div v-if="badgeLoading" class="small text-muted">Chargement des badges...</div>
+
+            <div v-for="b in userBadges" :key="b.id_badge" class="d-flex align-items-center gap-2">
+              <span class="small flex-fill">{{ b.titre_badge }}</span>
+              <span v-if="b.score_badge" class="badge bg-light text-dark border">{{ b.score_badge }} pts</span>
+              <button class="btn btn-link p-1" :disabled="badgeSaving || badgeLoading" @click="removeBadge(b.id_badge)">
+                <Trash2 style="width:16px;height:16px;color:#ef4444" />
+              </button>
+            </div>
+
+            <div v-if="userBadges.length === 0 && !isAddingBadge && !badgeLoading" class="small text-muted">
+              Aucun badge pour le moment.
+            </div>
+
+            <div v-if="isAddingBadge" class="bg-light rounded p-3 d-flex flex-column gap-2">
+              <div>
+                <label class="x-small text-muted">Choisir un badge</label>
+                <select v-model="selectedBadgeId" class="form-select form-select-sm mt-1">
+                  <option value="">-- Sélectionner --</option>
+                  <option v-for="b in availableBadgesToAdd" :key="b.id_badge" :value="b.id_badge">
+                    {{ b.titre_badge }}{{ b.score_badge ? ` (${b.score_badge} pts)` : '' }}
+                  </option>
+                </select>
+                <div v-if="availableBadgesToAdd.length === 0" class="x-small text-muted mt-1">
+                  Tous les badges disponibles ont déjà été ajoutés.
+                </div>
+              </div>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-primary btn-sm flex-fill" :disabled="!selectedBadgeId || badgeSaving || badgeLoading" @click="addBadge">
+                  Ajouter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @click="cancelAddBadge">Annuler</button>
+              </div>
+            </div>
+
+            <button
+              v-else
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center gap-2"
+              @click="isAddingBadge = true"
+              :disabled="badgeLoading"
+            >
+              <Award style="width:16px;height:16px" /> Ajouter un badge
+            </button>
+          </div>
+        </div>
+
         <!-- Gestion du compte -->
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Gestion du compte</h5></div>
@@ -300,11 +351,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2, Award } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import { users } from '@/data/mockData'
 import userService from '@/services/userService'
 import competenceService from '@/services/competenceService'
+import badgeService from '@/services/badgeService'
 
 const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
@@ -343,6 +395,7 @@ onMounted(async () => {
 
   if (targetUser.value?.id) {
     await loadSkills(targetUser.value.id)
+    await loadBadges(targetUser.value.id)
   }
 
   syncEditForm()
@@ -361,10 +414,23 @@ const skillError = ref('')
 const skillLoading = ref(false)
 const isAddingSkill = ref(false)
 const selectedSkillId = ref('')
+const allBadges = ref([])
+const userBadges = ref([])
+const badgeError = ref('')
+const badgeLoading = ref(false)
+const badgeSaving = ref(false)
+const isAddingBadge = ref(false)
+const selectedBadgeId = ref('')
 
 const availableToAdd = computed(() =>
   allCompetences.value.filter(
     c => !userCompetences.value.some(u => u.id_competence === c.id_competence)
+  )
+)
+
+const availableBadgesToAdd = computed(() =>
+  allBadges.value.filter(
+    b => !userBadges.value.some(u => u.id_badge === b.id_badge)
   )
 )
 
@@ -401,6 +467,24 @@ const loadSkills = async (userId) => {
   }
 }
 
+const loadBadges = async (userId) => {
+  if (!userId) return
+  badgeError.value = ''
+  badgeLoading.value = true
+  try {
+    const [all, mine] = await Promise.all([
+      badgeService.getAll(),
+      badgeService.getUserBadges(userId),
+    ])
+    allBadges.value = all
+    userBadges.value = mine
+  } catch (error) {
+    badgeError.value = error?.response?.data?.message || 'Impossible de charger les badges utilisateur.'
+  } finally {
+    badgeLoading.value = false
+  }
+}
+
 const addSkill = async () => {
   if (!targetUser.value?.id || !selectedSkillId.value) return
   skillError.value = ''
@@ -434,6 +518,41 @@ const removeSkill = async (competenceId) => {
 const cancelAddSkill = () => {
   isAddingSkill.value = false
   selectedSkillId.value = ''
+}
+
+const addBadge = async () => {
+  if (!targetUser.value?.id || !selectedBadgeId.value) return
+  badgeError.value = ''
+  badgeSaving.value = true
+  try {
+    await badgeService.addToUser(targetUser.value.id, selectedBadgeId.value)
+    await loadBadges(targetUser.value.id)
+    selectedBadgeId.value = ''
+    isAddingBadge.value = false
+  } catch (error) {
+    badgeError.value = error?.response?.data?.message || 'Erreur lors de l\'ajout du badge.'
+  } finally {
+    badgeSaving.value = false
+  }
+}
+
+const removeBadge = async (badgeId) => {
+  if (!targetUser.value?.id) return
+  badgeError.value = ''
+  badgeSaving.value = true
+  try {
+    await badgeService.removeFromUser(targetUser.value.id, badgeId)
+    await loadBadges(targetUser.value.id)
+  } catch (error) {
+    badgeError.value = error?.response?.data?.message || 'Erreur lors de la suppression du badge.'
+  } finally {
+    badgeSaving.value = false
+  }
+}
+
+const cancelAddBadge = () => {
+  isAddingBadge.value = false
+  selectedBadgeId.value = ''
 }
 
 const toUpdatePayload = (extra = {}) => ({

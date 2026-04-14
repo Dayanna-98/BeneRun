@@ -28,6 +28,7 @@ import CreateUser from '@/views/CreateUser.vue'
 import EditUser from '@/views/EditUser.vue'
 import Statistics from '@/views/Statistics.vue'
 import ManageCompetences from '@/views/ManageCompetences.vue'
+import ManageBadges from '@/views/ManageBadges.vue'
 
 const routes = [
   // Routes publiques
@@ -52,11 +53,13 @@ const routes = [
   { path: '/manage-events', component: ManageEvents, meta: { requiresAuth: true } },
   { path: '/manage-events/create', component: CreateEvent, meta: { requiresAuth: true } },
   { path: '/manage-events/edit/:id', component: EditEvent, meta: { requiresAuth: true } },
-  { path: '/manage-users', component: ManageUsers, meta: { requiresAuth: true } },
+  { path: '/manage-users', component: ManageUsers, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
   { path: '/manage-users/create', component: CreateUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
-  { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true } },
+  { path: '/manage-users/:id', component: EditUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
+  { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
   { path: '/statistics', component: Statistics, meta: { requiresAuth: true } },
   { path: '/manage-competences', component: ManageCompetences, meta: { requiresAuth: true } },
+  { path: '/manage-badges', component: ManageBadges, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
