@@ -17,6 +17,19 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  const currentUserRaw = localStorage.getItem('currentUser')
+  if (currentUserRaw) {
+    try {
+      const currentUser = JSON.parse(currentUserRaw)
+      if (currentUser?.role) {
+        config.headers['X-User-Role'] = currentUser.role
+      }
+    } catch {
+      // Ignore malformed local user cache and continue without role header.
+    }
+  }
+
   return config
 })
 

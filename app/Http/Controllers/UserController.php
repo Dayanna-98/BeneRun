@@ -10,6 +10,33 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
 
+private function isSuperAdminRequest(Request $request): bool
+{
+    $headerRole = $request->header('X-User-Role');
+    if (!empty($headerRole) && $this->normalizeRole($headerRole) === 'superadmin') {
+        return true;
+    }
+
+    $authorizationHeader = $request->header('Authorization');
+    if (!is_string($authorizationHeader) || !str_starts_with($authorizationHeader, 'Bearer ')) {
+        return false;
+    }
+
+    $token = trim(substr($authorizationHeader, 7));
+    if (!ctype_digit($token)) {
+        return false;
+    }
+
+    $actor = User::find((int) $token);
+
+    return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
+}
+
+private function normalizeRole(?string $role): string
+{
+    return str_replace(['-', '_', ' '], '', strtolower((string) $role));
+}
+
 public function competences($id)
 {
     $user = User::find($id);
@@ -76,6 +103,89 @@ public function removeCompetence($id, $competenceId)
 
     return response()->json([
         'message' => 'Compétence supprimée du profil'
+    ], 200);
+}
+
+public function badges($id)
+{
+    $user = User::find($id);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User inexistant'
+        ], 404);
+    }
+
+    $badges = $user->badges()->orderBy('titre_badge')->get();
+    return response()->json($badges);
+}
+
+public function addBadge(Request $request, $id)
+{
+    if (!$this->isSuperAdminRequest($request)) {
+        return response()->json([
+            'message' => 'Action réservée aux super-admins'
+        ], 403);
+    }
+
+    $user = User::find($id);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User inexistant'
+        ], 404);
+    }
+
+    $validated = $request->validate([
+        'id_badge' => 'required|integer|exists:badges,id_badge',
+    ]);
+
+    $alreadyLinked = $user->badges()
+        ->where('badges.id_badge', $validated['id_badge'])
+        ->exists();
+
+    if ($alreadyLinked) {
+        return response()->json([
+            'message' => 'Badge déjà attribué à cet utilisateur'
+        ], 409);
+    }
+
+    $user->badges()->attach($validated['id_badge'], [
+        'attribue_le' => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Badge attribué au profil'
+    ], 201);
+}
+
+public function removeBadge(Request $request, $id, $badgeId)
+{
+    if (!$this->isSuperAdminRequest($request)) {
+        return response()->json([
+            'message' => 'Action réservée aux super-admins'
+        ], 403);
+    }
+
+    $user = User::find($id);
+    if (!$user) {
+        return response()->json([
+            'message' => 'User inexistant'
+        ], 404);
+    }
+
+    $exists = $user->badges()
+        ->where('badges.id_badge', $badgeId)
+        ->exists();
+
+    if (!$exists) {
+        return response()->json([
+            'message' => 'Badge non associé à cet utilisateur'
+        ], 404);
+    }
+
+    $user->badges()->detach($badgeId);
+
+    return response()->json([
+        'message' => 'Badge supprimé du profil'
     ], 200);
 }
 

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Badge;
 use App\Models\Competence;
 
 class User extends Authenticatable
@@ -74,5 +75,17 @@ class User extends Authenticatable
             'id_utilisateur',
             'id_competence'
         )->withTimestamps();
+    }
+
+    public function badges()
+    {
+        return $this->belongsToMany(
+            Badge::class,
+            'user_badges',
+            'id_utilisateur',
+            'id_badge',
+            'id_utilisateur',
+            'id_badge'
+        )->withPivot('attribue_le')->withTimestamps();
     }
 }
