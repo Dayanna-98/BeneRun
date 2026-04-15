@@ -8,10 +8,19 @@ class Certificat extends Model
 {
     protected $table = 'certificats';
     protected $primaryKey = 'id_certificat';
-    protected $fillable = ['id_benevole', 'titre_certificat'];
+    protected $fillable = [
+        'id_utilisateur',
+        'titre_certificat',
+        'emetteur_certificat',
+        'date_emission_certificat',
+        'date_expiration_certificat',
+        'type_certificat',
+        'statut_certificat',
+        'chemin_fichier_certificat',
+    ];
 
-    public function benevole()
+    public function utilisateur()
     {
-        return $this->belongsTo(Benevole::class, 'id_benevole');
+        return $this->belongsTo(User::class, 'id_utilisateur', 'id_utilisateur');
     }
 }

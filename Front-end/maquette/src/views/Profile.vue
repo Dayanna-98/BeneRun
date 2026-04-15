@@ -249,6 +249,11 @@
       <div v-if="activeTab === 'certs'" class="card">
         <div class="card-header"><h5 class="mb-0">Mes Certificats ({{ certificates.length }})</h5></div>
         <div class="card-body d-flex flex-column gap-3">
+          <div v-if="certLoading" class="small text-muted">Chargement des certificats...</div>
+          <div v-if="certError" class="alert alert-danger py-2 mb-0 small">{{ certError }}</div>
+          <div v-if="!certLoading && certificates.length === 0" class="small text-muted">
+            Aucun certificat pour le moment.
+          </div>
           <div v-for="cert in certificates" :key="cert.id" class="border rounded p-3">
             <div class="d-flex align-items-start justify-content-between mb-2">
               <div class="flex-fill">
@@ -260,7 +265,7 @@
               </span>
             </div>
             <div class="x-small text-muted mb-3">
-              Délivré le {{ new Date(cert.issueDate).toLocaleDateString('fr-FR') }}
+              Délivré le {{ cert.issueDate ? new Date(cert.issueDate).toLocaleDateString('fr-FR') : 'Date non renseignée' }}
               <span v-if="cert.expiryDate">
                 • Expire le {{ new Date(cert.expiryDate).toLocaleDateString('fr-FR') }}
               </span>
@@ -313,6 +318,7 @@ import {
 } from 'lucide-vue-next'
 import { getCurrentUser, logout as authLogout } from '@/utils/auth'
 import competenceService from '@/services/competenceService'
+import certificatService from '@/services/certificatService'
 import userService from '@/services/userService'
 
 const router = useRouter()
@@ -322,7 +328,9 @@ if (!user) router.push('/login')
 const activeTab     = ref('info')
 const permissions   = ref({ ...user.permissions })
 const badges        = computed(() => user?.badges || [])
-const certificates  = computed(() => user?.certificates || [])
+const certificates  = ref([])
+const certLoading   = ref(false)
+const certError     = ref('')
 const missionHistory = computed(() => user?.missionHistory || [])
 
 // --- Compétences ---
@@ -387,6 +395,25 @@ const cancelAddSkill = () => {
   selectedSkillId.value = ''
 }
 
+const loadCertificates = async () => {
+  if (!user?.id) {
+    certificates.value = []
+    return
+  }
+
+  certError.value = ''
+  certLoading.value = true
+  try {
+    const apiCertificates = await certificatService.getByUser(user.id)
+    certificates.value = apiCertificates
+  } catch {
+    certError.value = 'Impossible de charger les certificats.'
+    certificates.value = user?.certificates || []
+  } finally {
+    certLoading.value = false
+  }
+}
+
 const exportCert = (name) => {
   alert(`Export du certificat "${name}" en PDF`)
 }
@@ -448,4 +475,5 @@ const handleSuspendOwnAccount = async () => {
 }
 
 onMounted(loadSkills)
+onMounted(loadCertificates)
 </script>

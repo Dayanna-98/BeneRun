@@ -88,4 +88,9 @@ class User extends Authenticatable
             'id_badge'
         )->withPivot('attribue_le')->withTimestamps();
     }
+
+    public function certificats()
+    {
+        return $this->hasMany(Certificat::class, 'id_utilisateur', 'id_utilisateur');
+    }
 }

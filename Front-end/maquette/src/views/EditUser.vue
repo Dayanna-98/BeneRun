@@ -247,6 +247,82 @@
           </div>
         </div>
 
+        <!-- Certificats utilisateur -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Certificats de l'utilisateur</h5></div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div v-if="certError" class="alert alert-danger py-2 mb-0 small">{{ certError }}</div>
+            <div v-if="certLoading" class="small text-muted">Chargement des certificats...</div>
+
+            <template v-for="cert in userCertificates" :key="cert.id">
+              <div v-if="editingCertId === cert.id" class="bg-light rounded p-3 d-flex flex-column gap-2">
+                <div>
+                  <label class="x-small text-muted">Titre</label>
+                  <input v-model="certEditForm.name" class="form-control form-control-sm mt-1" />
+                </div>
+                <div>
+                  <label class="x-small text-muted">Emetteur</label>
+                  <input v-model="certEditForm.issuer" class="form-control form-control-sm mt-1" />
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="x-small text-muted">Date émission</label>
+                    <input v-model="certEditForm.issueDate" type="date" class="form-control form-control-sm mt-1" />
+                  </div>
+                  <div class="col-6">
+                    <label class="x-small text-muted">Date expiration</label>
+                    <input v-model="certEditForm.expiryDate" type="date" class="form-control form-control-sm mt-1" />
+                  </div>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="x-small text-muted">Type</label>
+                    <select v-model="certEditForm.type" class="form-select form-select-sm mt-1">
+                      <option value="platform">Plateforme</option>
+                      <option value="external">Externe</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="x-small text-muted">Statut</label>
+                    <select v-model="certEditForm.status" class="form-select form-select-sm mt-1">
+                      <option value="pending">En attente</option>
+                      <option value="approved">Approuvé</option>
+                      <option value="rejected">Rejeté</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="d-flex gap-2 pt-1">
+                  <button class="btn btn-primary btn-sm flex-fill" :disabled="certSaving" @click="saveCertificate(cert.id)">
+                    Enregistrer
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" @click="cancelEditCertificate">Annuler</button>
+                </div>
+              </div>
+
+              <div v-else class="d-flex align-items-center gap-2 border rounded p-2">
+                <div class="small flex-fill">
+                  <div class="fw-medium">{{ cert.name }}</div>
+                  <div class="text-muted">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
+                  <div class="x-small text-muted mt-1">
+                    {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                    • {{ cert.status === 'approved' ? 'Approuvé' : cert.status === 'rejected' ? 'Rejeté' : 'En attente' }}
+                  </div>
+                </div>
+                <button class="btn btn-link p-1" :disabled="certSaving || certLoading" @click="startEditCertificate(cert)">
+                  <Edit style="width:16px;height:16px;color:#0d6efd" />
+                </button>
+                <button class="btn btn-link p-1" :disabled="certSaving || certLoading" @click="removeCertificate(cert.id)">
+                  <Trash2 style="width:16px;height:16px;color:#ef4444" />
+                </button>
+              </div>
+            </template>
+
+            <div v-if="userCertificates.length === 0 && !certLoading" class="small text-muted">
+              Aucun certificat pour le moment.
+            </div>
+          </div>
+        </div>
+
         <!-- Gestion du compte -->
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Gestion du compte</h5></div>
@@ -351,12 +427,13 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2, Award } from 'lucide-vue-next'
+import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2, Award, Edit } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import { users } from '@/data/mockData'
 import userService from '@/services/userService'
 import competenceService from '@/services/competenceService'
 import badgeService from '@/services/badgeService'
+import certificatService from '@/services/certificatService'
 
 const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
@@ -396,6 +473,7 @@ onMounted(async () => {
   if (targetUser.value?.id) {
     await loadSkills(targetUser.value.id)
     await loadBadges(targetUser.value.id)
+    await loadCertificates(targetUser.value.id)
   }
 
   syncEditForm()
@@ -421,6 +499,19 @@ const badgeLoading = ref(false)
 const badgeSaving = ref(false)
 const isAddingBadge = ref(false)
 const selectedBadgeId = ref('')
+const userCertificates = ref([])
+const certError = ref('')
+const certLoading = ref(false)
+const certSaving = ref(false)
+const editingCertId = ref(null)
+const certEditForm = ref({
+  name: '',
+  issuer: '',
+  issueDate: '',
+  expiryDate: '',
+  type: 'platform',
+  status: 'pending',
+})
 
 const availableToAdd = computed(() =>
   allCompetences.value.filter(
@@ -482,6 +573,19 @@ const loadBadges = async (userId) => {
     badgeError.value = error?.response?.data?.message || 'Impossible de charger les badges utilisateur.'
   } finally {
     badgeLoading.value = false
+  }
+}
+
+const loadCertificates = async (userId) => {
+  if (!userId) return
+  certError.value = ''
+  certLoading.value = true
+  try {
+    userCertificates.value = await certificatService.getByUserApi(userId)
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Impossible de charger les certificats utilisateur.'
+  } finally {
+    certLoading.value = false
   }
 }
 
@@ -553,6 +657,61 @@ const removeBadge = async (badgeId) => {
 const cancelAddBadge = () => {
   isAddingBadge.value = false
   selectedBadgeId.value = ''
+}
+
+const startEditCertificate = (cert) => {
+  editingCertId.value = cert.id
+  certEditForm.value = {
+    name: cert.name || '',
+    issuer: cert.issuer || '',
+    issueDate: cert.issueDate || '',
+    expiryDate: cert.expiryDate || '',
+    type: cert.type || 'platform',
+    status: cert.status || 'pending',
+  }
+}
+
+const cancelEditCertificate = () => {
+  editingCertId.value = null
+}
+
+const saveCertificate = async (certificateId) => {
+  if (!targetUser.value?.id) return
+  certError.value = ''
+  certSaving.value = true
+  try {
+    await certificatService.update(certificateId, {
+      userId: targetUser.value.id,
+      name: certEditForm.value.name,
+      issuer: certEditForm.value.issuer,
+      issueDate: certEditForm.value.issueDate || null,
+      expiryDate: certEditForm.value.expiryDate || null,
+      type: certEditForm.value.type,
+      status: certEditForm.value.status,
+    })
+    await loadCertificates(targetUser.value.id)
+    editingCertId.value = null
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Erreur lors de la modification du certificat.'
+  } finally {
+    certSaving.value = false
+  }
+}
+
+const removeCertificate = async (certificateId) => {
+  if (!targetUser.value?.id) return
+  if (!confirm('Supprimer ce certificat ?')) return
+
+  certError.value = ''
+  certSaving.value = true
+  try {
+    await certificatService.delete(certificateId)
+    await loadCertificates(targetUser.value.id)
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Erreur lors de la suppression du certificat.'
+  } finally {
+    certSaving.value = false
+  }
 }
 
 const toUpdatePayload = (extra = {}) => ({
