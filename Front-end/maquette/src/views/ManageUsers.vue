@@ -66,6 +66,9 @@
                 <button class="btn btn-link p-1 text-warning" title="Gérer les badges" @click="openBadgeManager(u)">
                   <Award style="width:16px;height:16px" />
                 </button>
+                <button class="btn btn-link p-1 text-primary" title="Gérer les certificats" @click="openCertificateManager(u)">
+                  <FileText style="width:16px;height:16px" />
+                </button>
                 <button class="btn btn-link p-1 text-secondary" @click="router.push(`/manage-users/${u.id}`)">
                   <Edit style="width:16px;height:16px" />
                 </button>
@@ -147,6 +150,89 @@
       </div>
     </div>
 
+    <div v-if="certificateModal.open" class="modal-backdrop-custom" @click.self="closeCertificateManager">
+      <div class="modal-dialog-custom card shadow-lg">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="mb-0 d-flex align-items-center gap-2">
+            <FileText style="width:18px;height:18px;color:#0d6efd" />
+            Certificats de {{ certificateModal.user?.firstName }} {{ certificateModal.user?.lastName }}
+          </h5>
+          <button class="btn btn-link p-0 text-secondary" @click="closeCertificateManager">
+            <X style="width:20px;height:20px" />
+          </button>
+        </div>
+        <div class="card-body d-flex flex-column gap-3">
+          <div v-if="certificateModal.loading" class="text-muted small">
+            <span class="spinner-border spinner-border-sm me-1" role="status"></span>Chargement...
+          </div>
+          <div v-else-if="certificateModal.certificates.length === 0" class="text-muted small fst-italic">
+            Aucun certificat attribué.
+          </div>
+          <ul v-else class="list-group list-group-flush">
+            <li v-for="cert in certificateModal.certificates" :key="cert.id" class="list-group-item py-3 px-0">
+              <div v-if="certificateModal.editingId === cert.id" class="d-flex flex-column gap-2">
+                <input v-model="certificateModal.editForm.name" type="text" class="form-control form-control-sm" placeholder="Titre" />
+                <input v-model="certificateModal.editForm.issuer" type="text" class="form-control form-control-sm" placeholder="Emetteur" />
+                <div class="row g-2">
+                  <div class="col-6">
+                    <input v-model="certificateModal.editForm.issueDate" type="date" class="form-control form-control-sm" />
+                  </div>
+                  <div class="col-6">
+                    <input v-model="certificateModal.editForm.expiryDate" type="date" class="form-control form-control-sm" />
+                  </div>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <select v-model="certificateModal.editForm.type" class="form-select form-select-sm">
+                      <option value="platform">Plateforme</option>
+                      <option value="external">Externe</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <select v-model="certificateModal.editForm.status" class="form-select form-select-sm">
+                      <option value="pending">En attente</option>
+                      <option value="approved">Approuvé</option>
+                      <option value="rejected">Rejeté</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-1">
+                  <button class="btn btn-outline-secondary btn-sm" :disabled="certificateModal.saving" @click="cancelEditCertificate">Annuler</button>
+                  <button class="btn btn-primary btn-sm" :disabled="certificateModal.saving" @click="saveEditedCertificate(cert.id)">
+                    <span v-if="certificateModal.saving" class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    Enregistrer
+                  </button>
+                </div>
+              </div>
+
+              <div v-else class="d-flex align-items-start justify-content-between gap-2">
+                <div class="flex-fill">
+                  <div class="fw-medium small">{{ cert.name }}</div>
+                  <div class="x-small text-muted">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
+                  <div class="d-flex flex-wrap gap-1 mt-1">
+                    <span class="badge bg-secondary-subtle text-secondary border">{{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}</span>
+                    <span class="badge" :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
+                  </div>
+                  <div class="x-small text-muted mt-1">
+                    Délivré le {{ formatDate(cert.issueDate) }}
+                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
+                  </div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" :disabled="certificateModal.saving" @click="startEditCertificate(cert)">
+                    <Edit style="width:14px;height:14px" />
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" :disabled="certificateModal.saving" @click="deleteCertificateFromUser(cert)">
+                    <Trash2 style="width:14px;height:14px" />
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <div v-if="toast.show" :class="`toast-custom alert alert-${toast.type} shadow`">
       {{ toast.message }}
     </div>
@@ -156,11 +242,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone, Award, X } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone, Award, FileText, X } from 'lucide-vue-next'
 import { users } from '@/data/mockData'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import userService from '@/services/userService'
 import badgeService from '@/services/badgeService'
+import certificatService from '@/services/certificatService'
 
 const demoUsers = users.filter(userData => userData.email === 'admin@benerun.ch')
 
@@ -179,6 +266,23 @@ const badgeModal = ref({
   selectedBadgeId: '',
   loading: false,
   saving: false,
+})
+
+const certificateModal = ref({
+  open: false,
+  user: null,
+  certificates: [],
+  loading: false,
+  saving: false,
+  editingId: null,
+  editForm: {
+    name: '',
+    issuer: '',
+    issueDate: '',
+    expiryDate: '',
+    type: 'platform',
+    status: 'pending',
+  },
 })
 
 onMounted(async () => {
@@ -235,6 +339,114 @@ async function openBadgeManager(targetUser) {
 
 function closeBadgeManager() {
   badgeModal.value.open = false
+}
+
+function formatDate(value) {
+  if (!value) return 'Date non renseignée'
+  return new Date(value).toLocaleDateString('fr-FR')
+}
+
+function formatStatus(status) {
+  if (status === 'approved') return 'Approuvé'
+  if (status === 'rejected') return 'Rejeté'
+  return 'En attente'
+}
+
+function statusBadgeClass(status) {
+  if (status === 'approved') return 'bg-success-subtle text-success border border-success-subtle'
+  if (status === 'rejected') return 'bg-danger-subtle text-danger border border-danger-subtle'
+  return 'bg-warning-subtle text-warning border border-warning-subtle'
+}
+
+async function openCertificateManager(targetUser) {
+  certificateModal.value = {
+    open: true,
+    user: targetUser,
+    certificates: [],
+    loading: true,
+    saving: false,
+    editingId: null,
+    editForm: {
+      name: '',
+      issuer: '',
+      issueDate: '',
+      expiryDate: '',
+      type: 'platform',
+      status: 'pending',
+    },
+  }
+
+  try {
+    certificateModal.value.certificates = await certificatService.getByUserApi(targetUser.id)
+  } catch {
+    showToast('Impossible de charger les certificats utilisateur.', 'danger')
+  } finally {
+    certificateModal.value.loading = false
+  }
+}
+
+function closeCertificateManager() {
+  certificateModal.value.open = false
+}
+
+function startEditCertificate(cert) {
+  certificateModal.value.editingId = cert.id
+  certificateModal.value.editForm = {
+    name: cert.name || '',
+    issuer: cert.issuer || '',
+    issueDate: cert.issueDate || '',
+    expiryDate: cert.expiryDate || '',
+    type: cert.type || 'platform',
+    status: cert.status || 'pending',
+  }
+}
+
+function cancelEditCertificate() {
+  certificateModal.value.editingId = null
+}
+
+async function saveEditedCertificate(certId) {
+  if (!certificateModal.value.user?.id) return
+
+  const payload = {
+    userId: certificateModal.value.user.id,
+    name: certificateModal.value.editForm.name,
+    issuer: certificateModal.value.editForm.issuer,
+    issueDate: certificateModal.value.editForm.issueDate || null,
+    expiryDate: certificateModal.value.editForm.expiryDate || null,
+    type: certificateModal.value.editForm.type,
+    status: certificateModal.value.editForm.status,
+  }
+
+  certificateModal.value.saving = true
+  try {
+    const updated = await certificatService.update(certId, payload)
+    const idx = certificateModal.value.certificates.findIndex(c => c.id === certId)
+    if (idx !== -1) {
+      certificateModal.value.certificates[idx] = updated
+    }
+    certificateModal.value.editingId = null
+    showToast('Certificat mis à jour.', 'success')
+  } catch {
+    showToast('Erreur lors de la modification du certificat.', 'danger')
+  } finally {
+    certificateModal.value.saving = false
+  }
+}
+
+async function deleteCertificateFromUser(cert) {
+  if (!confirm(`Supprimer le certificat "${cert.name}" ?`)) return
+
+  certificateModal.value.saving = true
+  try {
+    await certificatService.delete(cert.id)
+    certificateModal.value.certificates = certificateModal.value.certificates.filter(c => c.id !== cert.id)
+    showToast('Certificat supprimé de l utilisateur.', 'success')
+  } catch {
+    showToast('Erreur lors de la suppression du certificat.', 'danger')
+  } finally {
+    certificateModal.value.saving = false
+  }
 }
 
 async function addBadgeToUser() {
