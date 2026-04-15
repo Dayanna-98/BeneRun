@@ -8,11 +8,27 @@ class Affectation extends Model
 {
     protected $table = 'affectations';
     protected $primaryKey = 'id_affectation';
-    protected $fillable = ['id_benevole', 'id_mission', 'statut_affectation', 'remarque_affectation', 'est_responsable_affectation'];
+    protected $fillable = [
+        'id_mission',
+        'id_utilisateur',
+        'statut_affectation',
+        'est_responsable',
+        'remarque',
+        'date_affectation',
+        'date_confirmation',
+        'date_presence',
+    ];
 
-    public function benevole()
+    protected $casts = [
+        'est_responsable' => 'boolean',
+        'date_affectation' => 'datetime',
+        'date_confirmation' => 'datetime',
+        'date_presence' => 'datetime',
+    ];
+
+    public function utilisateur()
     {
-        return $this->belongsTo(Benevole::class, 'id_benevole');
+        return $this->belongsTo(User::class, 'id_utilisateur', 'id_utilisateur');
     }
 
     public function mission()
