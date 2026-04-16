@@ -150,7 +150,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin } from 'lucide-vue-next'
 import userService from '@/services/userService'
-import { setCurrentUser } from '@/utils/auth'
+import { persistAuthSession } from '@/utils/auth'
 
 const router = useRouter()
 const showPassword        = ref(false)
@@ -190,7 +190,7 @@ const handleRegister = async () => {
 
   isLoading.value = true
   try {
-    const response = await userService.register({
+    await userService.register({
       firstName: form.value.firstName,
       lastName: form.value.lastName,
       email: form.value.email,
@@ -199,18 +199,19 @@ const handleRegister = async () => {
       password: form.value.password,
       role: 'volunteer',
     })
-    
-    // Authentifier l'utilisateur automatiquement après inscription
-    if (response.user) {
-      const tokenValue = String(response.user.id)
-      localStorage.setItem('isLoggedIn', 'true')
-      localStorage.setItem('userEmail', response.user.email)
-      localStorage.setItem('token', tokenValue)
-      setCurrentUser(response.user)
-      
+
+    // Authentification immédiate via l'API après création du compte.
+    const loginResponse = await userService.login(form.value.email, form.value.password)
+
+    if (loginResponse.user && loginResponse.token) {
+      persistAuthSession({ user: loginResponse.user, token: loginResponse.token })
       alert('Compte créé avec succès !')
       router.push('/')
+      return
     }
+
+    errorMessage.value = 'Compte créé, mais connexion automatique impossible. Veuillez vous connecter.'
+    router.push('/login')
   } catch (error) {
     console.error('Erreur inscription:', error)
     errorMessage.value = error.message || 'Erreur lors de l\'inscription. Veuillez réessayer.'

@@ -251,6 +251,77 @@
         <div class="card-body d-flex flex-column gap-3">
           <div v-if="certLoading" class="small text-muted">Chargement des certificats...</div>
           <div v-if="certError" class="alert alert-danger py-2 mb-0 small">{{ certError }}</div>
+
+          <div class="border rounded p-3 bg-light d-flex flex-column gap-2">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="small fw-medium">Soumettre un certificat</div>
+                <div class="x-small text-muted">Envoyez un certificat externe pour validation.</div>
+              </div>
+              <button
+                v-if="!isAddingCert"
+                class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                @click="startAddCert"
+              >
+                <Plus style="width:16px;height:16px" /> Soumettre
+              </button>
+            </div>
+
+            <div v-if="isAddingCert" class="d-flex flex-column gap-2">
+              <div>
+                <label class="x-small text-muted">Titre du certificat</label>
+                <input v-model="certForm.name" class="form-control form-control-sm mt-1" placeholder="Ex: PSC1" />
+              </div>
+              <div>
+                <label class="x-small text-muted">Émetteur</label>
+                <input v-model="certForm.issuer" class="form-control form-control-sm mt-1" placeholder="Ex: Croix-Rouge" />
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="x-small text-muted">Date d'émission</label>
+                  <input v-model="certForm.issueDate" type="date" class="form-control form-control-sm mt-1" />
+                </div>
+                <div class="col-6">
+                  <label class="x-small text-muted">Date d'expiration</label>
+                  <input v-model="certForm.expiryDate" type="date" class="form-control form-control-sm mt-1" />
+                </div>
+              </div>
+              <div>
+                <label class="x-small text-muted">Fichier (PDF ou image)</label>
+                <div
+                  class="border rounded mt-1 p-3 text-center"
+                  :class="isDraggingCertFile ? 'border-primary bg-primary-subtle' : 'bg-white'"
+                  style="cursor:pointer"
+                  @click="triggerCertFileSelect"
+                  @dragenter.prevent="isDraggingCertFile = true"
+                  @dragover.prevent="isDraggingCertFile = true"
+                  @dragleave.prevent="isDraggingCertFile = false"
+                  @drop.prevent="handleCertDrop"
+                >
+                  <div class="small fw-medium">Glissez-deposez votre document ici</div>
+                  <div class="x-small text-muted">ou cliquez pour selectionner un fichier</div>
+                </div>
+                <input
+                  ref="certFileInput"
+                  class="d-none"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  @change="handleCertFileChange"
+                />
+                <div v-if="certForm.file" class="x-small text-muted mt-1">Fichier sélectionné: {{ certForm.file.name }}</div>
+              </div>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-primary btn-sm flex-fill" :disabled="certSaving" @click="submitCertificate">
+                  <span v-if="certSaving" class="spinner-border spinner-border-sm me-1" />
+                  Soumettre
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" :disabled="certSaving" @click="cancelAddCert">
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div v-if="!certLoading && certificates.length === 0" class="small text-muted">
             Aucun certificat pour le moment.
           </div>
@@ -331,6 +402,17 @@ const badges        = computed(() => user?.badges || [])
 const certificates  = ref([])
 const certLoading   = ref(false)
 const certError     = ref('')
+const certSaving    = ref(false)
+const isAddingCert  = ref(false)
+const isDraggingCertFile = ref(false)
+const certFileInput = ref(null)
+const certForm      = ref({
+  name: '',
+  issuer: '',
+  issueDate: '',
+  expiryDate: '',
+  file: null,
+})
 const missionHistory = computed(() => user?.missionHistory || [])
 
 // --- Compétences ---
@@ -416,6 +498,93 @@ const loadCertificates = async () => {
 
 const exportCert = (name) => {
   alert(`Export du certificat "${name}" en PDF`)
+}
+
+const resetCertForm = () => {
+  certForm.value = {
+    name: '',
+    issuer: '',
+    issueDate: '',
+    expiryDate: '',
+    file: null,
+  }
+}
+
+const startAddCert = () => {
+  certError.value = ''
+  isAddingCert.value = true
+}
+
+const cancelAddCert = () => {
+  isAddingCert.value = false
+  resetCertForm()
+}
+
+const handleCertFileChange = (event) => {
+  const [file] = event.target.files || []
+  setCertFile(file || null)
+}
+
+const setCertFile = (file) => {
+  if (!file) {
+    certForm.value.file = null
+    return
+  }
+
+  const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+  const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.webp']
+  const lowerName = file.name.toLowerCase()
+  const hasAllowedExtension = allowedExtensions.some(ext => lowerName.endsWith(ext))
+
+  if (!allowedMimeTypes.includes(file.type) && !hasAllowedExtension) {
+    certError.value = 'Format non supporte. Utilisez PDF, PNG, JPG ou WEBP.'
+    return
+  }
+
+  certError.value = ''
+  certForm.value.file = file
+}
+
+const handleCertDrop = (event) => {
+  isDraggingCertFile.value = false
+  const [file] = event.dataTransfer?.files || []
+  setCertFile(file || null)
+}
+
+const triggerCertFileSelect = () => {
+  certFileInput.value?.click()
+}
+
+const submitCertificate = async () => {
+  if (!user?.id) return
+  if (!certForm.value.name.trim()) {
+    certError.value = 'Le titre du certificat est obligatoire.'
+    return
+  }
+
+  certError.value = ''
+  certSaving.value = true
+
+  try {
+    await certificatService.create({
+      userId: user.id,
+      name: certForm.value.name.trim(),
+      issuer: certForm.value.issuer.trim() || 'Émetteur non renseigné',
+      issueDate: certForm.value.issueDate || null,
+      expiryDate: certForm.value.expiryDate || null,
+      type: 'external',
+      status: 'pending',
+      file: certForm.value.file,
+    })
+
+    await loadCertificates()
+    isAddingCert.value = false
+    resetCertForm()
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Impossible de soumettre le certificat.'
+  } finally {
+    certSaving.value = false
+  }
 }
 
 const handleLogout = () => {
