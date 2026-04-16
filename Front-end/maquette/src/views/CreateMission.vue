@@ -234,11 +234,12 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Save, MapPin, Upload, X } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
-import { events, availableSkills } from '@/data/mockData'
+import { availableSkills } from '@/data/mockData'
+import api from '@/services/api'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -254,6 +255,7 @@ const formData = reactive({
 
 const selectedSkills = ref([])
 const photos = ref([])
+const eventsList = ref([])
 
 const switchOptions = [
   { key: 'postable',    label: 'Postable',           desc: 'Les bénévoles peuvent postuler' },
@@ -264,11 +266,11 @@ const switchOptions = [
 
 const futureEvents = computed(() => {
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  return events.filter(e => new Date(e.date) >= today)
+  return eventsList.value.filter(e => new Date(e.date) >= today)
 })
 
 const handleEventChange = () => {
-  const selected = events.find(e => e.id === formData.eventId)
+  const selected = eventsList.value.find(e => String(e.id) === String(formData.eventId))
   if (selected) {
     formData.date = selected.date || ''
     formData.location = selected.location || ''
@@ -302,8 +304,59 @@ const getCurrentLocation = () => {
   )
 }
 
-const handleSubmit = () => {
-  alert('Mission créée avec succès !')
-  router.push('/manage-missions')
+const loadEvents = async () => {
+  try {
+    const { data } = await api.get('/evenements')
+    eventsList.value = (data ?? []).map((event) => ({
+      id: String(event.id_evenement),
+      name: event.nom_evenement,
+      date: event.date_debut_evenement,
+      location: event.lieu_evenement,
+      locationCoords: {
+        lat: event.latitude_evenement,
+        lng: event.longitude_evenement,
+      },
+    }))
+  } catch (error) {
+    console.error('Erreur chargement événements:', error)
+    alert("Impossible de charger la liste des événements.")
+  }
 }
+
+const handleSubmit = async () => {
+  try {
+    await api.post('/missions', {
+      id_evenement: Number(formData.eventId),
+      responsable_utilisateur_id: Number(user.id) || null,
+      titre_mission: formData.name,
+      type_mission: (formData.type || 'autre').toLowerCase(),
+      description_mission: formData.description,
+      date_mission: formData.date,
+      heure_debut_mission: formData.startTime,
+      heure_fin_mission: formData.endTime,
+      lieu_mission: formData.location,
+      latitude_mission: formData.latitude ? Number(formData.latitude) : null,
+      longitude_mission: formData.longitude ? Number(formData.longitude) : null,
+      nombre_benevoles_max: Number(formData.maxVolunteers) || 0,
+      nombre_benevoles_backup: Number(formData.backupVolunteers) || 0,
+      statut_mission: 'open',
+      inscription_requise: !!formData.inscription,
+      visibilite_mission: formData.public ? 'public' : 'private',
+      consignes_securite: null,
+      image_mission: null,
+      est_publie_mission: !!formData.postable,
+      contact_nom: formData.responsibleName,
+      contact_telephone: formData.responsiblePhone,
+      contact_email: formData.responsibleEmail || null,
+    })
+
+    alert('Mission créée avec succès !')
+    router.push('/manage-missions')
+  } catch (error) {
+    console.error('Erreur création mission:', error)
+    alert('Impossible de créer la mission.')
+  }
+}
+
+onMounted(loadEvents)
 </script>

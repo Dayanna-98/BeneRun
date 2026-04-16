@@ -227,12 +227,12 @@ const toTime = (value) => {
   return value.slice(0, 5)
 }
 
-const buildCourseMap = (courses) => {
+const buildEvenementMap = (evenements) => {
   const map = new Map()
-  for (const course of courses) {
-    map.set(course.id_course, {
-      id: String(course.id_course),
-      name: course.nom_course,
+  for (const evenement of evenements) {
+    map.set(evenement.id_evenement, {
+      id: String(evenement.id_evenement),
+      name: evenement.nom_evenement,
       category: 'Sport',
     })
   }
@@ -249,15 +249,15 @@ const buildAffectationCountMap = (affectations) => {
 }
 
 const mapMissionFromApi = (mission, courseMap, affectationCountMap) => {
-  const event = courseMap.get(mission.id_course)
+  const event = courseMap.get(mission.id_evenement)
   const missionId = String(mission.id_mission)
 
   return {
     id: missionId,
-    eventId: event?.id || String(mission.id_course),
-    eventName: event?.name || `Course #${mission.id_course}`,
+    eventId: event?.id || String(mission.id_evenement),
+    eventName: event?.name || `Evenement #${mission.id_evenement}`,
     name: mission.titre_mission,
-    date: mission.date_debut_mission,
+    date: mission.date_mission,
     startTime: toTime(mission.heure_debut_mission),
     endTime: toTime(mission.heure_fin_mission),
     location: mission.lieu_mission,
@@ -265,10 +265,10 @@ const mapMissionFromApi = (mission, courseMap, affectationCountMap) => {
     type: mission.type_mission || 'General',
     requiredSkills: [],
     currentVolunteers: affectationCountMap.get(missionId) || 0,
-    maxVolunteers: Number(mission.nombre_mission) || 0,
+    maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
     imageUrl: null,
     isFavorite: false,
-    visibility: mission.publie_mission ? 'public' : 'private',
+    visibility: mission.visibilite_mission || 'public',
   }
 }
 
@@ -277,19 +277,19 @@ const loadMissions = async () => {
   loadError.value = ''
 
   try {
-    const [missionsResponse, coursesResponse, affectationsResponse] = await Promise.all([
+    const [missionsResponse, evenementsResponse, affectationsResponse] = await Promise.all([
       api.get('/missions'),
-      api.get('/courses'),
+      api.get('/evenements'),
       api.get('/affectations'),
     ])
 
-    const courses = coursesResponse.data ?? []
-    const courseMap = buildCourseMap(courses)
+    const evenements = evenementsResponse.data ?? []
+    const courseMap = buildEvenementMap(evenements)
     const affectationCountMap = buildAffectationCountMap(affectationsResponse.data ?? [])
 
-    events.value = courses.map(course => ({
-      id: String(course.id_course),
-      name: course.nom_course,
+    events.value = evenements.map(evenement => ({
+      id: String(evenement.id_evenement),
+      name: evenement.nom_evenement,
       category: 'Sport',
     }))
 

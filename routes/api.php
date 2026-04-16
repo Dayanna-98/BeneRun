@@ -9,6 +9,7 @@ use App\Http\Controllers\CertificatController;
 use App\Http\Controllers\CompetenceController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\MissionController;
 use App\Http\Controllers\PostulationController;
 use App\Http\Controllers\TelephoneController;
@@ -29,6 +30,7 @@ Route::apiResource('/certificats', CertificatController::class);//->middleware('
 Route::apiResource('/competences', CompetenceController::class);//->middleware('auth:sanctum');
 Route::apiResource('/courses', CourseController::class);//->middleware('auth:sanctum');
 Route::apiResource('/documents', DocumentController::class);//->middleware('auth:sanctum');
+Route::apiResource('/evenements', EvenementController::class);//->middleware('auth:sanctum');
 Route::apiResource('/missions', MissionController::class);//->middleware('auth:sanctum');
 Route::apiResource('/postulations', PostulationController::class);//->middleware('auth:sanctum');
 Route::apiResource('/telephones', TelephoneController::class);//->middleware('auth:sanctum');

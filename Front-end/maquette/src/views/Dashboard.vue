@@ -307,13 +307,10 @@ const toTime = (value) => {
   return value.slice(0, 5)
 }
 
-const resolveRole = (userId, adminUserIds, managerUserIds, firstAdminId) => {
-  if (adminUserIds.has(userId)) {
-    return userId === firstAdminId ? 'superadmin' : 'admin'
-  }
-  if (managerUserIds.has(userId)) {
-    return 'mission_manager'
-  }
+const resolveRole = (backendRole) => {
+  if (backendRole === 'superadmin') return 'superadmin'
+  if (backendRole === 'admin') return 'admin'
+  if (backendRole === 'responsable') return 'mission_manager'
   return 'volunteer'
 }
 
@@ -324,26 +321,20 @@ const loadDashboardData = async () => {
   try {
     const [
       usersResponse,
-      adminsResponse,
-      benevolesResponse,
-      coursesResponse,
+      evenementsResponse,
       missionsResponse,
       affectationsResponse,
       badgesResponse,
     ] = await Promise.all([
       api.get('/users'),
-      api.get('/admins'),
-      api.get('/benevoles'),
-      api.get('/courses'),
+      api.get('/evenements'),
       api.get('/missions'),
       api.get('/affectations'),
       api.get('/badges'),
     ])
 
     const users = usersResponse.data ?? []
-    const admins = adminsResponse.data ?? []
-    const benevoles = benevolesResponse.data ?? []
-    const courses = coursesResponse.data ?? []
+    const evenements = evenementsResponse.data ?? []
     const missions = missionsResponse.data ?? []
     const affectations = affectationsResponse.data ?? []
     const badgesData = badgesResponse.data ?? []
@@ -355,16 +346,7 @@ const loadDashboardData = async () => {
       return
     }
 
-    const adminUserIds = new Set(admins.map(admin => Number(admin.id_utilisateur)))
-    const managerBenevoleIds = new Set(missions.map(mission => Number(mission.id_benevole)))
-    const managerUserIds = new Set(
-      benevoles
-        .filter(benevole => managerBenevoleIds.has(Number(benevole.id_benevole)))
-        .map(benevole => Number(benevole.id_utilisateur))
-    )
-    const firstAdminId = admins.length > 0 ? Number(admins[0].id_utilisateur) : null
-
-    const resolvedRole = resolveRole(Number(rawCurrentUser.id_utilisateur), adminUserIds, managerUserIds, firstAdminId)
+    const resolvedRole = resolveRole(rawCurrentUser.role_utilisateur)
 
     user.value = {
       ...user.value,
@@ -378,11 +360,9 @@ const loadDashboardData = async () => {
 
     saveBackendUserSession(user.value)
 
-    const currentBenevole = benevoles.find(
-      benevole => Number(benevole.id_utilisateur) === Number(rawCurrentUser.id_utilisateur)
+    const evenementNames = new Map(
+      evenements.map(evenement => [Number(evenement.id_evenement), evenement.nom_evenement])
     )
-
-    const courseNames = new Map(courses.map(course => [Number(course.id_course), course.nom_course]))
 
     const affectationsByMission = new Map()
     for (const affectation of affectations) {
@@ -392,15 +372,15 @@ const loadDashboardData = async () => {
 
     const mappedMissions = missions.map((mission) => {
       const missionId = String(mission.id_mission)
-      const maxVolunteers = Number(mission.nombre_mission) || 0
+      const maxVolunteers = Number(mission.nombre_benevoles_max) || 0
       const currentVolunteers = affectationsByMission.get(missionId) || 0
 
       return {
         id: missionId,
-        eventId: String(mission.id_course),
-        eventName: courseNames.get(Number(mission.id_course)) || `Course #${mission.id_course}`,
+        eventId: String(mission.id_evenement),
+        eventName: evenementNames.get(Number(mission.id_evenement)) || `Evenement #${mission.id_evenement}`,
         name: mission.titre_mission,
-        date: mission.date_debut_mission,
+        date: mission.date_mission,
         startTime: toTime(mission.heure_debut_mission),
         endTime: toTime(mission.heure_fin_mission),
         location: mission.lieu_mission,
@@ -410,11 +390,11 @@ const loadDashboardData = async () => {
         currentVolunteers,
         maxVolunteers,
         progress: maxVolunteers > 0 ? Math.round((currentVolunteers / maxVolunteers) * 100) : 0,
-        visibility: mission.publie_mission ? 'public' : 'private',
-        inscription: true,
+        visibility: mission.visibilite_mission || 'public',
+        inscription: Boolean(mission.inscription_requise),
         missionManagers: [
           {
-            id: String(mission.id_benevole),
+            id: String(mission.responsable_utilisateur_id),
           },
         ],
       }
@@ -422,24 +402,18 @@ const loadDashboardData = async () => {
 
     availableMissions.value = mappedMissions
 
-    if (currentBenevole) {
-      const myMissionIds = new Set(
-        affectations
-          .filter(affectation => Number(affectation.id_benevole) === Number(currentBenevole.id_benevole))
-          .map(affectation => String(affectation.id_mission))
-      )
-      myActiveMissions.value = mappedMissions.filter(mission => myMissionIds.has(mission.id))
-      badges.value = badgesData
-        .filter(badge => Number(badge.id_benevole) === Number(currentBenevole.id_benevole))
-        .map(badge => ({
-          id: String(badge.id_badge),
-          name: badge.titre_badge,
-          icon: '🏅',
-        }))
-    } else {
-      myActiveMissions.value = []
-      badges.value = []
-    }
+    const myMissionIds = new Set(
+      affectations
+        .filter(affectation => Number(affectation.id_utilisateur) === Number(rawCurrentUser.id_utilisateur))
+        .map(affectation => String(affectation.id_mission))
+    )
+    myActiveMissions.value = mappedMissions.filter(mission => myMissionIds.has(mission.id))
+
+    badges.value = badgesData.map(badge => ({
+      id: String(badge.id_badge),
+      name: badge.titre_badge,
+      icon: '🏅',
+    }))
 
     missionHistory.value = []
   } catch (error) {

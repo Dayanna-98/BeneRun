@@ -198,14 +198,14 @@ const loadEventDetails = async () => {
   try {
     const eventId = route.params.id
 
-    const [courseResponse, missionsResponse, affectationsResponse] = await Promise.all([
-      api.get(`/courses/${eventId}`),
+    const [evenementResponse, missionsResponse, affectationsResponse] = await Promise.all([
+      api.get(`/evenements/${eventId}`),
       api.get('/missions'),
       api.get('/affectations'),
     ])
 
-    const course = courseResponse.data
-    if (!course || !course.id_course) {
+    const evenement = evenementResponse.data
+    if (!evenement || !evenement.id_evenement) {
       event.value = null
       eventMissions.value = []
       return
@@ -214,19 +214,19 @@ const loadEventDetails = async () => {
     const affectationCountMap = buildAffectationCountMap(affectationsResponse.data ?? [])
 
     const missionsForEvent = (missionsResponse.data ?? [])
-      .filter(mission => String(mission.id_course) === String(course.id_course))
+      .filter(mission => String(mission.id_evenement) === String(evenement.id_evenement))
       .map(mission => {
         const missionId = String(mission.id_mission)
         return {
           id: missionId,
-          eventId: String(course.id_course),
+          eventId: String(evenement.id_evenement),
           name: mission.titre_mission,
-          date: mission.date_debut_mission,
+          date: mission.date_mission,
           startTime: toTime(mission.heure_debut_mission),
           endTime: toTime(mission.heure_fin_mission),
           location: mission.lieu_mission,
           currentVolunteers: affectationCountMap.get(missionId) || 0,
-          maxVolunteers: Number(mission.nombre_mission) || 0,
+          maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
           requiredSkills: [],
         }
       })
@@ -235,14 +235,14 @@ const loadEventDetails = async () => {
     const currentVolunteers = missionsForEvent.reduce((sum, mission) => sum + mission.currentVolunteers, 0)
 
     event.value = {
-      id: String(course.id_course),
-      name: course.nom_course,
-      description: course.informations_course,
-      date: course.date_debut_course,
-      location: course.lieu_course,
-      imageUrl: null,
+      id: String(evenement.id_evenement),
+      name: evenement.nom_evenement,
+      description: evenement.description_evenement,
+      date: evenement.date_debut_evenement,
+      location: evenement.lieu_evenement,
+      imageUrl: evenement.image_evenement || null,
       category: 'Sport',
-      organizer: 'BeneRun',
+      organizer: evenement.organisateur_evenement || 'BeneRun',
       totalVolunteersNeeded,
       currentVolunteers,
       missionsCount: missionsForEvent.length,

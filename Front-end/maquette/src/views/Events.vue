@@ -147,23 +147,23 @@ const toTime = (value) => {
   return value.slice(0, 5)
 }
 
-const buildCourseMap = (courses) => {
+const buildEvenementMap = (evenements) => {
   const map = new Map()
-  for (const course of courses) {
-    map.set(course.id_course, course.nom_course)
+  for (const evenement of evenements) {
+    map.set(evenement.id_evenement, evenement.nom_evenement)
   }
   return map
 }
 
-const mapMissionFromApi = (mission, courseNames) => ({
+const mapMissionFromApi = (mission, evenementNames) => ({
   id: String(mission.id_mission),
   name: mission.titre_mission,
-  eventName: courseNames.get(mission.id_course) || `Course #${mission.id_course}`,
+  eventName: evenementNames.get(mission.id_evenement) || `Evenement #${mission.id_evenement}`,
   location: mission.lieu_mission,
-  date: mission.date_debut_mission,
+  date: mission.date_mission,
   startTime: toTime(mission.heure_debut_mission),
   currentVolunteers: 0,
-  maxVolunteers: Number(mission.nombre_mission) || 0,
+  maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
   requiredSkills: [],
   imageUrl: null,
   isFavorite: false,
@@ -174,16 +174,16 @@ const loadMissions = async () => {
   loadError.value = ''
 
   try {
-    const [missionsResponse, coursesResponse] = await Promise.all([
+    const [missionsResponse, evenementsResponse] = await Promise.all([
       api.get('/missions'),
-      api.get('/courses'),
+      api.get('/evenements'),
     ])
 
-    const courseNames = buildCourseMap(coursesResponse.data ?? [])
+    const evenementNames = buildEvenementMap(evenementsResponse.data ?? [])
 
     missions.value = (missionsResponse.data ?? [])
-      .filter(mission => mission.publie_mission)
-      .map(mission => mapMissionFromApi(mission, courseNames))
+      .filter(mission => mission.statut_mission !== 'cancelled')
+      .map(mission => mapMissionFromApi(mission, evenementNames))
 
     favorites.value = missions.value
       .filter(mission => mission.isFavorite)

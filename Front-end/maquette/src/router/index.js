@@ -60,13 +60,12 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   const isLoggedIn = !!localStorage.getItem('token')
   if (to.meta.requiresAuth && !isLoggedIn) {
-    next('/login')
-  } else {
-    next()
+    return '/login'
   }
+  return true
 })
 
 export default router

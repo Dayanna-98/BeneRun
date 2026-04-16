@@ -87,6 +87,7 @@ import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
+import api from '@/services/api'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -98,8 +99,33 @@ const formData = reactive({
   organizer: '', category: '', totalVolunteersNeeded: '', imageUrl: '',
 })
 
-const handleSubmit = () => {
-  alert('Événement créé avec succès !')
-  router.push('/manage-events')
+const handleSubmit = async () => {
+  try {
+    await api.post('/evenements', {
+      nom_evenement: formData.name,
+      description_evenement: formData.description,
+      date_debut_evenement: formData.date,
+      date_fin_evenement: formData.date,
+      heure_debut_evenement: null,
+      heure_fin_evenement: null,
+      lieu_evenement: formData.location,
+      latitude_evenement: null,
+      longitude_evenement: null,
+      organisateur_evenement: formData.organizer,
+      image_evenement: formData.imageUrl || null,
+      nombre_benevoles_requis: Number(formData.totalVolunteersNeeded) || 0,
+      est_annule_evenement: false,
+      date_annulation_evenement: null,
+      raison_annulation_evenement: null,
+      est_publie_evenement: true,
+      cree_par_utilisateur_id: Number(user.id) || 1,
+    })
+
+    alert('Événement créé avec succès !')
+    router.push('/manage-events')
+  } catch (error) {
+    console.error("Erreur lors de la creation de l'evenement:", error)
+    alert("Impossible de creer l'evenement.")
+  }
 }
 </script>

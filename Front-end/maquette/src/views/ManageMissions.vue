@@ -11,7 +11,7 @@
           <h1 class="fs-5 fw-semibold mb-0">Gestion des Missions</h1>
         </div>
         <button class="btn btn-primary btn-sm d-flex align-items-center gap-2"
-          @click="router.push('/create-mission')">
+          @click="router.push('/manage-missions/create')">
           <Plus style="width:16px;height:16px" /> Créer
         </button>
       </div>
@@ -82,7 +82,7 @@
               </div>
               <div class="d-flex gap-1">
                 <button class="btn btn-link p-1 text-secondary"
-                  @click="router.push(`/edit-mission/${mission.id}`)">
+                  @click="router.push(`/manage-missions/edit/${mission.id}`)">
                   <Edit style="width:16px;height:16px" />
                 </button>
                 <button class="btn btn-link p-1 text-danger"
@@ -157,10 +157,10 @@ const toTime = (value) => {
   return value.slice(0, 5)
 }
 
-const buildCourseMap = (courses) => {
+const buildEvenementMap = (evenements) => {
   const map = new Map()
-  courses.forEach(course => {
-    map.set(Number(course.id_course), course.nom_course || 'Evenement')
+  evenements.forEach(evenement => {
+    map.set(Number(evenement.id_evenement), evenement.nom_evenement || 'Evenement')
   })
   return map
 }
@@ -175,14 +175,14 @@ const buildAffectationCountMap = (affectations) => {
 }
 
 const mapMissionFromApi = (mission, courseNames, affectationCountMap) => {
-  const maxVolunteers = Number(mission.nombre_mission) || 0
+  const maxVolunteers = Number(mission.nombre_benevoles_max) || 0
   const currentVolunteers = affectationCountMap.get(Number(mission.id_mission)) || 0
 
   return {
     id: String(mission.id_mission),
     name: mission.titre_mission,
-    eventName: courseNames.get(Number(mission.id_course)) || `Course #${mission.id_course}`,
-    date: mission.date_debut_mission,
+    eventName: courseNames.get(Number(mission.id_evenement)) || `Evenement #${mission.id_evenement}`,
+    date: mission.date_mission,
     startTime: toTime(mission.heure_debut_mission),
     endTime: toTime(mission.heure_fin_mission),
     location: mission.lieu_mission,
@@ -197,17 +197,17 @@ const loadMissions = async () => {
   loadError.value = ''
 
   try {
-    const [missionsResponse, coursesResponse, affectationsResponse] = await Promise.all([
+    const [missionsResponse, evenementsResponse, affectationsResponse] = await Promise.all([
       api.get('/missions'),
-      api.get('/courses'),
+      api.get('/evenements'),
       api.get('/affectations'),
     ])
 
     const missionsData = missionsResponse.data ?? []
-    const coursesData = coursesResponse.data ?? []
+    const evenementsData = evenementsResponse.data ?? []
     const affectationsData = affectationsResponse.data ?? []
 
-    const courseNames = buildCourseMap(coursesData)
+    const courseNames = buildEvenementMap(evenementsData)
     const affectationCountMap = buildAffectationCountMap(affectationsData)
 
     missions.value = missionsData.map(mission =>

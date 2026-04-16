@@ -395,48 +395,42 @@ const computeDuration = (start, end) => {
   return `${hours} h`
 }
 
+const accountTypeFromRole = (role) => {
+  if (role === 'superadmin') return 'Super-admin'
+  if (role === 'admin') return 'Admin'
+  if (role === 'responsable') return 'Responsable de mission'
+  return 'Benevole'
+}
+
 const loadProfileData = async () => {
   if (!user.value.email) return
 
   try {
     const [
       usersResponse,
-      adminsResponse,
-      benevolesResponse,
       badgesResponse,
       certificatsResponse,
       affectationsResponse,
       missionsResponse,
-      coursesResponse,
+      evenementsResponse,
     ] = await Promise.all([
       api.get('/users'),
-      api.get('/admins'),
-      api.get('/benevoles'),
       api.get('/badges'),
       api.get('/certificats'),
       api.get('/affectations'),
       api.get('/missions'),
-      api.get('/courses'),
+      api.get('/evenements'),
     ])
 
     const users = usersResponse.data ?? []
-    const admins = adminsResponse.data ?? []
-    const benevoles = benevolesResponse.data ?? []
     const badgesData = badgesResponse.data ?? []
     const certificatsData = certificatsResponse.data ?? []
     const affectations = affectationsResponse.data ?? []
     const missions = missionsResponse.data ?? []
-    const courses = coursesResponse.data ?? []
+    const evenements = evenementsResponse.data ?? []
 
     const rawUser = users.find(u => (u.email || '').toLowerCase() === user.value.email.toLowerCase())
     if (!rawUser) return
-
-    const currentBenevole = benevoles.find(
-      b => Number(b.id_utilisateur) === Number(rawUser.id_utilisateur)
-    )
-    const isAdmin = admins.some(
-      a => Number(a.id_utilisateur) === Number(rawUser.id_utilisateur)
-    )
 
     user.value = {
       ...user.value,
@@ -450,7 +444,7 @@ const loadProfileData = async () => {
       healthIssues: [],
       warnings: 0,
       suspended: false,
-      accountType: isAdmin ? 'Admin' : (user.value.accountType || 'Benevole'),
+      accountType: accountTypeFromRole(rawUser.role_utilisateur),
       permissions: {
         ...(user.value.permissions || {}),
       },
@@ -461,52 +455,43 @@ const loadProfileData = async () => {
       messaging: user.value.permissions?.messaging !== false,
     }
 
-    if (!currentBenevole) {
-      badges.value = []
-      certificates.value = []
-      missionHistory.value = []
-      skills.value = []
-      return
-    }
-
     badges.value = badgesData
-      .filter(b => Number(b.id_benevole) === Number(currentBenevole.id_benevole))
       .map((b, index) => ({
         id: String(b.id_badge),
         name: b.titre_badge,
-        description: b.regle_auto_badge || '',
+        description: b.regle_auto || b.description_badge || '',
         icon: '🏅',
         earnedDate: b.created_at || new Date().toISOString(),
         order: index,
       }))
 
     certificates.value = certificatsData
-      .filter(c => Number(c.id_benevole) === Number(currentBenevole.id_benevole))
+      .filter(c => Number(c.id_utilisateur) === Number(rawUser.id_utilisateur))
       .map(c => ({
         id: String(c.id_certificat),
         name: c.titre_certificat,
-        issuer: 'BeneRun',
-        issueDate: c.created_at || new Date().toISOString(),
-        expiryDate: null,
-        type: 'platform',
+        issuer: c.emetteur_certificat || 'BeneRun',
+        issueDate: c.date_emission_certificat || c.created_at || new Date().toISOString(),
+        expiryDate: c.date_expiration_certificat,
+        type: c.type_certificat || 'platform',
       }))
 
     const missionMap = new Map(missions.map(m => [Number(m.id_mission), m]))
-    const courseMap = new Map(courses.map(c => [Number(c.id_course), c]))
+    const eventMap = new Map(evenements.map(e => [Number(e.id_evenement), e]))
 
     missionHistory.value = affectations
-      .filter(a => Number(a.id_benevole) === Number(currentBenevole.id_benevole))
+      .filter(a => Number(a.id_utilisateur) === Number(rawUser.id_utilisateur))
       .map((a, index) => {
         const mission = missionMap.get(Number(a.id_mission))
-        const course = mission ? courseMap.get(Number(mission.id_course)) : null
+        const event = mission ? eventMap.get(Number(mission.id_evenement)) : null
 
         return {
           id: String(a.id_affectation || `${a.id_mission}-${index}`),
           missionName: mission?.titre_mission || 'Mission',
-          eventName: course?.nom_course || 'Evenement',
-          date: mission?.date_debut_mission || a.created_at || new Date().toISOString(),
+          eventName: event?.nom_evenement || 'Evenement',
+          date: mission?.date_mission || a.created_at || new Date().toISOString(),
           duration: computeDuration(mission?.heure_debut_mission, mission?.heure_fin_mission),
-          role: a.estResponsable_affectation ? 'Responsable de mission' : 'Benevole',
+          role: a.est_responsable ? 'Responsable de mission' : 'Benevole',
           rating: 0,
         }
       })

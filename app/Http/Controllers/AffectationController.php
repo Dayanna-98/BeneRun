@@ -27,11 +27,14 @@ class AffectationController extends Controller
     {
        	
         $affectation= new Affectation;
-        $affectation->id_benevole = $request->id_benevole;
+        $affectation->id_utilisateur = $request->id_utilisateur;
         $affectation->id_mission = $request->id_mission;
         $affectation->statut_affectation = $request->statut_affectation;
-        $affectation->remarque_affectation = $request->remarque_affectation;
-        $affectation->est_responsable_affectation = $request->est_responsable_affectation;
+        $affectation->remarque = $request->remarque;
+        $affectation->est_responsable = $request->est_responsable;
+        $affectation->date_affectation = $request->date_affectation;
+        $affectation->date_confirmation = $request->date_confirmation;
+        $affectation->date_presence = $request->date_presence;
 
         $affectation->save();
         return response()->json([
@@ -45,11 +48,14 @@ class AffectationController extends Controller
         if (Affectation::where('id_affectation', $id)->exists())
         {
             $affectation = Affectation::find($id);
-            $affectation->id_benevole = $request->id_benevole;
+            $affectation->id_utilisateur = $request->id_utilisateur;
             $affectation->id_mission = $request->id_mission;
             $affectation->statut_affectation = $request->statut_affectation;
-            $affectation->remarque_affectation = $request->remarque_affectation;
-            $affectation->est_responsable_affectation = $request->est_responsable_affectation;
+            $affectation->remarque = $request->remarque;
+            $affectation->est_responsable = $request->est_responsable;
+            $affectation->date_affectation = $request->date_affectation;
+            $affectation->date_confirmation = $request->date_confirmation;
+            $affectation->date_presence = $request->date_presence;
      
 
             $affectation->save();

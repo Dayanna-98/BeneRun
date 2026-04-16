@@ -124,7 +124,7 @@ const router = useRouter()
 const missions = ref([])
 const isLoading = ref(true)
 const loadError = ref(null)
-const courseMap = ref({})
+const eventMap = ref({})
 const userMap = ref({})
 const affectationCountMap = ref({})
 
@@ -156,16 +156,16 @@ const daysUntil = (m) => {
 }
 
 // Build maps
-const buildCourseMap = async () => {
+const buildEventMap = async () => {
   try {
-    const { data } = await api.get('/courses')
+    const { data } = await api.get('/evenements')
     const map = {}
-    data.forEach(course => {
-      map[course.id_course] = course.nom_course || 'Événement'
+    data.forEach(event => {
+      map[event.id_evenement] = event.nom_evenement || 'Événement'
     })
-    courseMap.value = map
+    eventMap.value = map
   } catch (err) {
-    console.error('Error loading courses:', err)
+    console.error('Error loading events:', err)
   }
 }
 
@@ -200,33 +200,19 @@ const buildAffectationCountMap = async () => {
 }
 
 // Map mission from API
-const mapMissionFromApi = async (apiMission) => {
-  // Load benevole responsible if not already loaded
-  if (!userMap.value[apiMission.id_benevole]) {
-    try {
-      const { data: benevolData } = await api.get(`/benevoles/${apiMission.id_benevole}`)
-      const { data: userData } = await api.get(`/users/${benevolData.id_utilisateur}`)
-      userMap.value[apiMission.id_benevole] = {
-        name: `${userData.prenom_utilisateur || ''} ${userData.nom_utilisateur || ''}`.trim(),
-        phone: userData.telephone_utilisateur || ''
-      }
-    } catch (err) {
-      console.error('Error loading benevole/user:', err)
-    }
-  }
-
+const mapMissionFromApi = (apiMission) => {
   return {
     id: apiMission.id_mission,
     name: apiMission.titre_mission,
-    eventName: courseMap.value[apiMission.id_course] || 'Événement',
-    date: apiMission.date_debut_mission,
+    eventName: eventMap.value[apiMission.id_evenement] || 'Événement',
+    date: apiMission.date_mission,
     imageUrl: '', // Not available in backend
     startTime: toTime(apiMission.heure_debut_mission),
     endTime: toTime(apiMission.heure_fin_mission),
     location: apiMission.lieu_mission,
     currentVolunteers: affectationCountMap.value[apiMission.id_mission] || 0,
-    maxVolunteers: apiMission.nombre_mission || 0,
-    responsible: userMap.value[apiMission.id_benevole] || { name: '', phone: '' }
+    maxVolunteers: apiMission.nombre_benevoles_max || 0,
+    responsible: userMap.value[apiMission.responsable_utilisateur_id] || { name: '', phone: '' }
   }
 }
 
@@ -247,29 +233,23 @@ const loadMyMissions = async () => {
 
     // Load all support data in parallel
     await Promise.all([
-      buildCourseMap(),
+      buildEventMap(),
       buildUserMap(),
       buildAffectationCountMap(),
     ])
 
-    const [usersResponse, benevolesResponse, affectationsResponse, missionsResponse] = await Promise.all([
+    const [usersResponse, affectationsResponse, missionsResponse] = await Promise.all([
       api.get('/users'),
-      api.get('/benevoles'),
       api.get('/affectations'),
       api.get('/missions'),
     ])
 
     const users = usersResponse.data ?? []
-    const benevoles = benevolesResponse.data ?? []
     const affectations = affectationsResponse.data ?? []
     const allMissions = missionsResponse.data ?? []
 
     const rawUser = users.find(u => (u.email || '').toLowerCase() === currentEmail.toLowerCase())
-    const currentBenevole = rawUser
-      ? benevoles.find(b => Number(b.id_utilisateur) === Number(rawUser.id_utilisateur))
-      : null
-
-    if (!currentBenevole) {
+    if (!rawUser) {
       missions.value = []
       isLoading.value = false
       return
@@ -277,7 +257,7 @@ const loadMyMissions = async () => {
 
     // Load affectations for current user
     const userAffectations = affectations.filter(
-      aff => Number(aff.id_benevole) === Number(currentBenevole.id_benevole)
+      aff => Number(aff.id_utilisateur) === Number(rawUser.id_utilisateur)
     )
     
     if (userAffectations.length === 0) {
@@ -291,9 +271,7 @@ const loadMyMissions = async () => {
     const userMissions = allMissions.filter(m => missionIds.has(Number(m.id_mission)))
 
     // Map missions
-    const mappedMissions = await Promise.all(
-      userMissions.map(m => mapMissionFromApi(m))
-    )
+    const mappedMissions = userMissions.map(m => mapMissionFromApi(m))
     missions.value = mappedMissions.filter(m => m !== null)
   } catch (err) {
     console.error('Error loading my missions:', err)

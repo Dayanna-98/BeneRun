@@ -1,8 +1,19 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
+    <div v-if="isLoading" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <p class="text-muted mb-0">Chargement de l'événement...</p>
+    </div>
+
+    <div v-else-if="loadError" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <p class="text-danger mb-3">{{ loadError }}</p>
+        <button class="btn btn-outline-danger" @click="loadEvent">Réessayer</button>
+      </div>
+    </div>
+
     <!-- Not found -->
-    <div v-if="!event" class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div v-else-if="!event" class="min-vh-100 d-flex align-items-center justify-content-center">
       <div class="text-center">
         <p class="text-muted mb-3">Événement non trouvé</p>
         <button class="btn btn-primary" @click="router.push('/manage-events')">Retour à la gestion</button>
@@ -10,7 +21,6 @@
     </div>
 
     <template v-else>
-      <!-- Header -->
       <header class="bg-white border-bottom sticky-top">
         <div class="p-3 d-flex align-items-center gap-3">
           <button class="btn btn-link p-0 text-dark" @click="router.go(-1)">
@@ -45,7 +55,7 @@
 
               <div>
                 <label class="form-label small fw-medium">Description *</label>
-                <textarea v-model="formData.description" class="form-control" rows="4" placeholder="Décrivez l'événement en détail..." required style="resize:none" />
+                <textarea v-model="formData.description" class="form-control" rows="4" placeholder="Décrivez l'événement en détail..." required style="resize:none"></textarea>
               </div>
 
               <div class="row g-3">
@@ -93,32 +103,92 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
-import { events } from '@/data/mockData'
+import api from '@/services/api'
 
 const router = useRouter()
 const route = useRoute()
 const user = getCurrentUser()
 if (!user || !hasMinRole('admin')) router.push('/')
 
-const event = events.find(e => e.id === route.params.id)
+const event = ref(null)
+const isLoading = ref(false)
+const loadError = ref('')
 
 const formData = reactive({
-  name: event?.name || '',
-  date: event?.date || '',
-  location: event?.location || '',
-  description: event?.description || '',
-  organizer: event?.organizer || '',
-  category: event?.category || '',
-  totalVolunteersNeeded: event?.totalVolunteersNeeded?.toString() || '',
-  imageUrl: event?.imageUrl || '',
+  name: '',
+  date: '',
+  location: '',
+  description: '',
+  organizer: '',
+  category: '',
+  totalVolunteersNeeded: '',
+  imageUrl: '',
 })
 
-const handleSubmit = () => {
-  alert('Événement modifié avec succès !')
-  router.push('/manage-events')
+const loadEvent = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const id = route.params.id
+    const { data } = await api.get(`/evenements/${id}`)
+
+    event.value = data
+    formData.name = data.nom_evenement || ''
+    formData.date = data.date_debut_evenement || ''
+    formData.location = data.lieu_evenement || ''
+    formData.description = data.description_evenement || ''
+    formData.organizer = data.organisateur_evenement || ''
+    formData.category = 'Sport'
+    formData.totalVolunteersNeeded = String(data.nombre_benevoles_requis ?? '')
+    formData.imageUrl = data.image_evenement || ''
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      event.value = null
+    } else {
+      loadError.value = "Impossible de charger l'evenement."
+      console.error('Erreur chargement événement:', error)
+    }
+  } finally {
+    isLoading.value = false
+  }
 }
+
+const handleSubmit = async () => {
+  try {
+    const id = route.params.id
+
+    await api.put(`/evenements/${id}`, {
+      nom_evenement: formData.name,
+      description_evenement: formData.description,
+      date_debut_evenement: formData.date,
+      date_fin_evenement: formData.date,
+      heure_debut_evenement: event.value?.heure_debut_evenement || null,
+      heure_fin_evenement: event.value?.heure_fin_evenement || null,
+      lieu_evenement: formData.location,
+      latitude_evenement: event.value?.latitude_evenement || null,
+      longitude_evenement: event.value?.longitude_evenement || null,
+      organisateur_evenement: formData.organizer,
+      image_evenement: formData.imageUrl || null,
+      nombre_benevoles_requis: Number(formData.totalVolunteersNeeded) || 0,
+      est_annule_evenement: event.value?.est_annule_evenement ?? false,
+      date_annulation_evenement: event.value?.date_annulation_evenement || null,
+      raison_annulation_evenement: event.value?.raison_annulation_evenement || null,
+      est_publie_evenement: event.value?.est_publie_evenement ?? true,
+      cree_par_utilisateur_id: event.value?.cree_par_utilisateur_id ?? Number(user.id) ?? 1,
+    })
+
+    alert('Événement modifié avec succès !')
+    router.push('/manage-events')
+  } catch (error) {
+    console.error('Erreur mise à jour événement:', error)
+    alert("Impossible de modifier l'événement.")
+  }
+}
+
+onMounted(loadEvent)
 </script>

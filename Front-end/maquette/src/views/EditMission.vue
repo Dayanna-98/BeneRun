@@ -1,8 +1,19 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
+    <div v-if="isLoading" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <p class="text-muted mb-0">Chargement de la mission...</p>
+    </div>
+
+    <div v-else-if="loadError" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="text-center">
+        <p class="text-danger mb-3">{{ loadError }}</p>
+        <button class="btn btn-outline-danger" @click="loadMission">Réessayer</button>
+      </div>
+    </div>
+
     <!-- Not found -->
-    <div v-if="!mission" class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div v-else-if="!mission" class="min-vh-100 d-flex align-items-center justify-content-center">
       <div class="text-center">
         <p class="text-muted mb-3">Mission non trouvée</p>
         <button class="btn btn-primary" @click="router.push('/manage-missions')">Retour à la gestion</button>
@@ -176,40 +187,44 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
-import { availableMissions, events, availableSkills } from '@/data/mockData'
+import { availableSkills } from '@/data/mockData'
+import api from '@/services/api'
 
 const router = useRouter()
 const route = useRoute()
 const user = getCurrentUser()
 if (!user || !hasMinRole('organizer')) router.push('/')
 
-const mission = availableMissions.find(m => m.id === route.params.id)
+const mission = ref(null)
+const isLoading = ref(false)
+const loadError = ref('')
+const eventsList = ref([])
 
 const formData = reactive({
-  name: mission?.name || '',
-  eventId: mission?.eventId || '',
-  date: mission?.date || '',
-  startTime: mission?.startTime || '',
-  endTime: mission?.endTime || '',
-  location: mission?.location || '',
-  description: mission?.description || '',
-  type: mission?.type || '',
-  maxVolunteers: mission?.maxVolunteers?.toString() || '',
-  backupVolunteers: mission?.backupVolunteers?.toString() || '0',
-  responsibleName: mission?.responsible?.name || '',
-  responsiblePhone: mission?.responsible?.phone || '',
-  responsibleEmail: mission?.responsible?.email || '',
-  postable: mission?.postable ?? true,
-  inscription: mission?.inscription ?? true,
-  public: mission?.public ?? true,
-  palette: mission?.palette ?? false,
+  name: '',
+  eventId: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  location: '',
+  description: '',
+  type: '',
+  maxVolunteers: '',
+  backupVolunteers: '0',
+  responsibleName: '',
+  responsiblePhone: '',
+  responsibleEmail: '',
+  postable: true,
+  inscription: true,
+  public: true,
+  palette: false,
 })
 
-const selectedSkills = ref(mission?.requiredSkills || [])
+const selectedSkills = ref([])
 
 const switchOptions = [
   { key: 'postable',    label: 'Postable',           desc: 'Les bénévoles peuvent postuler' },
@@ -220,11 +235,11 @@ const switchOptions = [
 
 const futureEvents = computed(() => {
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  return events.filter(e => new Date(e.date) >= today)
+  return eventsList.value.filter(e => new Date(e.date) >= today)
 })
 
 const handleEventChange = () => {
-  const selected = events.find(e => e.id === formData.eventId)
+  const selected = eventsList.value.find(e => String(e.id) === String(formData.eventId))
   if (selected) {
     formData.date = selected.date || formData.date
     formData.location = selected.location || formData.location
@@ -236,8 +251,95 @@ const toggleSkill = (name) => {
   i === -1 ? selectedSkills.value.push(name) : selectedSkills.value.splice(i, 1)
 }
 
-const handleSubmit = () => {
-  alert('Mission modifiée avec succès !')
-  router.push('/manage-missions')
+const toDisplayType = (value) => {
+  if (!value) return ''
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
+
+const loadEvents = async () => {
+  try {
+    const { data } = await api.get('/evenements')
+    eventsList.value = (data ?? []).map((event) => ({
+      id: String(event.id_evenement),
+      name: event.nom_evenement,
+      date: event.date_debut_evenement,
+      location: event.lieu_evenement,
+    }))
+  } catch (error) {
+    console.error('Erreur chargement événements:', error)
+  }
+}
+
+const loadMission = async () => {
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    await loadEvents()
+    const { data } = await api.get(`/missions/${route.params.id}`)
+    mission.value = data
+
+    formData.name = data.titre_mission || ''
+    formData.eventId = String(data.id_evenement ?? '')
+    formData.date = data.date_mission || ''
+    formData.startTime = (data.heure_debut_mission || '').slice(0, 5)
+    formData.endTime = (data.heure_fin_mission || '').slice(0, 5)
+    formData.location = data.lieu_mission || ''
+    formData.description = data.description_mission || ''
+    formData.type = toDisplayType(data.type_mission || '')
+    formData.maxVolunteers = String(data.nombre_benevoles_max ?? '')
+    formData.backupVolunteers = String(data.nombre_benevoles_backup ?? 0)
+    formData.postable = !!data.publie_le_mission
+    formData.inscription = data.inscription_requise ?? true
+    formData.public = (data.visibilite_mission || 'public') === 'public'
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      mission.value = null
+    } else {
+      loadError.value = 'Impossible de charger la mission.'
+      console.error('Erreur chargement mission:', error)
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleSubmit = async () => {
+  try {
+    const id = route.params.id
+
+    await api.put(`/missions/${id}`, {
+      id_evenement: Number(formData.eventId),
+      responsable_utilisateur_id: mission.value?.responsable_utilisateur_id ?? (Number(user.id) || null),
+      titre_mission: formData.name,
+      type_mission: (formData.type || 'autre').toLowerCase(),
+      description_mission: formData.description,
+      date_mission: formData.date,
+      heure_debut_mission: formData.startTime,
+      heure_fin_mission: formData.endTime,
+      lieu_mission: formData.location,
+      latitude_mission: mission.value?.latitude_mission || null,
+      longitude_mission: mission.value?.longitude_mission || null,
+      nombre_benevoles_max: Number(formData.maxVolunteers) || 0,
+      nombre_benevoles_backup: Number(formData.backupVolunteers) || 0,
+      statut_mission: mission.value?.statut_mission || 'open',
+      inscription_requise: !!formData.inscription,
+      visibilite_mission: formData.public ? 'public' : 'private',
+      consignes_securite: mission.value?.consignes_securite || null,
+      image_mission: mission.value?.image_mission || null,
+      est_publie_mission: !!formData.postable,
+      contact_nom: formData.responsibleName,
+      contact_telephone: formData.responsiblePhone,
+      contact_email: formData.responsibleEmail || null,
+    })
+
+    alert('Mission modifiée avec succès !')
+    router.push('/manage-missions')
+  } catch (error) {
+    console.error('Erreur mise à jour mission:', error)
+    alert('Impossible de modifier la mission.')
+  }
+}
+
+onMounted(loadMission)
 </script>
