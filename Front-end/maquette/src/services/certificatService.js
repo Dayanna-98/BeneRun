@@ -7,6 +7,26 @@ const toIsoDate = (value) => {
   return date.toISOString().slice(0, 10)
 }
 
+const mapStatusToFrontend = (status) => {
+  if (!status) return 'pending'
+
+  const normalized = String(status).toLowerCase().trim()
+  if (normalized === 'pending' || normalized === 'en attente') return 'pending'
+  if (normalized === 'approved' || normalized === 'approuvé' || normalized === 'approuve') return 'approved'
+  if (normalized === 'rejected' || normalized === 'rejeté' || normalized === 'rejete') return 'rejected'
+  return 'pending'
+}
+
+const mapStatusToApi = (status) => {
+  if (!status) return 'en attente'
+
+  const normalized = String(status).toLowerCase().trim()
+  if (normalized === 'pending' || normalized === 'en attente') return 'en attente'
+  if (normalized === 'approved' || normalized === 'approuvé' || normalized === 'approuve') return 'approuvé'
+  if (normalized === 'rejected' || normalized === 'rejeté' || normalized === 'rejete') return 'rejeté'
+  return 'en attente'
+}
+
 const mapApiCertificate = (cert) => ({
   id: String(cert.id_certificat ?? cert.id ?? ''),
   userId: String(cert.id_utilisateur ?? cert.id_benevole ?? ''),
@@ -15,7 +35,7 @@ const mapApiCertificate = (cert) => ({
   issueDate: toIsoDate(cert.date_emission_certificat || cert.issueDate),
   expiryDate: toIsoDate(cert.date_expiration_certificat || cert.expiryDate),
   type: cert.type_certificat || cert.type || 'platform',
-  status: cert.statut_certificat || cert.status || 'pending',
+  status: mapStatusToFrontend(cert.statut_certificat || cert.status),
   filePath: cert.chemin_fichier_certificat || cert.filePath || null,
 })
 
@@ -41,7 +61,7 @@ const toApiPayload = (cert = {}) => {
     payload.type_certificat = cert.type ?? cert.type_certificat ?? 'platform'
   }
   if (cert.status !== undefined || cert.statut_certificat !== undefined) {
-    payload.statut_certificat = cert.status ?? cert.statut_certificat ?? 'pending'
+    payload.statut_certificat = mapStatusToApi(cert.status ?? cert.statut_certificat)
   }
   if (cert.filePath !== undefined || cert.chemin_fichier_certificat !== undefined) {
     payload.chemin_fichier_certificat = cert.filePath ?? cert.chemin_fichier_certificat ?? null
@@ -99,10 +119,7 @@ const certificatService = {
     return r.data.map(mapApiCertificate)
   }),
 
-  getByUser: async (userId) => {
-    const all = await certificatService.getAll()
-    return all.filter(cert => String(cert.userId) === String(userId))
-  },
+  getByUser: async (userId) => certificatService.getByUserApi(userId),
 
   create: (payload) => createRequest('/certificats', payload).then(r => mapApiCertificate(r.data?.certificat ?? r.data)),
 

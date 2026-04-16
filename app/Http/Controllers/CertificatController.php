@@ -9,6 +9,37 @@ use Illuminate\Support\Facades\Storage;
 
 class CertificatController extends Controller
 {
+    private function normalizeStatusForStorage(?string $status): ?string
+    {
+        if ($status === null) {
+            return null;
+        }
+
+        $normalized = str_replace(['_', '-'], ' ', strtolower(trim($status)));
+
+        return match ($normalized) {
+            'pending', 'en attente' => 'en attente',
+            'approved', 'approuve', 'approuvé' => 'approuvé',
+            'rejected', 'rejete', 'rejeté' => 'rejeté',
+            default => null,
+        };
+    }
+
+    private function resolveActorFromBearerToken(Request $request): ?User
+    {
+        $authorizationHeader = $request->header('Authorization');
+        if (!is_string($authorizationHeader) || !str_starts_with($authorizationHeader, 'Bearer ')) {
+            return null;
+        }
+
+        $token = trim(substr($authorizationHeader, 7));
+        if (!ctype_digit($token)) {
+            return null;
+        }
+
+        return User::find((int) $token);
+    }
+
     private function normalizeRole(?string $role): string
     {
         return str_replace(['-', '_', ' '], '', strtolower((string) $role));
@@ -21,50 +52,66 @@ class CertificatController extends Controller
             return true;
         }
 
-        $authorizationHeader = $request->header('Authorization');
-        if (!is_string($authorizationHeader) || !str_starts_with($authorizationHeader, 'Bearer ')) {
-            return false;
-        }
-
-        $token = trim(substr($authorizationHeader, 7));
-        if (!ctype_digit($token)) {
-            return false;
-        }
-
-        $actor = User::find((int) $token);
+        $actor = $this->resolveActorFromBearerToken($request);
 
         return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
     }
 
     public function index(Request $request)
     {
+        $actor = $this->resolveActorFromBearerToken($request);
+        if ($actor === null) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
+        $isSuperAdmin = $this->isSuperAdminRequest($request);
         $query = Certificat::query()->orderByDesc('id_certificat');
 
-        if ($request->filled('id_utilisateur')) {
-            $query->where('id_utilisateur', (int) $request->id_utilisateur);
+        if ($isSuperAdmin) {
+            if ($request->filled('id_utilisateur')) {
+                $query->where('id_utilisateur', (int) $request->id_utilisateur);
+            }
+        } else {
+            if ($request->filled('id_utilisateur') && (int) $request->id_utilisateur !== (int) $actor->id_utilisateur) {
+                return response()->json(['message' => 'Action non autorisée'], 403);
+            }
+            $query->where('id_utilisateur', (int) $actor->id_utilisateur);
         }
 
         return response()->json($query->get());
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $certificat = Certificat::find($id);
-
-        if (!empty($certificat)) {
-            return response()->json($certificat);
+        $actor = $this->resolveActorFromBearerToken($request);
+        if ($actor === null) {
+            return response()->json(['message' => 'Non authentifié'], 401);
         }
 
-        return response()->json(['message' => 'Certificat inexistant'], 404);
+        $certificat = Certificat::find($id);
+
+        if (empty($certificat)) {
+            return response()->json(['message' => 'Certificat inexistant'], 404);
+        }
+
+        if (
+            !$this->isSuperAdminRequest($request)
+            && (int) $certificat->id_utilisateur !== (int) $actor->id_utilisateur
+        ) {
+            return response()->json(['message' => 'Action non autorisée'], 403);
+        }
+
+        return response()->json($certificat);
     }
 
     public function store(Request $request)
     {
-        if (!$this->isSuperAdminRequest($request)) {
-            return response()->json([
-                'message' => 'Action réservée aux super-admins'
-            ], 403);
+        $actor = $this->resolveActorFromBearerToken($request);
+        if ($actor === null) {
+            return response()->json(['message' => 'Non authentifié'], 401);
         }
+
+        $isSuperAdmin = $this->isSuperAdminRequest($request);
 
         $validated = $request->validate([
             'id_utilisateur' => 'required|integer|exists:users,id_utilisateur',
@@ -73,10 +120,25 @@ class CertificatController extends Controller
             'date_emission_certificat' => 'nullable|date',
             'date_expiration_certificat' => 'nullable|date|after_or_equal:date_emission_certificat',
             'type_certificat' => 'nullable|in:platform,external',
-            'statut_certificat' => 'nullable|in:pending,approved,rejected',
+            'statut_certificat' => 'nullable|in:pending,approved,rejected,en attente,approuvé,rejeté',
             'chemin_fichier_certificat' => 'nullable|string|max:500',
-            'file_certificat' => 'nullable|file|mimes:pdf,png,jpg,jpeg|max:10240',
+            'file_certificat' => 'nullable|file|mimes:pdf,png,jpg,jpeg,webp|max:10240',
         ]);
+
+        if (!$isSuperAdmin && (int) $validated['id_utilisateur'] !== (int) $actor->id_utilisateur) {
+            return response()->json([
+                'message' => 'Vous ne pouvez soumettre un certificat que pour votre propre compte'
+            ], 403);
+        }
+
+        if ($isSuperAdmin) {
+            $validated['type_certificat'] = $validated['type_certificat'] ?? 'platform';
+            $validated['statut_certificat'] = $this->normalizeStatusForStorage($validated['statut_certificat'] ?? 'pending') ?? 'en attente';
+        } else {
+            // Toute soumission utilisateur passe en attente de validation super-admin.
+            $validated['type_certificat'] = 'external';
+            $validated['statut_certificat'] = 'en attente';
+        }
 
         if ($request->hasFile('file_certificat')) {
             $validated['chemin_fichier_certificat'] = $request->file('file_certificat')->store('certificats', 'public');
@@ -112,10 +174,14 @@ class CertificatController extends Controller
             'date_emission_certificat' => 'nullable|date',
             'date_expiration_certificat' => 'nullable|date|after_or_equal:date_emission_certificat',
             'type_certificat' => 'sometimes|in:platform,external',
-            'statut_certificat' => 'sometimes|in:pending,approved,rejected',
+            'statut_certificat' => 'sometimes|in:pending,approved,rejected,en attente,approuvé,rejeté',
             'chemin_fichier_certificat' => 'nullable|string|max:500',
-            'file_certificat' => 'nullable|file|mimes:pdf,png,jpg,jpeg|max:10240',
+            'file_certificat' => 'nullable|file|mimes:pdf,png,jpg,jpeg,webp|max:10240',
         ]);
+
+        if (array_key_exists('statut_certificat', $validated)) {
+            $validated['statut_certificat'] = $this->normalizeStatusForStorage($validated['statut_certificat']) ?? 'en attente';
+        }
 
         if ($request->hasFile('file_certificat')) {
             if (!empty($certificat->chemin_fichier_certificat)) {

@@ -103,7 +103,7 @@ class DatabaseSeeder extends Seeder
             foreach ($allUsers->take(5) as $userId) {
                 $sampleCompetences = $competenceIds->shuffle()->take(fake()->numberBetween(2, 4));
                 foreach ($sampleCompetences as $competenceId) {
-                    DB::table('utilisateur_competences')->insert([
+                    DB::table('user_competences')->insert([
                         'id_utilisateur' => $userId,
                         'id_competence' => $competenceId,
                         'created_at' => now(),
@@ -145,49 +145,98 @@ class DatabaseSeeder extends Seeder
                 DB::table('courses')->insert($course);
             }
 
+            $eventData = [
+                [
+                    'nom_evenement' => 'Running Geneva 10K',
+                    'description_evenement' => 'Course populaire sur route 10km, accessible à tous les niveaux.',
+                    'date_debut_evenement' => '2026-05-09',
+                    'date_fin_evenement' => '2026-05-09',
+                    'heure_debut_evenement' => '08:30:00',
+                    'heure_fin_evenement' => '13:00:00',
+                    'lieu_evenement' => 'Geneve - Quai du Mont-Blanc',
+                    'organisateur_evenement' => 'Fédération Suisse Athlétisme',
+                    'nombre_benevoles_requis' => 20,
+                    'est_publie_evenement' => true,
+                    'cree_par_utilisateur_id' => $allUsers->last(),
+                ],
+                [
+                    'nom_evenement' => 'Trail du Saleve',
+                    'description_evenement' => 'Trail nature avec sections techniques et assistance bénévoles.',
+                    'date_debut_evenement' => '2026-06-21',
+                    'date_fin_evenement' => '2026-06-21',
+                    'heure_debut_evenement' => '07:00:00',
+                    'heure_fin_evenement' => '15:30:00',
+                    'lieu_evenement' => 'Veyrier',
+                    'organisateur_evenement' => 'Club Montagne',
+                    'nombre_benevoles_requis' => 15,
+                    'est_publie_evenement' => true,
+                    'cree_par_utilisateur_id' => $allUsers->last(),
+                ],
+            ];
+
+            foreach ($eventData as $event) {
+                DB::table('evenements')->insert(array_merge(
+                    $event,
+                    [
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                ));
+            }
+
             $courseIds = DB::table('courses')->pluck('id_course')->values();
+            $evenementIds = DB::table('evenements')->pluck('id_evenement')->values();
             $missions = [
                 [
-                    'id_course' => $courseIds[0],
-                    'id_benevole' => $benevoleIds[0],
+                    'id_evenement' => $evenementIds[0] ?? 1,
+                    'responsable_utilisateur_id' => $allUsers[0],
                     'titre_mission' => 'Ravitaillement Km 5',
+                    'type_mission' => 'logistique',
                     'description_mission' => 'Distribution d eau et controle de la zone de ravitaillement.',
-                    'date_debut_mission' => '2026-05-09',
-                    'date_fin_mission' => '2026-05-09',
+                    'date_mission' => '2026-05-09',
                     'heure_debut_mission' => '08:00:00',
                     'heure_fin_mission' => '11:30:00',
                     'lieu_mission' => 'Parc des Bastions',
-                    'nombre_mission' => 8,
-                    'statut_mission' => 'ouverte',
-                    'publie_mission' => true,
+                    'nombre_benevoles_max' => 8,
+                    'nombre_benevoles_backup' => 2,
+                    'statut_mission' => 'À venir',
+                    'inscription_requise' => true,
+                    'visibilite_mission' => 'publique',
+                    'publie_le_mission' => now(),
                 ],
                 [
-                    'id_course' => $courseIds[0],
-                    'id_benevole' => $benevoleIds[1],
+                    'id_evenement' => $evenementIds[0] ?? 1,
+                    'responsable_utilisateur_id' => $allUsers[1],
                     'titre_mission' => 'Signalisation virage centre-ville',
+                    'type_mission' => 'technique',
                     'description_mission' => 'Orienter les coureurs et securiser les traverses pietonnes.',
-                    'date_debut_mission' => '2026-05-09',
-                    'date_fin_mission' => '2026-05-09',
+                    'date_mission' => '2026-05-09',
                     'heure_debut_mission' => '08:15:00',
                     'heure_fin_mission' => '12:00:00',
                     'lieu_mission' => 'Rue de Rhone',
-                    'nombre_mission' => 6,
-                    'statut_mission' => 'ouverte',
-                    'publie_mission' => true,
+                    'nombre_benevoles_max' => 6,
+                    'nombre_benevoles_backup' => 1,
+                    'statut_mission' => 'À venir',
+                    'inscription_requise' => true,
+                    'visibilite_mission' => 'publique',
+                    'publie_le_mission' => now(),
                 ],
                 [
-                    'id_course' => $courseIds[1],
-                    'id_benevole' => $benevoleIds[2],
+                    'id_evenement' => $evenementIds[1] ?? 2,
+                    'responsable_utilisateur_id' => $allUsers[2],
                     'titre_mission' => 'Accueil retrait dossards',
+                    'type_mission' => 'accueil',
                     'description_mission' => 'Verification des inscriptions et remise des dossards.',
-                    'date_debut_mission' => '2026-06-21',
-                    'date_fin_mission' => '2026-06-21',
+                    'date_mission' => '2026-06-21',
                     'heure_debut_mission' => '06:00:00',
                     'heure_fin_mission' => '09:30:00',
                     'lieu_mission' => 'Salle communale de Veyrier',
-                    'nombre_mission' => 5,
-                    'statut_mission' => 'ouverte',
-                    'publie_mission' => true,
+                    'nombre_benevoles_max' => 5,
+                    'nombre_benevoles_backup' => 1,
+                    'statut_mission' => 'À venir',
+                    'inscription_requise' => true,
+                    'visibilite_mission' => 'publique',
+                    'publie_le_mission' => now(),
                 ],
             ];
 
@@ -204,39 +253,29 @@ class DatabaseSeeder extends Seeder
             DB::table('postulations')->insert([
                 [
                     'id_mission' => $missionIds[0],
-                    'id_benevole' => $benevoleIds[3],
-                    'date_postulation' => now()->subDays(7),
-                    'date_acceptation_refus_postulation' => now()->subDays(5),
-                    'date_annulation_postulation' => now()->subDays(2),
-                    'remarque_postulation' => 'Disponible toute la matinee.',
-                    'presence_postulation' => true,
-                    'commentaire_postulation' => 'Experience sur des courses 5k.',
+                    'id_utilisateur' => $allUsers[3],
+                    'date_decision' => now()->subDays(5),
+                    'date_annulation' => now()->subDays(2),
+                    'remarque' => 'Disponible toute la matinee. Experience sur des courses 5k.',
                     'statut_postulation' => 'accepte',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
                 [
                     'id_mission' => $missionIds[1],
-                    'id_benevole' => $benevoleIds[4],
-                    'date_postulation' => now()->subDays(6),
-                    'date_acceptation_refus_postulation' => now()->subDays(4),
-                    'date_annulation_postulation' => now()->subDays(1),
-                    'remarque_postulation' => 'Preference pour poste de signalisation.',
-                    'presence_postulation' => false,
-                    'commentaire_postulation' => 'Peut venir avec velo pour se deplacer.',
+                    'id_utilisateur' => $allUsers[4],
+                    'date_decision' => now()->subDays(4),
+                    'date_annulation' => now()->subDays(1),
+                    'remarque' => 'Preference pour poste de signalisation. Peut venir avec velo pour se deplacer.',
                     'statut_postulation' => 'refuse',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
                 [
                     'id_mission' => $missionIds[2],
-                    'id_benevole' => $benevoleIds[0],
-                    'date_postulation' => now()->subDays(3),
-                    'date_acceptation_refus_postulation' => now()->subDays(1),
-                    'date_annulation_postulation' => now(),
-                    'remarque_postulation' => 'Souhaite aider en debut de journee.',
-                    'presence_postulation' => true,
-                    'commentaire_postulation' => 'Aisance avec public international.',
+                    'id_utilisateur' => $allUsers[0],
+                    'date_decision' => now()->subDays(1),
+                    'remarque' => 'Souhaite aider en debut de journee. Aisance avec public international.',
                     'statut_postulation' => 'en_attente',
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -245,37 +284,52 @@ class DatabaseSeeder extends Seeder
 
             DB::table('affectations')->insert([
                 [
-                    'id_benevole' => $benevoleIds[3],
+                    'id_utilisateur' => $allUsers[3],
                     'id_mission' => $missionIds[0],
-                    'statut_affectation' => 'confirmee',
-                    'remarque_affectation' => 'Chef de poste ravitaillement.',
-                    'estResponsable_affectation' => true,
+                    'statut_affectation' => 'confirme',
+                    'remarque' => 'Chef de poste ravitaillement.',
+                    'est_responsable' => true,
+                    'date_affectation' => now()->subDays(5),
+                    'date_confirmation' => now()->subDays(3),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
                 [
-                    'id_benevole' => $benevoleIds[0],
+                    'id_utilisateur' => $allUsers[0],
                     'id_mission' => $missionIds[2],
-                    'statut_affectation' => 'provisoire',
-                    'remarque_affectation' => 'A confirmer 48h avant la course.',
-                    'estResponsable_affectation' => false,
+                    'statut_affectation' => 'assigne',
+                    'remarque' => 'A confirmer 48h avant la course.',
+                    'est_responsable' => false,
+                    'date_affectation' => now()->subDays(3),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
             ]);
 
             DB::table('badges')->insert([
-                'id_benevole' => $benevoleIds[0],
                 'titre_badge' => 'Sprinteur solidaire',
-                'valeur_badge' => 50,
-                'regle_auto_badge' => '5 missions completees',
+                'description_badge' => 'Complété votre première mission',
+                'score_badge' => 50,
+                'regle_auto' => '5 missions completees',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $badgeIds = DB::table('badges')->pluck('id_badge')->values();
+
+            DB::table('user_badges')->insert([
+                'id_utilisateur' => $allUsers[0],
+                'id_badge' => $badgeIds[0],
+                'attribue_le' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
             DB::table('certificats')->insert([
-                'id_benevole' => $benevoleIds[3],
+                'id_utilisateur' => $allUsers[3],
                 'titre_certificat' => 'Participation Benevole Running Geneva 10K 2026',
+                'type_certificat' => 'external',
+                'statut_certificat' => 'approuvé',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -351,11 +405,12 @@ class DatabaseSeeder extends Seeder
             'missions',
             'certificats',
             'badges',
-            'utilisateur_competences',
+            'user_competences',
             'competences',
+            'evenements',
+            'courses',
             'admins',
             'benevoles',
-            'courses',
             'users',
         ];
 

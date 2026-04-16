@@ -1,7 +1,3 @@
-import { users } from '@/data/mockData'
-
-const DEMO_USERS = users.filter(user => user.email === 'admin@benerun.ch')
-
 export const ROLE_HIERARCHY = {
   volunteer: 1,
   organizer: 2,
@@ -150,6 +146,16 @@ export const setCurrentUser = (user) => {
   return normalized
 }
 
+export const persistAuthSession = ({ user, token }) => {
+  const normalizedUser = setCurrentUser(user)
+  if (!normalizedUser) return null
+
+  localStorage.setItem('isLoggedIn', 'true')
+  localStorage.setItem('token', String(token))
+
+  return normalizedUser
+}
+
 export const getCurrentUser = () => {
   const userJSON = localStorage.getItem('currentUser')
   if (userJSON) {
@@ -161,25 +167,6 @@ export const getCurrentUser = () => {
     }
   }
 
-  const userEmail = localStorage.getItem('userEmail')
-  if (userEmail) {
-    const fallbackUser = DEMO_USERS.find(u => u.email === userEmail)
-    return normalizeUser(fallbackUser)
-  }
-
-  const token = localStorage.getItem('token')
-  if (!token) return null
-  const fallbackById = DEMO_USERS.find(u => String(u.id) === String(token))
-  return normalizeUser(fallbackById)
-}
-
-export const login = (email, password) => {
-  const user = DEMO_USERS.find(u => u.email === email && u.password === password)
-  if (user) {
-    localStorage.setItem('isLoggedIn', 'true')
-    localStorage.setItem('token', String(user.id))
-    return setCurrentUser(user)
-  }
   return null
 }
 

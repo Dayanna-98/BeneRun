@@ -14,6 +14,12 @@ return new class extends Migration
         Schema::create('user_competences', function (Blueprint $table) {
         $table->unsignedBigInteger('id_utilisateur');
         $table->unsignedBigInteger('id_competence');
+        $table->enum('niveau', [
+                'débutant',
+                'intermédaire',
+                'avancé',
+                'expert'
+            ])->default('débutant');
 
         $table->primary(['id_utilisateur', 'id_competence']);
 

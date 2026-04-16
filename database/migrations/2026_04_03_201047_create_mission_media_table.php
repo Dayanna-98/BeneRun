@@ -22,8 +22,8 @@ return new class extends Migration
             $table->string('chemin_fichier', 500);
             $table->string('type_mime', 100);
             $table->unsignedBigInteger('taille_fichier')->nullable();
-            $table->unsignedBigInteger('televerse_par_utilisateur_id')->nullable();
-            $table->foreign('televerse_par_utilisateur_id')
+            $table->unsignedBigInteger('telecharge_par_utilisateur_id')->nullable();
+            $table->foreign('telecharge_par_utilisateur_id')
                 ->references('id_utilisateur')
                 ->on('users')
                 ->nullOnDelete();

@@ -69,6 +69,18 @@ const router = createRouter({
   routes,
 })
 
+const cleanupBootstrapBackdrops = () => {
+  if (typeof document === 'undefined') return
+
+  document
+    .querySelectorAll('.modal-backdrop, .offcanvas-backdrop')
+    .forEach((element) => element.remove())
+
+  document.body.classList.remove('modal-open')
+  document.body.style.removeProperty('overflow')
+  document.body.style.removeProperty('padding-right')
+}
+
 // Navigation guards
 router.beforeEach((to, from) => {
   const token = localStorage.getItem('token')
@@ -91,6 +103,10 @@ router.beforeEach((to, from) => {
   }
 
   return true
+})
+
+router.afterEach(() => {
+  cleanupBootstrapBackdrops()
 })
 
 export default router

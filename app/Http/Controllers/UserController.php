@@ -10,6 +10,21 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
 
+private function resolveActorFromBearerToken(Request $request): ?User
+{
+    $authorizationHeader = $request->header('Authorization');
+    if (!is_string($authorizationHeader) || !str_starts_with($authorizationHeader, 'Bearer ')) {
+        return null;
+    }
+
+    $token = trim(substr($authorizationHeader, 7));
+    if (!ctype_digit($token)) {
+        return null;
+    }
+
+    return User::find((int) $token);
+}
+
 private function isSuperAdminRequest(Request $request): bool
 {
     $headerRole = $request->header('X-User-Role');
@@ -17,17 +32,7 @@ private function isSuperAdminRequest(Request $request): bool
         return true;
     }
 
-    $authorizationHeader = $request->header('Authorization');
-    if (!is_string($authorizationHeader) || !str_starts_with($authorizationHeader, 'Bearer ')) {
-        return false;
-    }
-
-    $token = trim(substr($authorizationHeader, 7));
-    if (!ctype_digit($token)) {
-        return false;
-    }
-
-    $actor = User::find((int) $token);
+    $actor = $this->resolveActorFromBearerToken($request);
 
     return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
 }
@@ -191,9 +196,14 @@ public function removeBadge(Request $request, $id, $badgeId)
 
 public function login(Request $request)
 {
-    $user = User::where('email', $request->email)->first();
+    $validated = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string',
+    ]);
 
-    if (!$user || !Hash::check($request->password, $user->password)) {
+    $user = User::where('email', $validated['email'])->first();
+
+    if (!$user || !Hash::check($validated['password'], $user->password)) {
         return response()->json([
             'message' => 'Email ou mot de passe incorrect'
         ], 401);
@@ -207,7 +217,36 @@ public function login(Request $request)
 
     return response()->json([
         'message' => 'Connexion réussie',
-        'user' => $user
+        'token' => (string) $user->id_utilisateur,
+        'user' => $user,
+    ], 200);
+}
+
+public function me(Request $request)
+{
+    $actor = $this->resolveActorFromBearerToken($request);
+
+    if (!$actor) {
+        return response()->json([
+            'message' => 'Non authentifié'
+        ], 401);
+    }
+
+    return response()->json($actor, 200);
+}
+
+public function logout(Request $request)
+{
+    $actor = $this->resolveActorFromBearerToken($request);
+
+    if (!$actor) {
+        return response()->json([
+            'message' => 'Non authentifié'
+        ], 401);
+    }
+
+    return response()->json([
+        'message' => 'Déconnexion réussie'
     ], 200);
 }
 
@@ -263,42 +302,76 @@ public function index(Request $request)
  
     public function update(Request $request, $id)
     {
-        if (User::where('id_utilisateur', $id)->exists())
-        {
-            $user = User::find($id);
-            $user->nom_utilisateur = $request->nom_utilisateur;
-            $user->prenom_utilisateur = $request->prenom_utilisateur;
-            $user->email = $request->email;
-            if ($request->filled('password')) {
-                $user->password = Hash::make($request->password);
-            }
-            $user->role_utilisateur = $request->role_utilisateur ?? $user->role_utilisateur;
-            $user->telephone_utilisateur = $request->telephone_utilisateur;
-            $user->adresse_utilisateur = $request->adresse_utilisateur;
-            $user->date_naissance_utilisateur = $request->date_naissance_utilisateur;
-            $user->allergies_utilisateur = $request->allergies_utilisateur;
-            $user->problemes_sante_utilisateur = $request->problemes_sante_utilisateur;
-            $user->possede_permis_utilisateur = (bool) $request->possede_permis_utilisateur;
-            $user->est_motorise_utilisateur = (bool) $request->est_motorise_utilisateur;
-            $user->possede_vehicule_utilisateur = (bool) $request->possede_vehicule_utilisateur;
-            $user->taille_tshirt_utilisateur = $request->taille_tshirt_utilisateur;
-            $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
-            $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
-            $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
-            $user->permissions_utilisateur = $request->permissions_utilisateur;
-            $user->nombre_missions_utilisateur = $request->nombre_missions_utilisateur ?? 0;
+        $validated = $request->validate([
+            'nom_utilisateur' => 'required|string|max:255',
+            'prenom_utilisateur' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'password' => 'nullable|string|min:8',
+            'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
+            'telephone_utilisateur' => 'nullable|string|max:255',
+            'adresse_utilisateur' => 'nullable|string|max:255',
+            'date_naissance_utilisateur' => 'nullable|date',
+            'allergies_utilisateur' => 'nullable|string',
+            'problemes_sante_utilisateur' => 'nullable|string',
+            'possede_permis_utilisateur' => 'nullable|boolean',
+            'est_motorise_utilisateur' => 'nullable|boolean',
+            'possede_vehicule_utilisateur' => 'nullable|boolean',
+            'taille_tshirt_utilisateur' => 'nullable|in:XS,S,M,L,XL',
+            'est_anonyme_utilisateur' => 'nullable|boolean',
+            'est_suspendu_utilisateur' => 'nullable|boolean',
+            'raison_suspension_utilisateur' => 'nullable|string|max:255',
+            'permissions_utilisateur' => 'nullable|string',
+            'nombre_missions_utilisateur' => 'nullable|integer|min:0',
+        ]);
 
-
-            $user->save();
-            return response()->json([
-                'message'=>'User mis à jour',
-                'user' => $user
-            ], 200);
-        } else {
+        if (!User::where('id_utilisateur', $id)->exists()) {
             return response()->json([
                 'message'=>'User inexistant'
             ], 404);
         }
+
+        $user = User::find($id);
+
+        if (
+            array_key_exists('role_utilisateur', $validated)
+            && $validated['role_utilisateur'] !== $user->role_utilisateur
+            && !$this->isSuperAdminRequest($request)
+        ) {
+            return response()->json([
+                'message' => 'Action réservée aux super-admins'
+            ], 403);
+        }
+
+        $user->nom_utilisateur = $validated['nom_utilisateur'];
+        $user->prenom_utilisateur = $validated['prenom_utilisateur'];
+        $user->email = $validated['email'];
+
+        if (!empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+        }
+
+        $user->role_utilisateur = $validated['role_utilisateur'] ?? $user->role_utilisateur;
+        $user->telephone_utilisateur = $validated['telephone_utilisateur'] ?? null;
+        $user->adresse_utilisateur = $validated['adresse_utilisateur'] ?? null;
+        $user->date_naissance_utilisateur = $validated['date_naissance_utilisateur'] ?? null;
+        $user->allergies_utilisateur = $validated['allergies_utilisateur'] ?? null;
+        $user->problemes_sante_utilisateur = $validated['problemes_sante_utilisateur'] ?? null;
+        $user->possede_permis_utilisateur = (bool) ($validated['possede_permis_utilisateur'] ?? false);
+        $user->est_motorise_utilisateur = (bool) ($validated['est_motorise_utilisateur'] ?? false);
+        $user->possede_vehicule_utilisateur = (bool) ($validated['possede_vehicule_utilisateur'] ?? false);
+        $user->taille_tshirt_utilisateur = $validated['taille_tshirt_utilisateur'] ?? null;
+        $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
+        $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
+        $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
+        $user->permissions_utilisateur = $validated['permissions_utilisateur'] ?? null;
+        $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
+
+        $user->save();
+
+        return response()->json([
+            'message'=>'User mis à jour',
+            'user' => $user
+        ], 200);
     }
  
     public function destroy($id)

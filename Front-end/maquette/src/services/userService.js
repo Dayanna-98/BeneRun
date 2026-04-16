@@ -29,6 +29,12 @@ export const userService = {
     if (Array.isArray(value)) {
       return value.filter(Boolean).map(v => String(v).trim()).filter(Boolean).join(', ')
     }
+    if (value && typeof value === 'object') {
+      const enabledPermissions = Object.entries(value)
+        .filter(([, enabled]) => !!enabled)
+        .map(([permission]) => permission)
+      return enabledPermissions.length ? enabledPermissions.join(', ') : null
+    }
     return value || null
   },
 
