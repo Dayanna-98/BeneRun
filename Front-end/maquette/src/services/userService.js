@@ -158,6 +158,15 @@ export const userService = {
     }
   },
 
+  logout: async () => {
+    try {
+      const response = await api.post('/logout')
+      return response.data
+    } catch (error) {
+      throw userService.formatApiError(error, 'Erreur lors de la deconnexion')
+    }
+  },
+
   // Créer un utilisateur (admin - CreateUser)
   create: async (userData) => {
     try {

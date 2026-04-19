@@ -21,6 +21,10 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login', [UserController::class, 'login']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [UserController::class, 'logout']);
+    Route::get('/me', [UserController::class, 'me']);
+});
 Route::get('/users/{id}/competences', [UserController::class, 'competences']);
 Route::post('/users/{id}/competences', [UserController::class, 'addCompetence']);
 Route::delete('/users/{id}/competences/{competenceId}', [UserController::class, 'removeCompetence']);
@@ -32,7 +36,7 @@ Route::apiResource('/admins', AdminController::class);//->middleware('auth:sanct
 Route::apiResource('/affectations', AffectationController::class);//->middleware('auth:sanctum');
 Route::apiResource('/badges', BadgeController::class);//->middleware('auth:sanctum');
 Route::apiResource('/benevoles', BenevoleController::class);//->middleware('auth:sanctum');
-Route::apiResource('/certificats', CertificatController::class);//->middleware('auth:sanctum');
+Route::apiResource('/certificats', CertificatController::class)->middleware('auth:sanctum');
 Route::apiResource('/competences', CompetenceController::class);//->middleware('auth:sanctum');
 Route::apiResource('/courses', CourseController::class);//->middleware('auth:sanctum');
 Route::apiResource('/documents', DocumentController::class);//->middleware('auth:sanctum');
