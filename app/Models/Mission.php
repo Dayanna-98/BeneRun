@@ -3,8 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Evenement; 
+use App\Models\User;
+use App\Models\MissionMedia;
+use App\Models\MissionContact;
+use App\Models\Competence;
 
-class Mission extends Model 
+class Mission extends Model
 {
     protected $primaryKey = 'id_mission';
     protected $fillable = [
@@ -51,6 +56,11 @@ class Mission extends Model
         return $this->belongsTo(User::class, 'responsable_utilisateur_id', 'id_utilisateur');
     }
 
+    public function contacts()
+    {
+        return $this->hasMany(MissionContact::class, 'id_mission');
+    }
+
     public function medias()
     {
         return $this->hasMany(MissionMedia::class, 'id_mission');
@@ -67,13 +77,17 @@ class Mission extends Model
             Competence::class,
             'mission_competences',
             'id_mission',
-            'id_competence',
-            'id_mission',
             'id_competence'
         )->withTimestamps();
     }
+
+    public function utilisateurs_favoris()
+    {
+        return $this->belongsToMany(
+            User::class,
+            'favorites',
+            'id_mission',
+            'id_utilisateur'
+        )->withTimestamps();
+    }
 }
-
-
-
-

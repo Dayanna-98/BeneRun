@@ -23,4 +23,5 @@ class Certificat extends Model
     {
         return $this->belongsTo(User::class, 'id_utilisateur', 'id_utilisateur');
     }
+
 }

@@ -41,7 +41,7 @@ class Evenement extends Model
         'est_publie_evenement' => 'boolean',
     ];
 
-    public function createdBy()
+    public function createur()
     {
         return $this->belongsTo(User::class, 'cree_par_utilisateur_id', 'id_utilisateur');
     }
