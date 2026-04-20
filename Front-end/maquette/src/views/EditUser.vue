@@ -33,11 +33,6 @@
           <span><strong>Compte anonyme.</strong> Les informations personnelles sont masquées.</span>
         </div>
 
-        <div v-if="targetUser.warnings >= 3 && !targetUser.suspended" class="alert alert-warning d-flex align-items-center gap-2 mb-0">
-          <AlertTriangle style="width:18px;height:18px;flex-shrink:0" />
-          <span><strong>Attention :</strong> Cet utilisateur a atteint {{ targetUser.warnings }} avertissements. Une suspension est recommandée.</span>
-        </div>
-
         <!-- Infos utilisateur -->
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Informations de l'utilisateur</h5></div>
@@ -65,12 +60,6 @@
                 <span :class="`badge border ${roleBadgeClass(targetUser.role)}`">{{ targetUser.accountType }}</span>
               </div>
               <div class="col-6">
-                <div class="text-muted">Avertissements</div>
-                <div class="fw-medium" :class="warningColor(targetUser.warnings)">
-                  {{ targetUser.warnings }}/3
-                </div>
-              </div>
-              <div class="col-6">
                 <div class="text-muted">Statut</div>
                 <div class="fw-medium">
                   <span v-if="targetUser.suspended" class="text-danger">Suspendu</span>
@@ -82,43 +71,36 @@
           </div>
         </div>
 
-        <!-- Avertissements -->
-        <div class="card">
-          <div class="card-header d-flex align-items-center gap-2">
-            <AlertTriangle style="width:20px;height:20px;color:#ca8a04" />
-            <h5 class="mb-0">Gestion des avertissements</h5>
-          </div>
+        <!-- Modifier infos personnelles -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Modifier les informations</h5></div>
           <div class="card-body d-flex flex-column gap-3">
-            <div>
-              <label class="form-label small fw-medium">Nombre d'avertissements</label>
-              <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-outline-secondary btn-sm px-3" :disabled="warnings === 0" @click="warnings = Math.max(0, warnings - 1)">−</button>
-                <div class="flex-fill text-center">
-                  <span class="fs-2 fw-bold" :class="warningColor(warnings)">{{ warnings }}</span>
-                  <span class="text-muted"> / 3</span>
-                </div>
-                <button class="btn btn-outline-secondary btn-sm px-3" :disabled="warnings >= 5" @click="warnings = Math.min(5, warnings + 1)">+</button>
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Prénom</label>
+                <input v-model="editForm.firstName" class="form-control" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Nom</label>
+                <input v-model="editForm.lastName" class="form-control" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Email</label>
+                <input v-model="editForm.email" type="email" class="form-control" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-medium">Téléphone</label>
+                <input v-model="editForm.phone" class="form-control" />
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-medium">Adresse</label>
+                <input v-model="editForm.address" class="form-control" />
               </div>
             </div>
 
-            <div v-if="warnings >= 3" class="alert alert-danger d-flex align-items-center gap-2 mb-0">
-              <AlertTriangle style="width:16px;height:16px;flex-shrink:0" />
-              <span class="small"><strong>Attention :</strong> À partir de 3 avertissements, le compte devrait être suspendu et le badge "Non fiable" sera visible.</span>
-            </div>
-
-            <div class="bg-light rounded p-3 small text-muted">
-              <p class="fw-medium mb-2">ℹ️ Informations</p>
-              <ul class="mb-0 ps-3">
-                <li>1 avertissement = désinscription d'une mission</li>
-                <li>3 avertissements = suspension automatique recommandée</li>
-                <li>Badge "Non fiable" visible à partir de 3 avertissements</li>
-              </ul>
-            </div>
-
-            <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2"
-              @click="alert(`Nombre d'avertissements modifié : ${warnings}`)">
+            <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2" @click="handleSaveInfo">
               <Save style="width:16px;height:16px" />
-              Enregistrer les avertissements
+              Enregistrer les informations
             </button>
           </div>
         </div>
@@ -161,6 +143,183 @@
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+
+        <!-- Compétences utilisateur -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Compétences de l'utilisateur</h5></div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div v-if="skillError" class="alert alert-danger py-2 mb-0 small">{{ skillError }}</div>
+            <div v-if="skillLoading" class="small text-muted">Chargement des compétences...</div>
+
+            <div v-for="c in userCompetences" :key="c.id_competence" class="d-flex align-items-center gap-2">
+              <span class="small flex-fill">{{ c.nom_competence }}</span>
+              <button class="btn btn-link p-1" :disabled="skillLoading" @click="removeSkill(c.id_competence)">
+                <Trash2 style="width:16px;height:16px;color:#ef4444" />
+              </button>
+            </div>
+
+            <div v-if="userCompetences.length === 0 && !isAddingSkill && !skillLoading" class="small text-muted">
+              Aucune compétence pour le moment.
+            </div>
+
+            <div v-if="isAddingSkill" class="bg-light rounded p-3 d-flex flex-column gap-2">
+              <div>
+                <label class="x-small text-muted">Choisir une compétence</label>
+                <select v-model="selectedSkillId" class="form-select form-select-sm mt-1">
+                  <option value="">-- Sélectionner --</option>
+                  <option v-for="c in availableToAdd" :key="c.id_competence" :value="c.id_competence">
+                    {{ c.nom_competence }}
+                  </option>
+                </select>
+                <div v-if="availableToAdd.length === 0" class="x-small text-muted mt-1">
+                  Toutes les compétences disponibles ont déjà été ajoutées.
+                </div>
+              </div>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-primary btn-sm flex-fill" :disabled="!selectedSkillId || skillLoading" @click="addSkill">
+                  Ajouter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @click="cancelAddSkill">Annuler</button>
+              </div>
+            </div>
+
+            <button
+              v-else
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center gap-2"
+              @click="isAddingSkill = true"
+              :disabled="skillLoading"
+            >
+              <Plus style="width:16px;height:16px" /> Ajouter une compétence
+            </button>
+          </div>
+        </div>
+
+        <!-- Badges utilisateur -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Badges de l'utilisateur</h5></div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div v-if="badgeError" class="alert alert-danger py-2 mb-0 small">{{ badgeError }}</div>
+            <div v-if="badgeLoading" class="small text-muted">Chargement des badges...</div>
+
+            <div v-for="b in userBadges" :key="b.id_badge" class="d-flex align-items-center gap-2">
+              <span class="small flex-fill">{{ b.titre_badge }}</span>
+              <span v-if="b.score_badge" class="badge bg-light text-dark border">{{ b.score_badge }} pts</span>
+              <button class="btn btn-link p-1" :disabled="badgeSaving || badgeLoading" @click="removeBadge(b.id_badge)">
+                <Trash2 style="width:16px;height:16px;color:#ef4444" />
+              </button>
+            </div>
+
+            <div v-if="userBadges.length === 0 && !isAddingBadge && !badgeLoading" class="small text-muted">
+              Aucun badge pour le moment.
+            </div>
+
+            <div v-if="isAddingBadge" class="bg-light rounded p-3 d-flex flex-column gap-2">
+              <div>
+                <label class="x-small text-muted">Choisir un badge</label>
+                <select v-model="selectedBadgeId" class="form-select form-select-sm mt-1">
+                  <option value="">-- Sélectionner --</option>
+                  <option v-for="b in availableBadgesToAdd" :key="b.id_badge" :value="b.id_badge">
+                    {{ b.titre_badge }}{{ b.score_badge ? ` (${b.score_badge} pts)` : '' }}
+                  </option>
+                </select>
+                <div v-if="availableBadgesToAdd.length === 0" class="x-small text-muted mt-1">
+                  Tous les badges disponibles ont déjà été ajoutés.
+                </div>
+              </div>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-primary btn-sm flex-fill" :disabled="!selectedBadgeId || badgeSaving || badgeLoading" @click="addBadge">
+                  Ajouter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @click="cancelAddBadge">Annuler</button>
+              </div>
+            </div>
+
+            <button
+              v-else
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center gap-2"
+              @click="isAddingBadge = true"
+              :disabled="badgeLoading"
+            >
+              <Award style="width:16px;height:16px" /> Ajouter un badge
+            </button>
+          </div>
+        </div>
+
+        <!-- Certificats utilisateur -->
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Certificats de l'utilisateur</h5></div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div v-if="certError" class="alert alert-danger py-2 mb-0 small">{{ certError }}</div>
+            <div v-if="certLoading" class="small text-muted">Chargement des certificats...</div>
+
+            <template v-for="cert in userCertificates" :key="cert.id">
+              <div v-if="editingCertId === cert.id" class="bg-light rounded p-3 d-flex flex-column gap-2">
+                <div>
+                  <label class="x-small text-muted">Titre</label>
+                  <input v-model="certEditForm.name" class="form-control form-control-sm mt-1" />
+                </div>
+                <div>
+                  <label class="x-small text-muted">Emetteur</label>
+                  <input v-model="certEditForm.issuer" class="form-control form-control-sm mt-1" />
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="x-small text-muted">Date émission</label>
+                    <input v-model="certEditForm.issueDate" type="date" class="form-control form-control-sm mt-1" />
+                  </div>
+                  <div class="col-6">
+                    <label class="x-small text-muted">Date expiration</label>
+                    <input v-model="certEditForm.expiryDate" type="date" class="form-control form-control-sm mt-1" />
+                  </div>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="x-small text-muted">Type</label>
+                    <select v-model="certEditForm.type" class="form-select form-select-sm mt-1">
+                      <option value="platform">Plateforme</option>
+                      <option value="external">Externe</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="x-small text-muted">Statut</label>
+                    <select v-model="certEditForm.status" class="form-select form-select-sm mt-1">
+                      <option value="pending">En attente</option>
+                      <option value="approved">Approuvé</option>
+                      <option value="rejected">Rejeté</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="d-flex gap-2 pt-1">
+                  <button class="btn btn-primary btn-sm flex-fill" :disabled="certSaving" @click="saveCertificate(cert.id)">
+                    Enregistrer
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" @click="cancelEditCertificate">Annuler</button>
+                </div>
+              </div>
+
+              <div v-else class="d-flex align-items-center gap-2 border rounded p-2">
+                <div class="small flex-fill">
+                  <div class="fw-medium">{{ cert.name }}</div>
+                  <div class="text-muted">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
+                  <div class="x-small text-muted mt-1">
+                    {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                    • {{ cert.status === 'approved' ? 'Approuvé' : cert.status === 'rejected' ? 'Rejeté' : 'En attente' }}
+                  </div>
+                </div>
+                <button class="btn btn-link p-1" :disabled="certSaving || certLoading" @click="startEditCertificate(cert)">
+                  <Edit style="width:16px;height:16px;color:#0d6efd" />
+                </button>
+                <button class="btn btn-link p-1" :disabled="certSaving || certLoading" @click="removeCertificate(cert.id)">
+                  <Trash2 style="width:16px;height:16px;color:#ef4444" />
+                </button>
+              </div>
+            </template>
+
+            <div v-if="userCertificates.length === 0 && !certLoading" class="small text-muted">
+              Aucun certificat pour le moment.
+            </div>
           </div>
         </div>
 
@@ -266,28 +425,109 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Save, AlertTriangle, UserX, Eye, EyeOff } from 'lucide-vue-next'
+import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2, Award, Edit } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import { users } from '@/data/mockData'
+import userService from '@/services/userService'
+import competenceService from '@/services/competenceService'
+import badgeService from '@/services/badgeService'
+import certificatService from '@/services/certificatService'
+
+const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
 const router = useRouter()
 const route = useRoute()
 const currentUser = getCurrentUser()
 if (!currentUser || !isRole('superadmin')) router.push('/')
 
-const targetUser = users.find(u => u.id === route.params.id)
+const targetUser = ref(null)
 
-const selectedRole = ref(targetUser?.role || 'volunteer')
-const warnings = ref(targetUser?.warnings || 0)
+const editForm = ref({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  address: '',
+})
+
+const syncEditForm = () => {
+  if (!targetUser.value) return
+  editForm.value = {
+    firstName: targetUser.value.firstName || '',
+    lastName: targetUser.value.lastName || '',
+    email: targetUser.value.email || '',
+    phone: targetUser.value.phone || '',
+    address: targetUser.value.address || '',
+  }
+}
+
+onMounted(async () => {
+  try {
+    targetUser.value = await userService.getById(route.params.id)
+  } catch {
+    targetUser.value = demoUsers.find(u => String(u.id) === String(route.params.id)) || null
+  }
+
+  if (targetUser.value?.id) {
+    await loadSkills(targetUser.value.id)
+    await loadBadges(targetUser.value.id)
+    await loadCertificates(targetUser.value.id)
+  }
+
+  syncEditForm()
+  if (targetUser.value) {
+    selectedRole.value = targetUser.value.role || 'volunteer'
+  }
+})
+
+const selectedRole = ref('volunteer')
 const showSuspendDialog = ref(false)
 const showAnonymizeDialog = ref(false)
 const showReactivateDialog = ref(false)
+const allCompetences = ref([])
+const userCompetences = ref([])
+const skillError = ref('')
+const skillLoading = ref(false)
+const isAddingSkill = ref(false)
+const selectedSkillId = ref('')
+const allBadges = ref([])
+const userBadges = ref([])
+const badgeError = ref('')
+const badgeLoading = ref(false)
+const badgeSaving = ref(false)
+const isAddingBadge = ref(false)
+const selectedBadgeId = ref('')
+const userCertificates = ref([])
+const certError = ref('')
+const certLoading = ref(false)
+const certSaving = ref(false)
+const editingCertId = ref(null)
+const certEditForm = ref({
+  name: '',
+  issuer: '',
+  issueDate: '',
+  expiryDate: '',
+  type: 'platform',
+  status: 'pending',
+})
+
+const availableToAdd = computed(() =>
+  allCompetences.value.filter(
+    c => !userCompetences.value.some(u => u.id_competence === c.id_competence)
+  )
+)
+
+const availableBadgesToAdd = computed(() =>
+  allBadges.value.filter(
+    b => !userBadges.value.some(u => u.id_badge === b.id_badge)
+  )
+)
 
 const roleOptions = [
   { value: 'volunteer',   label: 'Bénévole',    desc: 'Utilisateur de base' },
-  { value: 'organizer',   label: 'Organisateur', desc: 'Bénévole + gestion des missions' },
+  { value: 'mission_manager',   label: 'Organisateur', desc: 'Bénévole + gestion des missions' },
   { value: 'admin',       label: 'Admin',        desc: 'Organisateur + gestion des événements' },
   { value: 'superadmin',  label: 'Super-admin',  desc: 'Tous les droits de la plateforme' },
 ]
@@ -295,29 +535,300 @@ const roleOptions = [
 const roleBadgeClass = (role) => ({
   volunteer:  'bg-primary-subtle text-primary border-primary',
   organizer:  'bg-success-subtle text-success border-success',
+  mission_manager: 'bg-success-subtle text-success border-success',
   admin:      'bg-info-subtle text-info border-info',
   superadmin: 'bg-danger-subtle text-danger border-danger',
 }[role] || 'bg-secondary-subtle text-secondary border-secondary')
 
-const warningColor = (w) =>
-  w >= 3 ? 'text-danger' : w > 0 ? 'text-warning' : 'text-success'
+const loadSkills = async (userId) => {
+  if (!userId) return
+  skillError.value = ''
+  skillLoading.value = true
+  try {
+    const [all, mine] = await Promise.all([
+      competenceService.getAll(),
+      competenceService.getUserCompetences(userId),
+    ])
+    allCompetences.value = all
+    userCompetences.value = mine
+  } catch {
+    skillError.value = 'Impossible de charger les compétences utilisateur.'
+  } finally {
+    skillLoading.value = false
+  }
+}
 
-const handleSubmit = () => {
-  alert(`Rôle de ${targetUser.firstName} ${targetUser.lastName} mis à jour avec succès !`)
-  router.push('/manage-users')
+const loadBadges = async (userId) => {
+  if (!userId) return
+  badgeError.value = ''
+  badgeLoading.value = true
+  try {
+    const [all, mine] = await Promise.all([
+      badgeService.getAll(),
+      badgeService.getUserBadges(userId),
+    ])
+    allBadges.value = all
+    userBadges.value = mine
+  } catch (error) {
+    badgeError.value = error?.response?.data?.message || 'Impossible de charger les badges utilisateur.'
+  } finally {
+    badgeLoading.value = false
+  }
 }
-const handleSuspend = () => {
-  alert(`Utilisateur ${targetUser.firstName} ${targetUser.lastName} suspendu.`)
-  showSuspendDialog.value = false
-  router.push('/manage-users')
+
+const loadCertificates = async (userId) => {
+  if (!userId) return
+  certError.value = ''
+  certLoading.value = true
+  try {
+    userCertificates.value = await certificatService.getByUserApi(userId)
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Impossible de charger les certificats utilisateur.'
+  } finally {
+    certLoading.value = false
+  }
 }
-const handleAnonymize = () => {
-  alert(`Utilisateur ${targetUser.firstName} ${targetUser.lastName} rendu anonyme.`)
-  showAnonymizeDialog.value = false
-  router.push('/manage-users')
+
+const addSkill = async () => {
+  if (!targetUser.value?.id || !selectedSkillId.value) return
+  skillError.value = ''
+  skillLoading.value = true
+  try {
+    await competenceService.addToUser(targetUser.value.id, selectedSkillId.value)
+    await loadSkills(targetUser.value.id)
+    selectedSkillId.value = ''
+    isAddingSkill.value = false
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de l\'ajout de la compétence.'
+  } finally {
+    skillLoading.value = false
+  }
 }
-const handleReactivate = () => {
-  alert(`Utilisateur ${targetUser.firstName} ${targetUser.lastName} réactivé.`)
-  showReactivateDialog.value = false
+
+const removeSkill = async (competenceId) => {
+  if (!targetUser.value?.id) return
+  skillError.value = ''
+  skillLoading.value = true
+  try {
+    await competenceService.removeFromUser(targetUser.value.id, competenceId)
+    await loadSkills(targetUser.value.id)
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de la suppression de la compétence.'
+  } finally {
+    skillLoading.value = false
+  }
 }
+
+const cancelAddSkill = () => {
+  isAddingSkill.value = false
+  selectedSkillId.value = ''
+}
+
+const addBadge = async () => {
+  if (!targetUser.value?.id || !selectedBadgeId.value) return
+  badgeError.value = ''
+  badgeSaving.value = true
+  try {
+    await badgeService.addToUser(targetUser.value.id, selectedBadgeId.value)
+    await loadBadges(targetUser.value.id)
+    selectedBadgeId.value = ''
+    isAddingBadge.value = false
+  } catch (error) {
+    badgeError.value = error?.response?.data?.message || 'Erreur lors de l\'ajout du badge.'
+  } finally {
+    badgeSaving.value = false
+  }
+}
+
+const removeBadge = async (badgeId) => {
+  if (!targetUser.value?.id) return
+  badgeError.value = ''
+  badgeSaving.value = true
+  try {
+    await badgeService.removeFromUser(targetUser.value.id, badgeId)
+    await loadBadges(targetUser.value.id)
+  } catch (error) {
+    badgeError.value = error?.response?.data?.message || 'Erreur lors de la suppression du badge.'
+  } finally {
+    badgeSaving.value = false
+  }
+}
+
+const cancelAddBadge = () => {
+  isAddingBadge.value = false
+  selectedBadgeId.value = ''
+}
+
+const startEditCertificate = (cert) => {
+  editingCertId.value = cert.id
+  certEditForm.value = {
+    name: cert.name || '',
+    issuer: cert.issuer || '',
+    issueDate: cert.issueDate || '',
+    expiryDate: cert.expiryDate || '',
+    type: cert.type || 'platform',
+    status: cert.status || 'pending',
+  }
+}
+
+const cancelEditCertificate = () => {
+  editingCertId.value = null
+}
+
+const saveCertificate = async (certificateId) => {
+  if (!targetUser.value?.id) return
+  certError.value = ''
+  certSaving.value = true
+  try {
+    await certificatService.update(certificateId, {
+      userId: targetUser.value.id,
+      name: certEditForm.value.name,
+      issuer: certEditForm.value.issuer,
+      issueDate: certEditForm.value.issueDate || null,
+      expiryDate: certEditForm.value.expiryDate || null,
+      type: certEditForm.value.type,
+      status: certEditForm.value.status,
+    })
+    await loadCertificates(targetUser.value.id)
+    editingCertId.value = null
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Erreur lors de la modification du certificat.'
+  } finally {
+    certSaving.value = false
+  }
+}
+
+const removeCertificate = async (certificateId) => {
+  if (!targetUser.value?.id) return
+  if (!confirm('Supprimer ce certificat ?')) return
+
+  certError.value = ''
+  certSaving.value = true
+  try {
+    await certificatService.delete(certificateId)
+    await loadCertificates(targetUser.value.id)
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Erreur lors de la suppression du certificat.'
+  } finally {
+    certSaving.value = false
+  }
+}
+
+const toUpdatePayload = (extra = {}) => ({
+  firstName: extra.firstName ?? editForm.value.firstName ?? targetUser.value.firstName,
+  lastName: extra.lastName ?? editForm.value.lastName ?? targetUser.value.lastName,
+  email: extra.email ?? editForm.value.email ?? targetUser.value.email,
+  phone: extra.phone ?? editForm.value.phone ?? targetUser.value.phone,
+  address: extra.address ?? editForm.value.address ?? targetUser.value.address,
+  dateOfBirth: extra.dateOfBirth ?? targetUser.value.dateOfBirth ?? '',
+  role: extra.role ?? selectedRole.value ?? targetUser.value.role,
+  allergies: extra.allergies ?? targetUser.value.allergies ?? [],
+  healthIssues: extra.healthIssues ?? targetUser.value.healthIssues ?? [],
+  hasLicense: extra.hasLicense ?? !!targetUser.value.hasLicense,
+  isMotorized: extra.isMotorized ?? !!targetUser.value.isMotorized,
+  hasVehicle: extra.hasVehicle ?? !!targetUser.value.hasVehicle,
+  bibSize: extra.bibSize ?? targetUser.value.bibSize ?? '',
+  isAnonymous: extra.isAnonymous ?? !!targetUser.value.anonymous,
+  isSuspended: extra.isSuspended ?? !!targetUser.value.suspended,
+  suspensionReason: extra.suspensionReason ?? targetUser.value.suspensionReason ?? null,
+  missionCount: extra.missionCount ?? targetUser.value.missionCount ?? 0,
+})
+
+const handleSaveInfo = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload())
+    if (response.user) {
+      targetUser.value = response.user
+      selectedRole.value = response.user.role
+      syncEditForm()
+    }
+    alert('Informations utilisateur mises à jour')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la mise à jour')
+  }
+}
+
+const handleSubmit = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({ role: selectedRole.value }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Rôle de ${targetUser.value.firstName} ${targetUser.value.lastName} mis à jour avec succès !`)
+    router.push('/manage-users')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la modification du rôle')
+  }
+}
+const handleSuspend = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de suspendre cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({
+      isSuspended: true,
+      suspensionReason: 'Suspendu par super-admin',
+    }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} suspendu.`)
+    showSuspendDialog.value = false
+    router.push('/manage-users')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la suspension')
+  }
+}
+const handleAnonymize = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({
+      isAnonymous: !targetUser.value.anonymous,
+    }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} ${targetUser.value.anonymous ? 'rendu anonyme' : 'désanonymisé'}.`)
+    showAnonymizeDialog.value = false
+  } catch (error) {
+    alert(error.message || 'Erreur lors de l\'anonymisation')
+  }
+}
+const handleReactivate = async () => {
+  if (!targetUser.value?.id) {
+    alert('Impossible de réactiver cet utilisateur (ID manquant).')
+    return
+  }
+
+  try {
+    const response = await userService.update(targetUser.value.id, toUpdatePayload({
+      isSuspended: false,
+      suspensionReason: null,
+    }))
+    if (response.user) {
+      targetUser.value = response.user
+    }
+    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} réactivé.`)
+    showReactivateDialog.value = false
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la réactivation')
+  }
+}
+
 </script>

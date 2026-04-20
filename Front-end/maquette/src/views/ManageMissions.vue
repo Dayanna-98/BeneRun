@@ -11,7 +11,7 @@
           <h1 class="fs-5 fw-semibold mb-0">Gestion des Missions</h1>
         </div>
         <button class="btn btn-primary btn-sm d-flex align-items-center gap-2"
-          @click="router.push('/create-mission')">
+          @click="router.push('/manage-missions/create')">
           <Plus style="width:16px;height:16px" /> Créer
         </button>
       </div>
@@ -59,6 +59,8 @@
       <div class="card">
         <div class="card-header"><h5 class="mb-0">Toutes les missions</h5></div>
         <div class="card-body d-flex flex-column gap-3">
+          <div v-if="isLoading" class="text-muted small">Chargement des missions...</div>
+          <div v-else-if="errorMessage" class="alert alert-danger small mb-0">{{ errorMessage }}</div>
           <div v-for="mission in missions" :key="mission.id"
             class="border rounded p-3">
 
@@ -69,7 +71,7 @@
               </div>
               <div class="d-flex gap-1">
                 <button class="btn btn-link p-1 text-secondary"
-                  @click="router.push(`/edit-mission/${mission.id}`)">
+                  @click="router.push(`/manage-missions/edit/${mission.id}`)">
                   <Edit style="width:16px;height:16px" />
                 </button>
                 <button class="btn btn-link p-1 text-danger"
@@ -111,6 +113,9 @@
             </div>
 
           </div>
+          <div v-if="!isLoading && !errorMessage && missions.length === 0" class="text-muted small">
+            Aucune mission trouvée.
+          </div>
         </div>
       </div>
 
@@ -119,29 +124,51 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, MapPin, Clock } from 'lucide-vue-next'
-import { availableMissions } from '@/data/mockData'
+import missionService from '@/services/missionService'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
 
 const router = useRouter()
 const user = getCurrentUser()
 if (!user || !hasMinRole('organizer')) router.push('/')
 
-const missions = ref([...availableMissions])
+const missions = ref([])
+const isLoading = ref(true)
+const errorMessage = ref('')
 
 const availableCount = computed(() => missions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
-const fullCount       = computed(() => missions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
+const fullCount = computed(() => missions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
 const totalVolunteers = computed(() => missions.value.reduce((s, m) => s + m.currentVolunteers, 0))
 
 const formatDate = (d) =>
   new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const handleDeleteMission = (id) => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) {
-    missions.value = missions.value.filter(m => m.id !== id)
-    alert('Mission supprimée avec succès')
+const loadMissions = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    missions.value = await missionService.getAll()
+  } catch (error) {
+    errorMessage.value = error.message || 'Impossible de charger les missions'
+  } finally {
+    isLoading.value = false
   }
 }
+
+const handleDeleteMission = async (id) => {
+  if (confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) {
+    try {
+      await missionService.delete(id)
+      missions.value = missions.value.filter(m => m.id !== id)
+      alert('Mission supprimée avec succès')
+    } catch (error) {
+      alert(error.message || 'Erreur lors de la suppression de la mission')
+    }
+  }
+}
+
+onMounted(loadMissions)
 </script>

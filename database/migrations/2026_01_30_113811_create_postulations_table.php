@@ -14,17 +14,21 @@ return new class extends Migration
         Schema::create('postulations', function (Blueprint $table) {
             $table->id('id_postulation');
             $table->unsignedBigInteger('id_mission');
-            $table->foreign('id_mission')->references('id_mission')->on('missions');
-            $table->unsignedBigInteger('id_benevole');
-            $table->foreign('id_benevole')->references('id_benevole')->on('benevoles');
-            $table->dateTime('date_postulation');
-            $table->dateTime('date_acceptation_refus_postulation');
-            $table->dateTime('date_annulation_postulation');
-            $table->string('remarque_postulation');
-            $table->boolean('presence_postulation');
-            $table->string('commentaire_postulation');
-            $table->enum('statut_postulation', ['en_attente', 'accepte', 'refuse'])->default('en_attente');
-
+            $table->unsignedBigInteger('id_utilisateur');
+            $table->enum('statut_postulation', ['en_attente', 'accepte', 'refuse', 'annule'])->default('en_attente');
+            $table->text('remarque')->nullable();
+            $table->timestamp('date_postulation')->useCurrent();
+            $table->timestamp('date_decision')->nullable();
+            $table->timestamp('date_annulation')->nullable();
+            $table->foreign('id_mission')
+                  ->references('id_mission')
+                  ->on('missions')
+                  ->cascadeOnDelete();
+            $table->foreign('id_utilisateur')
+                  ->references('id_utilisateur')
+                  ->on('users')
+                  ->cascadeOnDelete();
+            $table->unique(['id_mission', 'id_utilisateur']);
             $table->timestamps();
         });
     }

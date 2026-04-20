@@ -61,9 +61,13 @@
               </button>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center gap-2">
+            <button
+              type="submit"
+              class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center gap-2"
+              :disabled="isLoading"
+            >
               <LogIn style="width:20px;height:20px" />
-              Se connecter
+              {{ isLoading ? 'Connexion...' : 'Se connecter' }}
             </button>
 
             <div class="text-center small">
@@ -79,12 +83,12 @@
           <!-- Erreur -->
           <div v-if="error" class="alert alert-danger mt-3 mb-0 small">{{ error }}</div>
 
-          <!-- Comptes démo -->
-          <div class="mt-4 pt-3 border-top">
-            <p class="small fw-medium text-center text-muted mb-3">Comptes de démonstration</p>
+          <!-- Comptes connus en base -->
+          <div v-if="displayUsers.length" class="mt-4 pt-3 border-top">
+            <p class="small fw-medium text-center text-muted mb-3">Emails trouvés en base</p>
             <div class="d-flex flex-column gap-2">
               <button
-                v-for="user in users" :key="user.id"
+                v-for="user in displayUsers" :key="`db-${user.id}`"
                 type="button"
                 class="btn btn-outline-secondary text-start p-3 d-flex align-items-center justify-content-between"
                 @click="quickLogin(user.email)">
@@ -92,12 +96,14 @@
                   <div class="small fw-medium">{{ user.firstName }} {{ user.lastName }}</div>
                   <div class="x-small text-muted">{{ user.email }}</div>
                 </div>
-                <span class="badge" style="background:rgba(26,34,48,.1);color:#1a2230">
-                  {{ user.accountType }}
-                </span>
+                <div class="d-flex flex-column align-items-end gap-1">
+                  <span class="badge" style="background:rgba(26,34,48,.1);color:#1a2230">
+                    {{ user.accountType }}
+                  </span>
+                </div>
               </button>
             </div>
-            <p class="x-small text-muted text-center mt-2 mb-0">Cliquez sur un compte puis connectez-vous</p>
+            <p class="x-small text-muted text-center mt-2 mb-0">Cliquez sur un email pour remplir le champ.</p>
           </div>
 
         </div>
@@ -109,32 +115,54 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { LogIn, User, Lock } from 'lucide-vue-next'
-import { login } from '@/utils/auth'
-import { users } from '@/data/mockData'
+import { persistAuthSession } from '@/utils/auth'
+import userService from '@/services/userService'
 
 const router = useRouter()
 const email = ref('')
 const password = ref('')
 const error = ref('')
+const isLoading = ref(false)
+const displayUsers = ref([])
 
-const handleLogin = () => {
+onMounted(async () => {
+  try {
+    displayUsers.value = await userService.getAll()
+  } catch (apiError) {
+    console.error('Erreur chargement comptes BDD:', apiError)
+    displayUsers.value = []
+  }
+})
+
+const handleLogin = async () => {
   error.value = ''
-  const user = login(email.value, password.value)
-  if (user) {
-    router.push('/')
-  } else {
-    error.value = 'Email ou mot de passe incorrect'
+  isLoading.value = true
+
+  try {
+    const response = await userService.login(email.value, password.value)
+    if (response.user && response.token) {
+      persistAuthSession({ user: response.user, token: response.token })
+      router.push('/')
+      return
+    }
+
+    error.value = 'Réponse de connexion invalide'
+  } catch (apiError) {
+    console.error('Erreur connexion API:', apiError)
+    error.value = apiError.message || 'Email ou mot de passe incorrect'
+  } finally {
+    isLoading.value = false
   }
 }
 
 const quickLogin = (userEmail) => {
-  const user = users.find(u => u.email === userEmail)
+  const user = displayUsers.value.find(u => u.email === userEmail)
   if (user) {
     email.value = user.email
-    password.value = user.password
+    password.value = ''
   }
 }
 </script>

@@ -1,8 +1,12 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
+    <div v-if="isLoading" class="min-vh-100 d-flex align-items-center justify-content-center">
+      <p class="text-muted mb-0">Chargement de l'événement...</p>
+    </div>
+
     <!-- Not found -->
-    <div v-if="!event" class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div v-else-if="!event" class="min-vh-100 d-flex align-items-center justify-content-center">
       <div class="text-center">
         <p class="text-muted mb-3">Événement non trouvé</p>
         <button class="btn btn-primary" @click="router.push('/manage-events')">Retour à la gestion</button>
@@ -57,6 +61,7 @@
                   <label class="form-label small fw-medium">Catégorie *</label>
                   <select v-model="formData.category" class="form-select" required>
                     <option value="">Sélectionner...</option>
+                    <option>Non défini</option>
                     <option>Sport</option>
                     <option>Festival</option>
                     <option>Salon</option>
@@ -78,9 +83,9 @@
 
               <div class="d-flex gap-3 pt-2">
                 <button type="button" class="btn btn-outline-secondary flex-fill" @click="router.go(-1)">Annuler</button>
-                <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2">
+                <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2" :disabled="isSubmitting">
                   <Save style="width:16px;height:16px" />
-                  Enregistrer les modifications
+                  {{ isSubmitting ? 'Enregistrement...' : 'Enregistrer les modifications' }}
                 </button>
               </div>
 
@@ -93,32 +98,69 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
-import { events } from '@/data/mockData'
+import eventService from '@/services/eventService'
 
 const router = useRouter()
 const route = useRoute()
 const user = getCurrentUser()
 if (!user || !hasMinRole('admin')) router.push('/')
 
-const event = events.find(e => e.id === route.params.id)
+const event = ref(null)
+const isLoading = ref(true)
+const isSubmitting = ref(false)
 
 const formData = reactive({
-  name: event?.name || '',
-  date: event?.date || '',
-  location: event?.location || '',
-  description: event?.description || '',
-  organizer: event?.organizer || '',
-  category: event?.category || '',
-  totalVolunteersNeeded: event?.totalVolunteersNeeded?.toString() || '',
-  imageUrl: event?.imageUrl || '',
+  name: '',
+  date: '',
+  location: '',
+  description: '',
+  organizer: '',
+  category: '',
+  totalVolunteersNeeded: '',
+  imageUrl: '',
 })
 
-const handleSubmit = () => {
-  alert('Événement modifié avec succès !')
-  router.push('/manage-events')
+const loadEvent = async () => {
+  isLoading.value = true
+
+  try {
+    const loadedEvent = await eventService.getById(route.params.id)
+    event.value = loadedEvent
+
+    formData.name = loadedEvent?.name || ''
+    formData.date = loadedEvent?.date || ''
+    formData.location = loadedEvent?.location || ''
+    formData.description = loadedEvent?.description || ''
+    formData.organizer = loadedEvent?.organizer || ''
+    formData.category = loadedEvent?.category || ''
+    formData.totalVolunteersNeeded = loadedEvent?.totalVolunteersNeeded?.toString() || ''
+    formData.imageUrl = loadedEvent?.imageUrl || ''
+  } catch {
+    event.value = null
+  } finally {
+    isLoading.value = false
+  }
 }
+
+const handleSubmit = async () => {
+  if (!event.value) return
+
+  isSubmitting.value = true
+
+  try {
+    await eventService.update(event.value.id, formData)
+    alert('Événement modifié avec succès !')
+    router.push('/manage-events')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la mise à jour de l\'événement')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+onMounted(loadEvent)
 </script>

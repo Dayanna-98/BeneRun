@@ -55,7 +55,7 @@
           <div class="col-4">
             <div class="rounded-3 text-center p-3 border border-white border-opacity-25"
               style="background:rgba(255,255,255,.1)">
-              <div class="fs-5 fw-bold" style="color:#d4e645">{{ skills.length }}</div>
+              <div class="fs-5 fw-bold" style="color:#d4e645">{{ userCompetences.length }}</div>
               <div class="x-small text-white-50">Compétences</div>
             </div>
           </div>
@@ -96,7 +96,7 @@
         <div class="card">
           <div class="card-header d-flex align-items-center justify-content-between">
             <h5 class="mb-0">Informations personnelles</h5>
-            <button class="btn btn-link p-0"><Edit style="width:16px;height:16px" /></button>
+            <button class="btn btn-link p-0" @click="handleEditProfile"><Edit style="width:16px;height:16px" /></button>
           </div>
           <div class="card-body d-flex flex-column gap-2">
             <div><div class="x-small text-muted">Email</div><div class="small">{{ user.email }}</div></div>
@@ -125,47 +125,6 @@
                 <span v-for="h in user.healthIssues" :key="h"
                   class="badge bg-secondary-subtle text-secondary border">{{ h }}</span>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Avertissements (admin+) -->
-        <div v-if="hasMinRole('admin')" class="card">
-          <div class="card-header d-flex align-items-center gap-2">
-            <AlertTriangle style="width:20px;height:20px;color:#ca8a04" />
-            <h5 class="mb-0">Avertissements</h5>
-          </div>
-          <div class="card-body d-flex flex-column gap-3">
-            <div v-if="user.warnings >= 3" class="alert alert-danger mb-0">
-              <div class="fw-bold mb-1">⚠️ Compte à risque</div>
-              <p class="small mb-0">
-                Cet utilisateur a atteint <strong>{{ user.warnings }}/3</strong> avertissements.
-                {{ user.suspended ? 'Le compte est actuellement suspendu.' : 'Le compte devrait être suspendu.' }}
-              </p>
-            </div>
-            <div v-else-if="user.warnings > 0" class="alert alert-warning mb-0">
-              <div class="fw-semibold mb-1">Avertissements : {{ user.warnings }}/3</div>
-              <p class="small mb-0">{{ 3 - user.warnings }} avertissement(s) restant(s) avant suspension.</p>
-            </div>
-            <div v-else class="alert alert-success mb-0 d-flex align-items-center gap-2">
-              <span class="fs-4">✓</span>
-              <div>
-                <div class="fw-semibold">Aucun avertissement</div>
-                <p class="small mb-0">Comportement exemplaire</p>
-              </div>
-            </div>
-            <div class="bg-light rounded p-3 x-small text-muted">
-              <p class="fw-medium mb-2">ℹ️ Informations sur les avertissements</p>
-              <ul class="mb-0 ps-3">
-                <li>1 avertissement = désinscription d'une mission</li>
-                <li>3 avertissements = suspension automatique du compte</li>
-                <li>Badge "Non fiable" visible à 3 avertissements</li>
-              </ul>
-            </div>
-            <div v-if="user.warnings >= 3">
-              <span class="badge bg-danger-subtle text-danger border border-danger">
-                🚫 Badge: Utilisateur Non Fiable
-              </span>
             </div>
           </div>
         </div>
@@ -205,35 +164,40 @@
         <div class="card">
           <div class="card-header"><h5 class="mb-0">Compétences</h5></div>
           <div class="card-body d-flex flex-column gap-3">
-            <div v-for="skill in skills" :key="skill.id" class="d-flex align-items-center gap-2">
-              <span class="small flex-fill">{{ skill.name }}</span>
-              <span :class="['badge',
-                skill.level === 'Expert' ? 'bg-primary' :
-                skill.level === 'Avancé' ? 'bg-secondary' :
-                'bg-light text-dark border']">
-                {{ skill.level }}
-              </span>
-              <button class="btn btn-link p-1" @click="removeSkill(skill.id)">
+
+            <div v-if="skillError" class="alert alert-danger py-2 mb-0 small">{{ skillError }}</div>
+
+            <div v-for="c in userCompetences" :key="c.id_competence" class="d-flex align-items-center gap-2">
+              <span class="small flex-fill">{{ c.nom_competence }}</span>
+              <button class="btn btn-link p-1" :disabled="skillLoading" @click="removeSkill(c.id_competence)">
                 <Trash2 style="width:16px;height:16px;color:#ef4444" />
               </button>
+            </div>
+
+            <div v-if="userCompetences.length === 0 && !isAddingSkill" class="small text-muted">
+              Aucune compétence pour le moment.
             </div>
 
             <!-- Formulaire ajout -->
             <div v-if="isAddingSkill" class="bg-light rounded p-3 d-flex flex-column gap-2">
               <div>
-                <label class="x-small text-muted">Nom de la compétence</label>
-                <input v-model="newSkillName" type="text" class="form-control form-control-sm mt-1"
-                  placeholder="Ex: Premiers secours, Logistique..." />
-              </div>
-              <div>
-                <label class="x-small text-muted">Niveau</label>
-                <select v-model="newSkillLevel" class="form-select form-select-sm mt-1">
-                  <option v-for="l in skillLevels" :key="l" :value="l">{{ l }}</option>
+                <label class="x-small text-muted">Choisir une compétence</label>
+                <select v-model="selectedSkillId" class="form-select form-select-sm mt-1">
+                  <option value="">-- Sélectionner --</option>
+                  <option v-for="c in availableToAdd" :key="c.id_competence" :value="c.id_competence">
+                    {{ c.nom_competence }}
+                  </option>
                 </select>
+                <div v-if="availableToAdd.length === 0" class="x-small text-muted mt-1">
+                  Toutes les compétences disponibles ont déjà été ajoutées.
+                </div>
               </div>
               <div class="d-flex gap-2 pt-1">
                 <button class="btn btn-primary btn-sm flex-fill"
-                  :disabled="!newSkillName.trim()" @click="addSkill">Ajouter</button>
+                  :disabled="!selectedSkillId || skillLoading" @click="addSkill">
+                  <span v-if="skillLoading" class="spinner-border spinner-border-sm me-1" />
+                  Ajouter
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" @click="cancelAddSkill">Annuler</button>
               </div>
             </div>
@@ -254,8 +218,8 @@
               <Lock style="width:16px;height:16px" /> Changer le mot de passe
             </button>
             <button class="btn btn-danger d-flex align-items-center gap-2"
-              @click="handleDeleteAccount">
-              <UserX style="width:16px;height:16px" /> Supprimer le compte
+              @click="handleSuspendOwnAccount">
+              <UserX style="width:16px;height:16px" /> Suspendre mon compte
             </button>
           </div>
         </div>
@@ -285,6 +249,82 @@
       <div v-if="activeTab === 'certs'" class="card">
         <div class="card-header"><h5 class="mb-0">Mes Certificats ({{ certificates.length }})</h5></div>
         <div class="card-body d-flex flex-column gap-3">
+          <div v-if="certLoading" class="small text-muted">Chargement des certificats...</div>
+          <div v-if="certError" class="alert alert-danger py-2 mb-0 small">{{ certError }}</div>
+
+          <div class="border rounded p-3 bg-light d-flex flex-column gap-2">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="small fw-medium">Soumettre un certificat</div>
+                <div class="x-small text-muted">Envoyez un certificat externe pour validation.</div>
+              </div>
+              <button
+                v-if="!isAddingCert"
+                class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                @click="startAddCert"
+              >
+                <Plus style="width:16px;height:16px" /> Soumettre
+              </button>
+            </div>
+
+            <div v-if="isAddingCert" class="d-flex flex-column gap-2">
+              <div>
+                <label class="x-small text-muted">Titre du certificat</label>
+                <input v-model="certForm.name" class="form-control form-control-sm mt-1" placeholder="Ex: PSC1" />
+              </div>
+              <div>
+                <label class="x-small text-muted">Émetteur</label>
+                <input v-model="certForm.issuer" class="form-control form-control-sm mt-1" placeholder="Ex: Croix-Rouge" />
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="x-small text-muted">Date d'émission</label>
+                  <input v-model="certForm.issueDate" type="date" class="form-control form-control-sm mt-1" />
+                </div>
+                <div class="col-6">
+                  <label class="x-small text-muted">Date d'expiration</label>
+                  <input v-model="certForm.expiryDate" type="date" class="form-control form-control-sm mt-1" />
+                </div>
+              </div>
+              <div>
+                <label class="x-small text-muted">Fichier (PDF ou image)</label>
+                <div
+                  class="border rounded mt-1 p-3 text-center"
+                  :class="isDraggingCertFile ? 'border-primary bg-primary-subtle' : 'bg-white'"
+                  style="cursor:pointer"
+                  @click="triggerCertFileSelect"
+                  @dragenter.prevent="isDraggingCertFile = true"
+                  @dragover.prevent="isDraggingCertFile = true"
+                  @dragleave.prevent="isDraggingCertFile = false"
+                  @drop.prevent="handleCertDrop"
+                >
+                  <div class="small fw-medium">Glissez-deposez votre document ici</div>
+                  <div class="x-small text-muted">ou cliquez pour selectionner un fichier</div>
+                </div>
+                <input
+                  ref="certFileInput"
+                  class="d-none"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  @change="handleCertFileChange"
+                />
+                <div v-if="certForm.file" class="x-small text-muted mt-1">Fichier sélectionné: {{ certForm.file.name }}</div>
+              </div>
+              <div class="d-flex gap-2 pt-1">
+                <button class="btn btn-primary btn-sm flex-fill" :disabled="certSaving" @click="submitCertificate">
+                  <span v-if="certSaving" class="spinner-border spinner-border-sm me-1" />
+                  Soumettre
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" :disabled="certSaving" @click="cancelAddCert">
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!certLoading && certificates.length === 0" class="small text-muted">
+            Aucun certificat pour le moment.
+          </div>
           <div v-for="cert in certificates" :key="cert.id" class="border rounded p-3">
             <div class="d-flex align-items-start justify-content-between mb-2">
               <div class="flex-fill">
@@ -296,7 +336,7 @@
               </span>
             </div>
             <div class="x-small text-muted mb-3">
-              Délivré le {{ new Date(cert.issueDate).toLocaleDateString('fr-FR') }}
+              Délivré le {{ cert.issueDate ? new Date(cert.issueDate).toLocaleDateString('fr-FR') : 'Date non renseignée' }}
               <span v-if="cert.expiryDate">
                 • Expire le {{ new Date(cert.expiryDate).toLocaleDateString('fr-FR') }}
               </span>
@@ -340,15 +380,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   User, Award, FileText, Briefcase, MapPin, MessageSquare,
   Edit, Download, Star, Calendar, Plus, Trash2, Lock,
-  UserX, LogOut, AlertTriangle
+  UserX, LogOut
 } from 'lucide-vue-next'
-import { badges, certificates, skills as initialSkills, missionHistory } from '@/data/mockData'
-import { getCurrentUser, logout as authLogout, hasMinRole } from '@/utils/auth'
+import { getCurrentUser, logout as authLogout } from '@/utils/auth'
+import competenceService from '@/services/competenceService'
+import certificatService from '@/services/certificatService'
+import userService from '@/services/userService'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -356,39 +398,202 @@ if (!user) router.push('/login')
 
 const activeTab     = ref('info')
 const permissions   = ref({ ...user.permissions })
-const skills        = ref([...initialSkills])
-const isAddingSkill = ref(false)
-const newSkillName  = ref('')
-const newSkillLevel = ref('Débutant')
-const skillLevels   = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert']
+const badges        = computed(() => user?.badges || [])
+const certificates  = ref([])
+const certLoading   = ref(false)
+const certError     = ref('')
+const certSaving    = ref(false)
+const isAddingCert  = ref(false)
+const isDraggingCertFile = ref(false)
+const certFileInput = ref(null)
+const certForm      = ref({
+  name: '',
+  issuer: '',
+  issueDate: '',
+  expiryDate: '',
+  file: null,
+})
+const missionHistory = computed(() => user?.missionHistory || [])
 
-const addSkill = () => {
-  if (newSkillName.value.trim()) {
-    skills.value.push({
-      id: Date.now().toString(),
-      name: newSkillName.value.trim(),
-      level: newSkillLevel.value
-    })
-    cancelAddSkill()
+// --- Compétences ---
+const allCompetences    = ref([])   // toutes les compétences dispo en bdd
+const userCompetences   = ref([])   // compétences de l'utilisateur
+const isAddingSkill     = ref(false)
+const selectedSkillId   = ref('')
+const skillError        = ref('')
+const skillLoading      = ref(false)
+
+const availableToAdd = computed(() =>
+  allCompetences.value.filter(
+    c => !userCompetences.value.some(u => u.id_competence === c.id_competence)
+  )
+)
+
+const loadSkills = async () => {
+  if (!user?.id) return
+  try {
+    const [all, mine] = await Promise.all([
+      competenceService.getAll(),
+      competenceService.getUserCompetences(user.id),
+    ])
+    allCompetences.value  = all
+    userCompetences.value = mine
+  } catch {
+    skillError.value = 'Impossible de charger les compétences.'
+  }
+}
+
+const addSkill = async () => {
+  if (!selectedSkillId.value) return
+  skillError.value  = ''
+  skillLoading.value = true
+  try {
+    await competenceService.addToUser(user.id, selectedSkillId.value)
+    await loadSkills()
+    selectedSkillId.value = ''
+    isAddingSkill.value   = false
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de l\'ajout de la compétence.'
+  } finally {
+    skillLoading.value = false
+  }
+}
+
+const removeSkill = async (competenceId) => {
+  skillError.value  = ''
+  skillLoading.value = true
+  try {
+    await competenceService.removeFromUser(user.id, competenceId)
+    await loadSkills()
+  } catch (error) {
+    skillError.value = error?.response?.data?.message || 'Erreur lors de la suppression de la compétence.'
+  } finally {
+    skillLoading.value = false
   }
 }
 
 const cancelAddSkill = () => {
-  isAddingSkill.value = false
-  newSkillName.value  = ''
-  newSkillLevel.value = 'Débutant'
+  isAddingSkill.value   = false
+  selectedSkillId.value = ''
 }
 
-const removeSkill = (id) => {
-  skills.value = skills.value.filter(s => s.id !== id)
+const loadCertificates = async () => {
+  if (!user?.id) {
+    certificates.value = []
+    return
+  }
+
+  certError.value = ''
+  certLoading.value = true
+  try {
+    const apiCertificates = await certificatService.getByUser(user.id)
+    certificates.value = apiCertificates
+  } catch {
+    certError.value = 'Impossible de charger les certificats.'
+    certificates.value = user?.certificates || []
+  } finally {
+    certLoading.value = false
+  }
 }
 
 const exportCert = (name) => {
   alert(`Export du certificat "${name}" en PDF`)
 }
 
-const handleLogout = () => {
+const resetCertForm = () => {
+  certForm.value = {
+    name: '',
+    issuer: '',
+    issueDate: '',
+    expiryDate: '',
+    file: null,
+  }
+}
+
+const startAddCert = () => {
+  certError.value = ''
+  isAddingCert.value = true
+}
+
+const cancelAddCert = () => {
+  isAddingCert.value = false
+  resetCertForm()
+}
+
+const handleCertFileChange = (event) => {
+  const [file] = event.target.files || []
+  setCertFile(file || null)
+}
+
+const setCertFile = (file) => {
+  if (!file) {
+    certForm.value.file = null
+    return
+  }
+
+  const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+  const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.webp']
+  const lowerName = file.name.toLowerCase()
+  const hasAllowedExtension = allowedExtensions.some(ext => lowerName.endsWith(ext))
+
+  if (!allowedMimeTypes.includes(file.type) && !hasAllowedExtension) {
+    certError.value = 'Format non supporte. Utilisez PDF, PNG, JPG ou WEBP.'
+    return
+  }
+
+  certError.value = ''
+  certForm.value.file = file
+}
+
+const handleCertDrop = (event) => {
+  isDraggingCertFile.value = false
+  const [file] = event.dataTransfer?.files || []
+  setCertFile(file || null)
+}
+
+const triggerCertFileSelect = () => {
+  certFileInput.value?.click()
+}
+
+const submitCertificate = async () => {
+  if (!user?.id) return
+  if (!certForm.value.name.trim()) {
+    certError.value = 'Le titre du certificat est obligatoire.'
+    return
+  }
+
+  certError.value = ''
+  certSaving.value = true
+
+  try {
+    await certificatService.create({
+      userId: user.id,
+      name: certForm.value.name.trim(),
+      issuer: certForm.value.issuer.trim() || 'Émetteur non renseigné',
+      issueDate: certForm.value.issueDate || null,
+      expiryDate: certForm.value.expiryDate || null,
+      type: 'external',
+      status: 'pending',
+      file: certForm.value.file,
+    })
+
+    await loadCertificates()
+    isAddingCert.value = false
+    resetCertForm()
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Impossible de soumettre le certificat.'
+  } finally {
+    certSaving.value = false
+  }
+}
+
+const handleLogout = async () => {
   if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+    try {
+      await userService.logout()
+    } catch {
+      // Always clear local session, even if API logout fails.
+    }
     authLogout()
     router.push('/login')
   }
@@ -400,11 +605,54 @@ const handleChangePassword = () => {
   }
 }
 
-const handleDeleteAccount = () => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action désactivera votre compte.')) {
+const handleEditProfile = () => {
+  router.push('/profile/edit')
+}
+
+const handleSuspendOwnAccount = async () => {
+  if (!confirm('Voulez-vous vraiment suspendre votre compte ?')) return
+
+  const reason = prompt('Raison de suspension (optionnel)', 'Suspension demandée par l\'utilisateur') || 'Suspension demandée par l\'utilisateur'
+  const userId = user.id
+  if (!userId) {
+    alert('Impossible de suspendre ce compte (ID utilisateur manquant).')
+    return
+  }
+
+  try {
+    await userService.update(userId, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone || '',
+      address: user.address || '',
+      dateOfBirth: user.dateOfBirth || '',
+      role: user.role,
+      allergies: user.allergies || [],
+      healthIssues: user.healthIssues || [],
+      hasLicense: !!user.hasLicense,
+      isMotorized: !!user.isMotorized,
+      hasVehicle: !!user.hasVehicle,
+      bibSize: user.bibSize || '',
+      isAnonymous: !!user.anonymous,
+      isSuspended: true,
+      suspensionReason: reason,
+      missionCount: user.missionCount || 0,
+    })
+
+    try {
+      await userService.logout()
+    } catch {
+      // Keep suspension flow usable if logout request fails.
+    }
     authLogout()
-    alert('Votre compte a été désactivé')
+    alert('Votre compte est maintenant suspendu.')
     router.push('/login')
+  } catch (error) {
+    alert(error.message || 'Erreur lors de la suspension du compte')
   }
 }
+
+onMounted(loadSkills)
+onMounted(loadCertificates)
 </script>

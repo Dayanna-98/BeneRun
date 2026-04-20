@@ -13,11 +13,21 @@ return new class extends Migration
     {
         Schema::create('certificats', function (Blueprint $table) {
             $table->id('id_certificat');
-            $table->unsignedBigInteger('id_benevole');
-            $table->foreign('id_benevole')->references('id_benevole')->on('benevoles');
-            $table->string('titre_certificat');
-
+            $table->unsignedBigInteger('id_utilisateur');  // FK vers users
+            $table->string('titre_certificat', 150);
+            $table->string('emetteur_certificat', 150)->nullable();
+            $table->date('date_emission_certificat')->nullable();
+            $table->date('date_expiration_certificat')->nullable();
+            $table->enum('type_certificat', ['platform', 'external'])->default('platform');
+            $table->enum('statut_certificat', ['en attente', 'approuvé', 'rejeté'])->default('en attente');
+            $table->string('chemin_fichier_certificat', 500)->nullable();
             $table->timestamps();
+
+            // Clé étrangère
+            $table->foreign('id_utilisateur')
+                  ->references('id_utilisateur')
+                  ->on('users')
+                  ->cascadeOnDelete();
         });
     }
 
