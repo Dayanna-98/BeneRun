@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 
 class UserController extends Controller
@@ -273,26 +274,51 @@ public function index(Request $request)
  
     public function store(Request $request)
     {
+        $validated = $request->validate([
+            'nom_utilisateur' => 'required|string|max:255',
+            'prenom_utilisateur' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8',
+            'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
+            'telephone_utilisateur' => 'nullable|string|max:255',
+            'adresse_utilisateur' => 'nullable|string|max:255',
+            'date_naissance_utilisateur' => 'nullable|date',
+            'allergies_utilisateur' => 'nullable|string',
+            'problemes_sante_utilisateur' => 'nullable|string',
+            'possede_permis_utilisateur' => 'nullable|boolean',
+            'est_motorise_utilisateur' => 'nullable|boolean',
+            'possede_vehicule_utilisateur' => 'nullable|boolean',
+            'taille_tshirt_utilisateur' => 'nullable|in:XS,S,M,L,XL',
+            'est_anonyme_utilisateur' => 'nullable|boolean',
+            'est_suspendu_utilisateur' => 'nullable|boolean',
+            'raison_suspension_utilisateur' => 'nullable|string|max:255',
+            'permissions_utilisateur' => 'nullable|string',
+            'nombre_missions_utilisateur' => 'nullable|integer|min:0',
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé.',
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
+        ]);
+
         $user = new User;
-        $user->nom_utilisateur = $request->nom_utilisateur;
-        $user->prenom_utilisateur = $request->prenom_utilisateur;
-        $user->email = $request->email;
-        $user->password = Hash::make($request->password);
-        $user->role_utilisateur = $request->role_utilisateur ?? 'bénévole';
-        $user->telephone_utilisateur = $request->telephone_utilisateur;
-        $user->adresse_utilisateur = $request->adresse_utilisateur;
-        $user->date_naissance_utilisateur = $request->date_naissance_utilisateur;
-        $user->allergies_utilisateur = $request->allergies_utilisateur;
-        $user->problemes_sante_utilisateur = $request->problemes_sante_utilisateur;
-        $user->possede_permis_utilisateur = (bool) $request->possede_permis_utilisateur;
-        $user->est_motorise_utilisateur = (bool) $request->est_motorise_utilisateur;
-        $user->possede_vehicule_utilisateur = (bool) $request->possede_vehicule_utilisateur;
-        $user->taille_tshirt_utilisateur = $request->taille_tshirt_utilisateur;
-        $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
-        $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
-        $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
-        $user->permissions_utilisateur = $request->permissions_utilisateur;
-        $user->nombre_missions_utilisateur = $request->nombre_missions_utilisateur ?? 0;
+        $user->nom_utilisateur = $validated['nom_utilisateur'];
+        $user->prenom_utilisateur = $validated['prenom_utilisateur'];
+        $user->email = $validated['email'];
+        $user->password = Hash::make($validated['password']);
+        $user->role_utilisateur = $validated['role_utilisateur'] ?? 'bénévole';
+        $user->telephone_utilisateur = $validated['telephone_utilisateur'] ?? null;
+        $user->adresse_utilisateur = $validated['adresse_utilisateur'] ?? null;
+        $user->date_naissance_utilisateur = $validated['date_naissance_utilisateur'] ?? null;
+        $user->allergies_utilisateur = $validated['allergies_utilisateur'] ?? null;
+        $user->problemes_sante_utilisateur = $validated['problemes_sante_utilisateur'] ?? null;
+        $user->possede_permis_utilisateur = (bool) ($validated['possede_permis_utilisateur'] ?? false);
+        $user->est_motorise_utilisateur = (bool) ($validated['est_motorise_utilisateur'] ?? false);
+        $user->possede_vehicule_utilisateur = (bool) ($validated['possede_vehicule_utilisateur'] ?? false);
+        $user->taille_tshirt_utilisateur = $validated['taille_tshirt_utilisateur'] ?? null;
+        $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
+        $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
+        $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
+        $user->permissions_utilisateur = $validated['permissions_utilisateur'] ?? null;
+        $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
 
         $user->save();
         return response()->json([
@@ -306,7 +332,12 @@ public function index(Request $request)
         $validated = $request->validate([
             'nom_utilisateur' => 'required|string|max:255',
             'prenom_utilisateur' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($id, 'id_utilisateur'),
+            ],
             'password' => 'nullable|string|min:8',
             'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
             'telephone_utilisateur' => 'nullable|string|max:255',
@@ -323,6 +354,9 @@ public function index(Request $request)
             'raison_suspension_utilisateur' => 'nullable|string|max:255',
             'permissions_utilisateur' => 'nullable|string',
             'nombre_missions_utilisateur' => 'nullable|integer|min:0',
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé.',
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
         ]);
 
         if (!User::where('id_utilisateur', $id)->exists()) {
