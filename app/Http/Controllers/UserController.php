@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
-
 class UserController extends Controller
 {
 
@@ -254,7 +253,6 @@ public function logout(Request $request)
 
 public function index(Request $request)
 {
-    // Récupère tous les utilisateurs
     $users = User::all();
     return response()->json($users);
 }
@@ -262,16 +260,15 @@ public function index(Request $request)
     public function show($id)
     {
         $user = User::find($id);
-        if (!empty($user))
-        {
+        if (!empty($user)) {
             return response()->json($user);
         } else {
             return response()->json([
-                "message"=>"User inexistant"
+                "message" => "User inexistant"
             ], 404);
         }
     }
- 
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -321,12 +318,13 @@ public function index(Request $request)
         $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
 
         $user->save();
+
         return response()->json([
-            'message'=>'User ajouté',
+            'message' => 'User ajouté',
             'user' => $user 
         ], 200);
     }
- 
+
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
@@ -361,7 +359,7 @@ public function index(Request $request)
 
         if (!User::where('id_utilisateur', $id)->exists()) {
             return response()->json([
-                'message'=>'User inexistant'
+                'message' => 'User inexistant'
             ], 404);
         }
 
@@ -408,21 +406,20 @@ public function index(Request $request)
             'user' => $user
         ], 200);
     }
- 
+
     public function destroy($id)
     {
-        if (User::where('id_utilisateur', $id)->exists())
-        {
+        if (User::where('id_utilisateur', $id)->exists()) {
             $user = User::find($id);
             $user->delete();
+
             return response()->json([
-                'message'=>'User supprimé'
+                'message' => 'User supprimé'
             ], 200);
         } else {
             return response()->json([
-                'message'=>'User inexistant'
+                'message' => 'User inexistant'
             ], 404);
         }
-    } 
-    
+    }
 }

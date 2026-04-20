@@ -13,9 +13,6 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $primaryKey = 'id_utilisateur';
-
-
     protected $fillable = [
         'nom_utilisateur',
         'prenom_utilisateur',
@@ -47,23 +44,15 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'password' => 'hashed',
             'possede_permis_utilisateur' => 'boolean',
             'est_motorise_utilisateur' => 'boolean',
             'possede_vehicule_utilisateur' => 'boolean',
             'est_anonyme_utilisateur' => 'boolean',
             'est_suspendu_utilisateur' => 'boolean',
             'nombre_missions_utilisateur' => 'integer',
+            'date_naissance_utilisateur' => 'date',
         ];
-    }
-
-    public function benevole()
-    {
-        return $this->hasOne(Benevole::class, 'id_benevole');
-    }
-
-    public function admin()
-    {
-        return $this->hasOne(Admin::class, 'id_admin');
     }
 
     public function competences()
@@ -72,10 +61,9 @@ class User extends Authenticatable
             Competence::class,
             'user_competences',
             'id_utilisateur',
-            'id_competence',
-            'id_utilisateur',
             'id_competence'
-        )->withTimestamps();
+            )->withPivot('niveau_competence')
+            ->withTimestamps();
     }
 
     public function badges()
@@ -84,14 +72,34 @@ class User extends Authenticatable
             Badge::class,
             'user_badges',
             'id_utilisateur',
-            'id_badge',
-            'id_utilisateur',
             'id_badge'
-        )->withPivot('attribue_le')->withTimestamps();
+        )
+        ->withPivot('attribue_le')
+        ->withTimestamps();
     }
 
     public function certificats()
     {
         return $this->hasMany(Certificat::class, 'id_utilisateur', 'id_utilisateur');
+    }
+
+    public function missions_favorites()
+    {
+        return $this->belongsToMany(
+            Mission::class,
+            'favorites',
+            'id_utilisateur',
+            'id_mission'
+        )->withTimestamps();
+    }
+
+    public function missions_creees()
+    {
+        return $this->hasMany(Mission::class, 'responsable_utilisateur_id', 'id_utilisateur');
+    }
+
+    public function postulations()
+    {
+        return $this->hasMany(Postulation::class, 'id_utilisateur');
     }
 }

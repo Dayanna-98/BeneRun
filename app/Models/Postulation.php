@@ -12,6 +12,7 @@ class Postulation extends Model
         'id_utilisateur',
         'statut_postulation',
         'remarque',
+        'date_postulation',
         'date_decision',
         'date_annulation',
     ];
