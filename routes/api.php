@@ -7,7 +7,6 @@ use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\BenevoleController;
 use App\Http\Controllers\CertificatController;
 use App\Http\Controllers\CompetenceController;
-use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\MissionController;
@@ -39,7 +38,7 @@ Route::apiResource('/badges', BadgeController::class);//->middleware('auth:sanct
 Route::apiResource('/benevoles', BenevoleController::class);//->middleware('auth:sanctum');
 Route::apiResource('/certificats', CertificatController::class)->middleware('auth:sanctum');
 Route::apiResource('/competences', CompetenceController::class);//->middleware('auth:sanctum');
-Route::apiResource('/courses', CourseController::class);//->middleware('auth:sanctum');
+Route::apiResource('/courses', EvenementController::class);// ancien alias conservé pour compatibilité
 Route::apiResource('/documents', DocumentController::class);//->middleware('auth:sanctum');
 Route::apiResource('/evenements', EvenementController::class);//->middleware('auth:sanctum');
 Route::apiResource('/missions', MissionController::class);//->middleware('auth:sanctum');
