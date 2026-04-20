@@ -31,8 +31,8 @@ class Evenement extends Model
     protected $casts = [
         'date_debut_evenement' => 'date',
         'date_fin_evenement' => 'date',
-        'heure_debut_evenement' => 'time',
-        'heure_fin_evenement' => 'time',
+        'heure_debut_evenement' => 'string',
+        'heure_fin_evenement' => 'string',
         'latitude_evenement' => 'decimal:7',
         'longitude_evenement' => 'decimal:7',
         'nombre_benevoles_requis' => 'integer',

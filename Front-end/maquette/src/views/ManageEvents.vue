@@ -11,7 +11,7 @@
           <h1 class="fs-5 fw-semibold mb-0">Gestion des Événements</h1>
         </div>
         <button class="btn btn-primary btn-sm d-flex align-items-center gap-2"
-          @click="router.push('/create-event')">
+          @click="router.push('/manage-events/create')">
           <Plus style="width:16px;height:16px" /> Créer
         </button>
       </div>
@@ -59,6 +59,8 @@
       <div class="card">
         <div class="card-header"><h5 class="mb-0">Tous les événements</h5></div>
         <div class="card-body d-flex flex-column gap-3">
+          <div v-if="isLoading" class="text-muted small">Chargement des événements...</div>
+          <div v-else-if="errorMessage" class="alert alert-danger small mb-0">{{ errorMessage }}</div>
           <div v-for="event in eventsList" :key="event.id"
             class="border rounded overflow-hidden">
 
@@ -75,7 +77,7 @@
                 </div>
                 <div class="d-flex gap-1 ms-2">
                   <button class="btn btn-link p-1 text-secondary"
-                    @click="router.push(`/edit-event/${event.id}`)">
+                    @click="router.push(`/manage-events/edit/${event.id}`)">
                     <Edit style="width:16px;height:16px" />
                   </button>
                   <button class="btn btn-link p-1 text-danger"
@@ -88,7 +90,7 @@
               <div class="row g-2 small text-muted mb-3">
                 <div class="col-6 d-flex align-items-center gap-2">
                   <Calendar style="width:16px;height:16px" />
-                  <span class="x-small">{{ formatDate(event.date) }}</span>
+                  <span class="x-small">{{ formatDateRange(event.startDate, event.endDate) }}</span>
                 </div>
                 <div class="col-6 d-flex align-items-center gap-2">
                   <MapPin style="width:16px;height:16px" />
@@ -101,6 +103,14 @@
                 <div class="col-6 d-flex align-items-center gap-2">
                   <Users style="width:16px;height:16px" />
                   <span class="x-small">{{ event.currentVolunteers }}/{{ event.totalVolunteersNeeded }}</span>
+                </div>
+                <div class="col-6 d-flex align-items-center gap-2">
+                  <span class="badge" :class="event.isPublished ? 'bg-success-subtle text-success border border-success' : 'bg-secondary-subtle text-secondary border border-secondary'">
+                    {{ event.isPublished ? 'Publié' : 'Brouillon' }}
+                  </span>
+                </div>
+                <div class="col-6 d-flex align-items-center gap-2" v-if="event.isCancelled">
+                  <span class="badge bg-danger-subtle text-danger border border-danger">Annulé</span>
                 </div>
               </div>
 
@@ -116,10 +126,13 @@
               </div>
 
               <div class="d-flex flex-wrap gap-2">
-                <span :class="`badge border ${categoryBadgeClass(event.category)}`">{{ event.category }}</span>
+                    <span :class="`badge border ${categoryBadgeClass(event.category)}`">{{ event.category }}</span>
                 <span class="badge bg-secondary-subtle text-secondary border border-secondary">{{ event.organizer }}</span>
               </div>
             </div>
+          </div>
+          <div v-if="!isLoading && !errorMessage && eventsList.length === 0" class="text-muted small">
+            Aucun événement trouvé en base de données.
           </div>
         </div>
       </div>
@@ -129,26 +142,40 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Calendar, MapPin, Users, Briefcase } from 'lucide-vue-next'
-import { events } from '@/data/mockData'
+import eventService from '@/services/eventService'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
 
 const router = useRouter()
 const user = getCurrentUser()
 if (!user || !hasMinRole('admin')) router.push('/')
 
-const eventsList = ref([...events])
+const eventsList = ref([])
+const isLoading = ref(true)
+const errorMessage = ref('')
 
 const totalMissions   = computed(() => eventsList.value.reduce((s, e) => s + e.missionsCount, 0))
 const totalVolunteers = computed(() => eventsList.value.reduce((s, e) => s + e.currentVolunteers, 0))
 const totalPlaces     = computed(() => eventsList.value.reduce((s, e) => s + e.totalVolunteersNeeded, 0))
 
-const completionRate = (e) => Math.round((e.currentVolunteers / e.totalVolunteersNeeded) * 100)
+const completionRate = (e) => {
+  if (!e.totalVolunteersNeeded) return 0
+  return Math.round((e.currentVolunteers / e.totalVolunteersNeeded) * 100)
+}
 
-const formatDate = (d) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+const formatDate = (d) => {
+  if (!d) return '-'
+  return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+const formatDateRange = (start, end) => {
+  const startLabel = formatDate(start)
+  const endLabel = formatDate(end)
+  if (startLabel === endLabel) return startLabel
+  return `${startLabel} - ${endLabel}`
+}
 
 const categoryBadgeClass = (cat) => ({
   Sport:     'bg-primary-subtle text-primary border-primary',
@@ -157,10 +184,30 @@ const categoryBadgeClass = (cat) => ({
   Écologie:  'bg-success-subtle text-success border-success',
 }[cat] || 'bg-secondary-subtle text-secondary border-secondary')
 
-const handleDeleteEvent = (id) => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cet événement ? Toutes les missions associées seront également supprimées.')) {
-    eventsList.value = eventsList.value.filter(e => e.id !== id)
-    alert('Événement supprimé avec succès')
+const loadEvents = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    eventsList.value = await eventService.getAll()
+  } catch (error) {
+    errorMessage.value = error.message || 'Impossible de charger les événements'
+  } finally {
+    isLoading.value = false
   }
 }
+
+const handleDeleteEvent = async (id) => {
+  if (confirm('Êtes-vous sûr de vouloir supprimer cet événement ? Toutes les missions associées seront également supprimées.')) {
+    try {
+      await eventService.delete(id)
+      eventsList.value = eventsList.value.filter(e => e.id !== id)
+      alert('Événement supprimé avec succès')
+    } catch (error) {
+      alert(error.message || 'Erreur lors de la suppression de l\'événement')
+    }
+  }
+}
+
+onMounted(loadEvents)
 </script>
