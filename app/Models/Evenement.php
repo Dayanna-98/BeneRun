@@ -28,9 +28,26 @@ class Evenement extends Model
         'cree_par_utilisateur_id',
     ];
 
+    protected $casts = [
+        'date_debut_evenement' => 'date',
+        'date_fin_evenement' => 'date',
+        'heure_debut_evenement' => 'string',
+        'heure_fin_evenement' => 'string',
+        'latitude_evenement' => 'decimal:7',
+        'longitude_evenement' => 'decimal:7',
+        'nombre_benevoles_requis' => 'integer',
+        'est_annule_evenement' => 'boolean',
+        'date_annulation_evenement' => 'date',
+        'est_publie_evenement' => 'boolean',
+    ];
+
     public function createur()
     {
         return $this->belongsTo(User::class, 'cree_par_utilisateur_id', 'id_utilisateur');
     }
 
+    public function missions()
+    {
+        return $this->hasMany(Mission::class, 'id_evenement');
+    }
 }

@@ -16,14 +16,17 @@ class MissionMedia extends Model
         'telecharge_par_utilisateur_id',
     ];
 
+    protected $casts = [
+        'taille_fichier' => 'integer',
+    ];
+
     public function mission()
     {
         return $this->belongsTo(Mission::class, 'id_mission');
     }
 
-    public function utilisateur()
+    public function uploadedBy()
     {
         return $this->belongsTo(User::class, 'telecharge_par_utilisateur_id', 'id_utilisateur');
     }
-
 }

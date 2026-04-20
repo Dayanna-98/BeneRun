@@ -27,5 +27,4 @@ class Badge extends Model
         ->withPivot('attribue_le')
         ->withTimestamps();
     }
-
 }

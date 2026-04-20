@@ -27,26 +27,48 @@ class Mission extends Model
         'nombre_benevoles_max',
         'nombre_benevoles_backup',
         'statut_mission',
+        'inscription_requise',
+        'visibilite_mission',
         'consignes_securite',
         'image_mission',
         'publie_le_mission',
+    ];
+
+    protected $casts = [
+        'date_mission' => 'date',
+        'heure_debut_mission' => 'string',
+        'heure_fin_mission' => 'string',
+        'latitude_mission' => 'decimal:7',
+        'longitude_mission' => 'decimal:7',
+        'nombre_benevoles_max' => 'integer',
+        'nombre_benevoles_backup' => 'integer',
+        'inscription_requise' => 'boolean',
+        'publie_le_mission' => 'datetime',
     ];
 
     public function evenement()
     {
         return $this->belongsTo(Evenement::class, 'id_evenement');
     }
+
     public function responsable()
     {
         return $this->belongsTo(User::class, 'responsable_utilisateur_id', 'id_utilisateur');
     }
+
     public function contacts()
     {
         return $this->hasMany(MissionContact::class, 'id_mission');
     }
+
     public function medias()
     {
         return $this->hasMany(MissionMedia::class, 'id_mission');
+    }
+
+    public function affectations()
+    {
+        return $this->hasMany(Affectation::class, 'id_mission', 'id_mission');
     }
 
     public function competences()
@@ -62,15 +84,10 @@ class Mission extends Model
     public function utilisateurs_favoris()
     {
         return $this->belongsToMany(
-        User::class,
-        'favorites',
-        'id_mission',
-        'id_utilisateur'
+            User::class,
+            'favorites',
+            'id_mission',
+            'id_utilisateur'
         )->withTimestamps();
     }
-
 }
-
-
-
-

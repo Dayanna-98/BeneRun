@@ -1,0 +1,16 @@
+:root {
+  --primary:    #2C3549;
+  --accent:     #C5D82E;
+  --accent-dark:#a3c200;
+  --destructive:#d4183d;
+  --muted:      #ececf0;
+  --muted-fg:   #717182;
+  --radius:     0.625rem;
+}
+
+/* Surcharge Bootstrap avec les couleurs du projet */
+.btn-primary  { background-color: var(--primary); border-color: var(--primary); }
+.btn-primary:hover { background-color: #1a2230; border-color: #1a2230; }
+.text-accent  { color: var(--accent) !important; }
+.bg-accent    { background-color: var(--accent) !important; }
+.x-small      { font-size: 0.75rem; }

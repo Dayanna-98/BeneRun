@@ -8,13 +8,19 @@ class AffectationController extends Controller
 {
     public function index()// Récupérer toutes les affectations
     {
-        $affectations = Affectation::all();
+        $affectations = Affectation::with([
+            'mission:id_mission,titre_mission',
+            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+        ])->get();
         return response()->json($affectations);
     }
 
     public function show($id) // Rechercher une affectation selon son id
     {
-        $affectation = Affectation::find($id);
+        $affectation = Affectation::with([
+            'mission:id_mission,titre_mission',
+            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+        ])->find($id);
         if (!empty($affectation)){
             return response()->json($affectation);
         } 
@@ -25,18 +31,23 @@ class AffectationController extends Controller
 
         public function store(Request $request)
     {
-       	
-        $affectation= new Affectation;
-        $affectation->id_benevole = $request->id_benevole;
-        $affectation->id_mission = $request->id_mission;
-        $affectation->statut_affectation = $request->statut_affectation;
-        $affectation->remarque_affectation = $request->remarque_affectation;
-        $affectation->est_responsable_affectation = $request->est_responsable_affectation;
+        $validated = $request->validate([
+            'id_mission' => 'required|integer|exists:missions,id_mission',
+            'id_utilisateur' => 'required|integer|exists:users,id_utilisateur',
+            'statut_affectation' => 'nullable|in:assigne,confirme,present,absent,annule',
+            'est_responsable' => 'nullable|boolean',
+            'remarque' => 'nullable|string',
+            'date_affectation' => 'nullable|date',
+            'date_confirmation' => 'nullable|date',
+            'date_presence' => 'nullable|date',
+        ]);
 
-        $affectation->save();
+        $affectation = Affectation::create($validated);
+
         return response()->json([
-            'message'=>'Affectation ajoutée'
-        ], 200);
+            'message' => 'Affectation ajoutée',
+            'affectation' => $affectation,
+        ], 201);
     }
 
 
@@ -45,16 +56,21 @@ class AffectationController extends Controller
         if (Affectation::where('id_affectation', $id)->exists())
         {
             $affectation = Affectation::find($id);
-            $affectation->id_benevole = $request->id_benevole;
-            $affectation->id_mission = $request->id_mission;
-            $affectation->statut_affectation = $request->statut_affectation;
-            $affectation->remarque_affectation = $request->remarque_affectation;
-            $affectation->est_responsable_affectation = $request->est_responsable_affectation;
-     
+            $validated = $request->validate([
+                'id_mission' => 'sometimes|integer|exists:missions,id_mission',
+                'id_utilisateur' => 'sometimes|integer|exists:users,id_utilisateur',
+                'statut_affectation' => 'nullable|in:assigne,confirme,present,absent,annule',
+                'est_responsable' => 'nullable|boolean',
+                'remarque' => 'nullable|string',
+                'date_affectation' => 'nullable|date',
+                'date_confirmation' => 'nullable|date',
+                'date_presence' => 'nullable|date',
+            ]);
 
-            $affectation->save();
+            $affectation->update($validated);
             return response()->json([
-                'message'=>'Affectation mise à jour'
+                'message' => 'Affectation mise à jour',
+                'affectation' => $affectation,
             ], 200);
         } else {
             return response()->json([

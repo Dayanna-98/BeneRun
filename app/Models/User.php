@@ -5,10 +5,13 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Laravel\Sanctum\HasApiTokens;
+use App\Models\Badge;
+use App\Models\Competence;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'nom_utilisateur',
@@ -47,6 +50,7 @@ class User extends Authenticatable
             'possede_vehicule_utilisateur' => 'boolean',
             'est_anonyme_utilisateur' => 'boolean',
             'est_suspendu_utilisateur' => 'boolean',
+            'nombre_missions_utilisateur' => 'integer',
             'date_naissance_utilisateur' => 'date',
         ];
     }
@@ -74,19 +78,19 @@ class User extends Authenticatable
         ->withTimestamps();
     }
 
+    public function certificats()
+    {
+        return $this->hasMany(Certificat::class, 'id_utilisateur', 'id_utilisateur');
+    }
+
     public function missions_favorites()
     {
         return $this->belongsToMany(
-        Mission::class,
-        'favorites',
-        'id_utilisateur',
-        'id_mission'
+            Mission::class,
+            'favorites',
+            'id_utilisateur',
+            'id_mission'
         )->withTimestamps();
-    }
-
-    public function certificats()
-    {
-        return $this->hasMany(Certificat::class, 'id_utilisateur');
     }
 
     public function missions_creees()
@@ -98,8 +102,4 @@ class User extends Authenticatable
     {
         return $this->hasMany(Postulation::class, 'id_utilisateur');
     }
-
-
-
-
 }
