@@ -587,8 +587,13 @@ const submitCertificate = async () => {
   }
 }
 
-const handleLogout = () => {
+const handleLogout = async () => {
   if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+    try {
+      await userService.logout()
+    } catch {
+      // Always clear local session, even if API logout fails.
+    }
     authLogout()
     router.push('/login')
   }
@@ -635,6 +640,11 @@ const handleSuspendOwnAccount = async () => {
       missionCount: user.missionCount || 0,
     })
 
+    try {
+      await userService.logout()
+    } catch {
+      // Keep suspension flow usable if logout request fails.
+    }
     authLogout()
     alert('Votre compte est maintenant suspendu.')
     router.push('/login')

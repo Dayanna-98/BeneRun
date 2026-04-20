@@ -27,17 +27,8 @@ class CertificatController extends Controller
 
     private function resolveActorFromBearerToken(Request $request): ?User
     {
-        $authorizationHeader = $request->header('Authorization');
-        if (!is_string($authorizationHeader) || !str_starts_with($authorizationHeader, 'Bearer ')) {
-            return null;
-        }
-
-        $token = trim(substr($authorizationHeader, 7));
-        if (!ctype_digit($token)) {
-            return null;
-        }
-
-        return User::find((int) $token);
+        $actor = $request->user('sanctum');
+        return $actor instanceof User ? $actor : null;
     }
 
     private function normalizeRole(?string $role): string
@@ -47,14 +38,17 @@ class CertificatController extends Controller
 
     private function isSuperAdminRequest(Request $request): bool
     {
+        $actor = $this->resolveActorFromBearerToken($request);
+        if ($actor !== null) {
+            return $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
+        }
+
         $headerRole = $request->header('X-User-Role');
         if (!empty($headerRole) && $this->normalizeRole($headerRole) === 'superadmin') {
             return true;
         }
 
-        $actor = $this->resolveActorFromBearerToken($request);
-
-        return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
+        return false;
     }
 
     public function index(Request $request)

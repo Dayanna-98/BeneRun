@@ -28,8 +28,6 @@ import CreateUser from '@/views/CreateUser.vue'
 import EditUser from '@/views/EditUser.vue'
 import Statistics from '@/views/Statistics.vue'
 import ManageCompetences from '@/views/ManageCompetences.vue'
-import ManageBadges from '@/views/ManageBadges.vue'
-import ManageCertificates from '@/views/ManageCertificates.vue'
 
 const routes = [
   // Routes publiques
@@ -54,32 +52,17 @@ const routes = [
   { path: '/manage-events', component: ManageEvents, meta: { requiresAuth: true } },
   { path: '/manage-events/create', component: CreateEvent, meta: { requiresAuth: true } },
   { path: '/manage-events/edit/:id', component: EditEvent, meta: { requiresAuth: true } },
-  { path: '/manage-users', component: ManageUsers, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
+  { path: '/manage-users', component: ManageUsers, meta: { requiresAuth: true } },
   { path: '/manage-users/create', component: CreateUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
-  { path: '/manage-users/:id', component: EditUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
-  { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
+  { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true } },
   { path: '/statistics', component: Statistics, meta: { requiresAuth: true } },
   { path: '/manage-competences', component: ManageCompetences, meta: { requiresAuth: true } },
-  { path: '/manage-badges', component: ManageBadges, meta: { requiresAuth: true } },
-  { path: '/manage-certificates', component: ManageCertificates, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
 })
-
-const cleanupBootstrapBackdrops = () => {
-  if (typeof document === 'undefined') return
-
-  document
-    .querySelectorAll('.modal-backdrop, .offcanvas-backdrop')
-    .forEach((element) => element.remove())
-
-  document.body.classList.remove('modal-open')
-  document.body.style.removeProperty('overflow')
-  document.body.style.removeProperty('padding-right')
-}
 
 // Navigation guards
 router.beforeEach((to, from) => {
@@ -103,10 +86,6 @@ router.beforeEach((to, from) => {
   }
 
   return true
-})
-
-router.afterEach(() => {
-  cleanupBootstrapBackdrops()
 })
 
 export default router

@@ -1,170 +1,246 @@
-Voici le README complet en markdown — à placer à la racine du projet sous le nom README.md :
+# Front-end BeneRun (maquette)
 
-# 🏃 Maquette — Running Geneva
+Guide complet pour installer, lancer et depanner le front-end Vue.js, meme si vous n'avez pas l'habitude des outils Node.
 
-Application mobile-first développée avec **Vue.js 3**, **Bootstrap 5**, **Vue Router** et **Pinia**.  
-Interface de gestion de bénévoles pour événements sportifs (Running Geneva).
+Ce dossier correspond a l'application front-end situee dans:
 
----
+`BeneRun/Front-end/maquette`
 
-## 📋 Prérequis
+## 1) A quoi sert ce projet
 
-- [Node.js](https://nodejs.org/) v18 ou supérieur
-- [npm](https://www.npmjs.com/) v9 ou supérieur
-- Un éditeur de code (recommandé : [VS Code](https://code.visualstudio.com/))
+Ce front-end est une application Vue 3 (Vite) qui communique avec l'API Laravel du projet BeneRun.
 
----
+Technos principales:
 
-## 🚀 Installation
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Bootstrap 5
+- Axios
 
-### 1. Cloner le projet
+## 2) Prerequis obligatoires
+
+Avant de commencer, installez:
+
+1. Git
+2. Node.js (version compatible avec le projet)
+3. npm (installe automatiquement avec Node.js)
+
+Version Node requise par le projet:
+
+- `^20.19.0` ou `>=22.12.0`
+
+Verification rapide dans un terminal:
 
 ```bash
-git clone https://github.com/votre-repo/maquette.git
+node -v
+npm -v
+```
 
-Se placer dans le dossier "maquette"
-cd maquette
+Si la version Node est trop ancienne, mettez Node a jour avant d'aller plus loin.
 
-2. Installer les dépendances
+## 3) Recuperer le projet
+
+Si vous n'avez pas encore le code:
+
+```bash
+git clone <url-du-repo>
+cd BeneRun
+```
+
+Si le projet est deja sur votre machine, placez-vous a la racine du repository `BeneRun`.
+
+## 4) Aller dans le bon dossier (important)
+
+Toutes les commandes front-end doivent etre lancees dans le dossier:
+
+`Front-end/maquette`
+
+Exemple PowerShell (Windows):
+
+```powershell
+Set-Location "c:\Users\...\BeneRun\Front-end\maquette"
+```
+
+Exemple macOS/Linux:
+
+```bash
+cd Front-end/maquette
+```
+
+## 5) Configurer le fichier d'environnement
+
+Le projet utilise la variable `VITE_API_BASE_URL` pour savoir ou joindre l'API.
+
+Le fichier `.env` existe deja dans ce dossier. Si besoin, creez-le a partir de `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Contenu attendu (par defaut):
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+Si votre API n'est pas sur `localhost:8000`, adaptez cette URL.
+
+## 6) Installer les dependances
+
+Dans `Front-end/maquette`:
+
+```bash
 npm install
+```
 
-3. Lancer le serveur de développement
+Alternative recommandee en integration continue (ou installation propre):
+
+```bash
+npm ci
+```
+
+## 7) Lancer l'application en developpement
+
+Toujours dans `Front-end/maquette`:
+
+```bash
 npm run dev
+```
 
+Le serveur Vite demarre sur:
 
-L'application sera disponible sur http://localhost:5173
+- `http://localhost:5173`
 
-📦 Dépendances principales
-Package	Version	Rôle
-vue	^3.x	Framework principal
-vue-router	^4.x	Gestion des routes
-pinia	^2.x	Gestion d'état (store)
-axios	^1.x	Requêtes HTTP vers l'API Laravel
-bootstrap	^5.x	UI / styles
-lucide-vue-next	latest	Icônes
-Installer manuellement si besoin :
-npm install vue-router pinia axios bootstrap lucide-vue-next
+Le projet est configure avec un port fixe (`5173`).
+Si le port est deja occupe, liberez-le puis relancez la commande.
 
-🗂️ Structure du projet
-src/
-├── assets/
-│   ├── css/
-│   │   ├── index.css       # CSS global (importe fonts + theme)
-│   │   └── theme.css       # Variables et surcharges Bootstrap
-│   ├── fonts/
-│   │   └── fonts.css       # Déclarations @font-face
-│   └── logo.png
-├── components/
-│   ├── figma/              # Composants issus de la maquette Figma
-│   └── ui/                 # Composants UI réutilisables (Button, Card, etc.)
-├── composables/            # Logique réutilisable (useAuth, etc.)
-├── data/
-│   └── mockData.js         # Données fictives pour le développement
-├── router/
-│   └── index.js            # Définition des routes + navigation guards
-├── services/
-│   └── api.js              # Instance Axios + intercepteurs
-├── stores/                 # Stores Pinia
-├── utils/
-│   └── auth.js             # Helpers d'authentification
-├── views/                  # Pages (une par route)
-│   ├── Login.vue
-│   ├── Profile.vue
-│   └── ...
-├── App.vue
-└── main.js
+## 8) Commandes utiles
 
-⚙️ Configuration
-src/main.js
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import router from './router'
-import App from './App.vue'
+Depuis `Front-end/maquette`:
 
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
-import './assets/css/index.css'
+```bash
+npm run dev      # Lance le serveur de developpement
+npm run build    # Genere le build de production (dossier dist/)
+npm run preview  # Previsualise localement le build produit
+npm run lint     # Lance Oxlint + ESLint (avec auto-fix)
+npm run format   # Formate le code avec Prettier
+```
 
-createApp(App).use(createPinia()).use(router).mount('#app')
+## 9) Lien avec le back-end Laravel
 
-src/assets/css/index.css
-@import '../fonts/fonts.css';
-@import './theme.css';
+Le front peut se lancer seul, mais beaucoup d'ecrans ont besoin de l'API Laravel.
 
-src/services/api.js
+Depuis la racine du projet `BeneRun`:
 
-Configure l'URL de base de l'API Laravel :
+```bash
+php artisan serve
+```
 
-import axios from 'axios'
+API attendue par defaut:
 
-const api = axios.create({
-  baseURL: 'http://localhost:8000/api', // ← adapter selon votre environnement
-  headers: { 'Content-Type': 'application/json' }
-})
+- `http://localhost:8000`
 
-// Ajout automatique du token JWT
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+Puis, dans un autre terminal, lancez le front:
 
-// Redirection si token expiré
-api.interceptors.response.use(
-  res => res,
-  err => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
-    }
-    return Promise.reject(err)
-  }
-)
+```bash
+cd Front-end/maquette
+npm run dev
+```
 
-export default api
+## 10) Installation complete de zero (copier/coller)
 
-🔐 Authentification
+Option A - Vous partez de rien:
 
-L'application utilise JWT (token Bearer) stocké dans localStorage.
+```bash
+git clone <url-du-repo>
+cd BeneRun/Front-end/maquette
+cp .env.example .env
+npm install
+npm run dev
+```
 
-Le token est ajouté automatiquement à chaque requête via l'intercepteur Axios
-Les routes protégées utilisent meta: { requiresAuth: true } dans le router
-En cas de 401, l'utilisateur est redirigé vers /login
+Option B - Le repo est deja clone:
 
-⚠️ Le backend Laravel doit exposer une API REST avec authentification JWT (ex: laravel/sanctum en mode API token ou tymon/jwt-auth).
+```bash
+cd BeneRun/Front-end/maquette
+npm install
+npm run dev
+```
 
-🛣️ Routes principales
-Chemin	Vue	Protégée
-/login	Login.vue	Non
-/profile	Profile.vue	Oui
-/missions	Missions.vue	Oui
-/events	Events.vue	Oui
-🏗️ Build pour la production
+Option C - Verifier que le build de production passe:
+
+```bash
+cd BeneRun/Front-end/maquette
+npm install
 npm run build
-
-
-Les fichiers compilés seront dans le dossier dist/.
-
-Pour prévisualiser le build :
-
 npm run preview
+```
 
-🔧 Commandes utiles
-npm run dev        # Démarrer en développement
-npm run build      # Build production
-npm run preview    # Prévisualiser le build
+## 11) Depannage rapide
 
-🌐 Connexion au backend Laravel
-Démarrer le serveur Laravel : php artisan serve
-S'assurer que CORS est configuré dans config/cors.php pour autoriser http://localhost:5173
-Adapter baseURL dans src/services/api.js
-📝 Notes de développement
-Les données dans src/data/mockData.js sont fictives — à remplacer par les appels API réels
-Les composants dans src/components/ui/ sont des adaptations Bootstrap des composants Radix UI originaux
-Le projet utilise la Composition API de Vue 3 avec <script setup>
-Pas de TypeScript — le projet utilise JavaScript pur
-👥 Auteurs
-Projet initié à partir d'une maquette Figma (React/TSX)
-Converti en Vue.js 3 + Bootstrap 5
+### Erreur: `node` ou `npm` non reconnu
 
-Copie ce contenu dans un fichier `README.md` à la racine du projet (au même niveau que `package.json`).
+Cause probable: Node.js non installe ou PATH non recharge.
+
+Solution:
+
+1. Installer/reinstaller Node.js.
+2. Fermer puis rouvrir le terminal.
+3. Refaire `node -v` et `npm -v`.
+
+### Erreur au `npm install`
+
+Cause probable: version Node incompatible.
+
+Solution:
+
+1. Verifier `node -v`.
+2. Installer une version compatible (`20.19+` ou `22.12+`).
+3. Relancer `npm install`.
+
+### Le front demarre mais rien ne charge
+
+Cause probable: API Laravel non demarree ou mauvaise URL API.
+
+Solution:
+
+1. Lancer `php artisan serve` depuis la racine `BeneRun`.
+2. Verifier `VITE_API_BASE_URL` dans `.env`.
+3. Redemarrer le front (`npm run dev`).
+
+### Erreur CORS dans le navigateur
+
+Cause probable: le back-end n'autorise pas l'origine front.
+
+Solution: verifier la configuration CORS Laravel pour autoriser `http://localhost:5173`.
+
+## 12) Rappels importants
+
+- Lancez les commandes front dans `Front-end/maquette`.
+- Lancez les commandes Laravel dans la racine `BeneRun`.
+- En cas de doute, arretez les serveurs et relancez proprement.
+
+## 13) Arborescence utile (resume)
+
+```text
+Front-end/maquette/
+  .env
+  .env.example
+  package.json
+  vite.config.js
+  src/
+  public/
+  dist/
+```
+
+## 14) Support
+
+Si une etape echoue, partagez:
+
+1. La commande executee
+2. Le message d'erreur complet
+3. Le resultat de `node -v` et `npm -v`
+
+Avec ces 3 infos, le diagnostic est en general tres rapide.

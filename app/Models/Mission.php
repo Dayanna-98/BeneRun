@@ -31,8 +31,8 @@ class Mission extends Model
 
     protected $casts = [
         'date_mission' => 'date',
-        'heure_debut_mission' => 'time',
-        'heure_fin_mission' => 'time',
+        'heure_debut_mission' => 'string',
+        'heure_fin_mission' => 'string',
         'latitude_mission' => 'decimal:7',
         'longitude_mission' => 'decimal:7',
         'nombre_benevoles_max' => 'integer',
@@ -54,6 +54,23 @@ class Mission extends Model
     public function medias()
     {
         return $this->hasMany(MissionMedia::class, 'id_mission');
+    }
+
+    public function affectations()
+    {
+        return $this->hasMany(Affectation::class, 'id_mission', 'id_mission');
+    }
+
+    public function competences()
+    {
+        return $this->belongsToMany(
+            Competence::class,
+            'mission_competences',
+            'id_mission',
+            'id_competence',
+            'id_mission',
+            'id_competence'
+        )->withTimestamps();
     }
 }
 
