@@ -370,7 +370,11 @@ const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCoun
   currentVolunteers: currentVolunteersCount,
   maxVolunteers: Number(rawMission.nombre_benevoles_max) || 0,
   description: rawMission.description_mission,
-  requiredSkills: [],
+  requiredSkills: Array.isArray(rawMission.competences)
+    ? rawMission.competences
+      .map((competence) => competence?.nom_competence)
+      .filter(Boolean)
+    : [],
   organizer: 'BeneRun',
   missionManagers: [
     {
