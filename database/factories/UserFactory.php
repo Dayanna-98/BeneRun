@@ -24,10 +24,26 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'nom_utilisateur' => fake()->lastName(),
+            'prenom_utilisateur' => fake()->firstName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'role_utilisateur' => 'bénévole',
+            'telephone_utilisateur' => fake()->optional()->phoneNumber(),
+            'adresse_utilisateur' => fake()->optional()->address(),
+            'date_naissance_utilisateur' => fake()->optional()->date(),
+            'allergies_utilisateur' => null,
+            'problemes_sante_utilisateur' => null,
+            'possede_permis_utilisateur' => false,
+            'est_motorise_utilisateur' => false,
+            'possede_vehicule_utilisateur' => false,
+            'taille_tshirt_utilisateur' => fake()->randomElement(['XS', 'S', 'M', 'L', 'XL']),
+            'est_anonyme_utilisateur' => false,
+            'est_suspendu_utilisateur' => false,
+            'raison_suspension_utilisateur' => null,
+            'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
+            'nombre_missions_utilisateur' => 0,
             'remember_token' => Str::random(10),
         ];
     }

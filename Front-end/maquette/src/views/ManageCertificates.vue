@@ -21,8 +21,8 @@
         <div class="col-12 col-md-4">
           <div class="card text-center">
             <div class="card-body p-3">
-              <div class="fs-3 fw-bold text-primary">{{ certificates.length }}</div>
-              <div class="x-small text-muted">Certificats</div>
+              <div class="fs-3 fw-bold text-warning">{{ pendingCount }}</div>
+              <div class="x-small text-muted">En attente</div>
             </div>
           </div>
         </div>
@@ -37,8 +37,8 @@
         <div class="col-12 col-md-4">
           <div class="card text-center">
             <div class="card-body p-3">
-              <div class="fs-3 fw-bold text-warning">{{ pendingCount }}</div>
-              <div class="x-small text-muted">En attente</div>
+              <div class="fs-3 fw-bold text-danger">{{ rejectedCount }}</div>
+              <div class="x-small text-muted">Rejetés</div>
             </div>
           </div>
         </div>
@@ -66,65 +66,154 @@
         Chargement des certificats...
       </div>
 
-      <div v-else class="card">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <h5 class="mb-0">Liste des certificats</h5>
-          <span class="badge bg-primary-subtle text-primary border">{{ filteredCertificates.length }}</span>
-        </div>
-        <div v-if="filteredCertificates.length === 0" class="card-body text-center text-muted py-5">
-          <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
-          <p class="mb-0">Aucun certificat trouvé</p>
-        </div>
-        <ul v-else class="list-group list-group-flush">
-          <li v-for="cert in filteredCertificates" :key="cert.id" class="list-group-item py-3">
-            <div class="d-flex align-items-start justify-content-between gap-3">
-              <div class="flex-fill">
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                  <span class="fw-semibold">{{ cert.name }}</span>
-                  <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
-                    {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
-                  </span>
-                  <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
-                </div>
-                <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
-                <div class="x-small text-muted mb-1">
-                  Utilisateur: {{ getUserLabel(cert.userId) }}
-                </div>
-                <div class="x-small text-muted">
-                  Délivré le {{ formatDate(cert.issueDate) }}
-                  <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
-                </div>
-                <div class="mt-2 pt-2 border-top">
-                  <div class="x-small text-muted mb-2">Validation du certificat</div>
-                  <div class="d-flex flex-wrap gap-2">
-                    <button
-                      class="btn btn-outline-success btn-sm"
-                      :disabled="statusSavingId === cert.id || cert.status === 'approved'"
-                      @click="updateStatus(cert, 'approved')"
-                    >
-                      Approuver
-                    </button>
-                    <button
-                      class="btn btn-outline-danger btn-sm"
-                      :disabled="statusSavingId === cert.id || cert.status === 'rejected'"
-                      @click="updateStatus(cert, 'rejected')"
-                    >
-                      Rejeter
-                    </button>
+      <div v-else>
+        <!-- Section En attente -->
+        <div class="card mb-3">
+          <div class="card-header d-flex align-items-center justify-content-between bg-warning-subtle">
+            <h5 class="mb-0 text-warning">⏳ En attente de validation</h5>
+            <span class="badge bg-warning text-dark">{{ pendingCertificates.length }}</span>
+          </div>
+          <div v-if="pendingCertificates.length === 0" class="card-body text-center text-muted py-5">
+            <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
+            <p class="mb-0">Aucun certificat en attente</p>
+          </div>
+          <ul v-else class="list-group list-group-flush">
+            <li v-for="cert in pendingCertificates" :key="cert.id" class="list-group-item py-3">
+              <div class="d-flex align-items-start justify-content-between gap-3">
+                <div class="flex-fill">
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <span class="fw-semibold">{{ cert.name }}</span>
+                    <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
+                      {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                    </span>
+                    <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
+                  </div>
+                  <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
+                  <div class="x-small text-muted mb-1">
+                    Utilisateur: {{ getUserLabel(cert.userId) }}
+                  </div>
+                  <div class="x-small text-muted">
+                    Délivré le {{ formatDate(cert.issueDate) }}
+                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
+                  </div>
+                  <div class="mt-2 pt-2 border-top">
+                    <div class="x-small text-muted mb-2">Validation du certificat</div>
+                    <div class="d-flex flex-wrap gap-2">
+                      <button
+                        class="btn btn-outline-success btn-sm"
+                        :disabled="statusSavingId === cert.id || cert.status === 'approved'"
+                        @click="updateStatus(cert, 'approved')"
+                      >
+                        Approuver
+                      </button>
+                      <button
+                        class="btn btn-outline-danger btn-sm"
+                        :disabled="statusSavingId === cert.id || cert.status === 'rejected'"
+                        @click="updateStatus(cert, 'rejected')"
+                      >
+                        Rejeter
+                      </button>
+                    </div>
                   </div>
                 </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
+                    <Pencil style="width:14px;height:14px" />
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
+                    <Trash2 style="width:14px;height:14px" />
+                  </button>
+                </div>
               </div>
-              <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
-                  <Pencil style="width:14px;height:14px" />
-                </button>
-                <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
-                  <Trash2 style="width:14px;height:14px" />
-                </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Section Approuvés -->
+        <div class="card mb-3">
+          <div class="card-header d-flex align-items-center justify-content-between bg-success-subtle">
+            <h5 class="mb-0 text-success">✓ Certificats approuvés</h5>
+            <span class="badge bg-success">{{ approvedCertificates.length }}</span>
+          </div>
+          <div v-if="approvedCertificates.length === 0" class="card-body text-center text-muted py-5">
+            <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
+            <p class="mb-0">Aucun certificat approuvé</p>
+          </div>
+          <ul v-else class="list-group list-group-flush">
+            <li v-for="cert in approvedCertificates" :key="cert.id" class="list-group-item py-3">
+              <div class="d-flex align-items-start justify-content-between gap-3">
+                <div class="flex-fill">
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <span class="fw-semibold">{{ cert.name }}</span>
+                    <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
+                      {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                    </span>
+                    <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
+                  </div>
+                  <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
+                  <div class="x-small text-muted mb-1">
+                    Utilisateur: {{ getUserLabel(cert.userId) }}
+                  </div>
+                  <div class="x-small text-muted">
+                    Délivré le {{ formatDate(cert.issueDate) }}
+                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
+                  </div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
+                    <Pencil style="width:14px;height:14px" />
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
+                    <Trash2 style="width:14px;height:14px" />
+                  </button>
+                </div>
               </div>
-            </div>
-          </li>
-        </ul>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Section Rejetés -->
+        <div class="card">
+          <div class="card-header d-flex align-items-center justify-content-between bg-danger-subtle">
+            <h5 class="mb-0 text-danger">✕ Certificats rejetés</h5>
+            <span class="badge bg-danger">{{ rejectedCertificates.length }}</span>
+          </div>
+          <div v-if="rejectedCertificates.length === 0" class="card-body text-center text-muted py-5">
+            <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
+            <p class="mb-0">Aucun certificat rejeté</p>
+          </div>
+          <ul v-else class="list-group list-group-flush">
+            <li v-for="cert in rejectedCertificates" :key="cert.id" class="list-group-item py-3">
+              <div class="d-flex align-items-start justify-content-between gap-3">
+                <div class="flex-fill">
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <span class="fw-semibold">{{ cert.name }}</span>
+                    <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
+                      {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                    </span>
+                    <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
+                  </div>
+                  <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
+                  <div class="x-small text-muted mb-1">
+                    Utilisateur: {{ getUserLabel(cert.userId) }}
+                  </div>
+                  <div class="x-small text-muted">
+                    Délivré le {{ formatDate(cert.issueDate) }}
+                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
+                  </div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
+                    <Pencil style="width:14px;height:14px" />
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
+                    <Trash2 style="width:14px;height:14px" />
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -304,19 +393,25 @@ const deleting = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
 
 const approvedCount = computed(() => certificates.value.filter(c => c.status === 'approved').length)
+const rejectedCount = computed(() => certificates.value.filter(c => c.status === 'rejected').length)
 const pendingCount = computed(() => certificates.value.filter(c => c.status === 'pending').length)
 
-const filteredCertificates = computed(() => {
+function getFilteredByStatus(status) {
   const query = search.value.trim().toLowerCase()
   return certificates.value.filter((cert) => {
+    const matchesStatus = cert.status === status
     const matchesUser = !selectedUserId.value || String(cert.userId) === String(selectedUserId.value)
     const matchesQuery = !query
       || (cert.name || '').toLowerCase().includes(query)
       || (cert.issuer || '').toLowerCase().includes(query)
 
-    return matchesUser && matchesQuery
+    return matchesStatus && matchesUser && matchesQuery
   })
-})
+}
+
+const pendingCertificates = computed(() => getFilteredByStatus('pending'))
+const approvedCertificates = computed(() => getFilteredByStatus('approved'))
+const rejectedCertificates = computed(() => getFilteredByStatus('rejected'))
 
 onMounted(async () => {
   await loadUsers()

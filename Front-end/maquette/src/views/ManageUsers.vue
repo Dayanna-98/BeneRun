@@ -69,7 +69,7 @@
                 <button class="btn btn-link p-1 text-primary" title="Gérer les certificats" @click="openCertificateManager(u)">
                   <FileText style="width:16px;height:16px" />
                 </button>
-                <button class="btn btn-link p-1 text-secondary" @click="router.push(`/manage-users/${u.id}`)">
+                <button class="btn btn-link p-1 text-secondary" @click="router.push(`/manage-users/edit/${u.id}`)">
                   <Edit style="width:16px;height:16px" />
                 </button>
               </div>
@@ -242,7 +242,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone, Award, FileText, X } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone, Award, FileText, X, Trash2 } from 'lucide-vue-next'
 import { users } from '@/data/mockData'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import userService from '@/services/userService'

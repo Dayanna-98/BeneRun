@@ -147,23 +147,23 @@ const toTime = (value) => {
   return value.slice(0, 5)
 }
 
-const buildCourseMap = (courses) => {
+const buildEventMap = (apiEvents) => {
   const map = new Map()
-  for (const course of courses) {
-    map.set(course.id_course, course.nom_course)
+  for (const event of apiEvents) {
+    map.set(event.id_evenement, event.nom_evenement)
   }
   return map
 }
 
-const mapMissionFromApi = (mission, courseNames) => ({
+const mapMissionFromApi = (mission, eventNames) => ({
   id: String(mission.id_mission),
   name: mission.titre_mission,
-  eventName: courseNames.get(mission.id_course) || `Course #${mission.id_course}`,
+  eventName: mission.evenement?.nom_evenement || eventNames.get(mission.id_evenement) || `Événement #${mission.id_evenement}`,
   location: mission.lieu_mission,
-  date: mission.date_debut_mission,
+  date: mission.date_mission,
   startTime: toTime(mission.heure_debut_mission),
-  currentVolunteers: 0,
-  maxVolunteers: Number(mission.nombre_mission) || 0,
+  currentVolunteers: Number(mission.current_volunteers_count || 0),
+  maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
   requiredSkills: [],
   imageUrl: null,
   isFavorite: false,
@@ -174,16 +174,16 @@ const loadMissions = async () => {
   loadError.value = ''
 
   try {
-    const [missionsResponse, coursesResponse] = await Promise.all([
+    const [missionsResponse, eventsResponse] = await Promise.all([
       api.get('/missions'),
-      api.get('/courses'),
+      api.get('/evenements'),
     ])
 
-    const courseNames = buildCourseMap(coursesResponse.data ?? [])
+    const eventNames = buildEventMap(eventsResponse.data ?? [])
 
     missions.value = (missionsResponse.data ?? [])
-      .filter(mission => mission.publie_mission)
-      .map(mission => mapMissionFromApi(mission, courseNames))
+      .filter(mission => mission.visibilite_mission === 'publique')
+      .map(mission => mapMissionFromApi(mission, eventNames))
 
     favorites.value = missions.value
       .filter(mission => mission.isFavorite)

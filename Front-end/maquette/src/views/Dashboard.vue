@@ -239,6 +239,18 @@
                   <span class="x-small">Statistiques</span>
                 </button>
               </div>
+              <div class="col-6">
+                <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center gap-2 py-3" @click="router.push('/manage-badges')">
+                  <Award style="width:24px;height:24px;color:#1a2230" />
+                  <span class="x-small">Gérer Badges</span>
+                </button>
+              </div>
+              <div class="col-6">
+                <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center gap-2 py-3" @click="router.push('/manage-certificates')">
+                  <FileText style="width:24px;height:24px;color:#1a2230" />
+                  <span class="x-small">Gérer Certificats</span>
+                </button>
+              </div>
             </template>
             <div v-if="user.role === 'admin' || user.role === 'superadmin'" class="col-6">
               <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center gap-2 py-3" @click="router.push('/manage-competences')">
@@ -268,7 +280,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Calendar, Award, TrendingUp, MapPin, Briefcase, Heart, Settings, Users, BarChart3, Shield, Star } from 'lucide-vue-next'
+import { Calendar, Award, TrendingUp, MapPin, Briefcase, Heart, Settings, Users, BarChart3, Shield, Star, FileText } from 'lucide-vue-next'
 import { myActiveMissions, availableMissions } from '@/data/mockData'
 import { getCurrentUser } from '@/utils/auth'
 

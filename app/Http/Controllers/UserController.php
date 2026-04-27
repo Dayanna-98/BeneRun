@@ -10,6 +10,13 @@ use Illuminate\Validation\Rule;
 class UserController extends Controller
 {
 
+private const DEFAULT_PERMISSIONS_BY_ROLE = [
+    'bénévole' => 'manageSkills,manageCertificates,favoriteMission',
+    'responsable' => 'createMission,editMission,deleteMission,contactMissionMembers',
+    'admin' => 'createEvent,editEvent,createMission,editMission',
+    'superadmin' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
+];
+
 private function resolveActorFromBearerToken(Request $request): ?User
 {
     $actor = $request->user('sanctum');
@@ -19,21 +26,47 @@ private function resolveActorFromBearerToken(Request $request): ?User
 private function isSuperAdminRequest(Request $request): bool
 {
     $actor = $this->resolveActorFromBearerToken($request);
-    if ($actor !== null) {
-        return $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
-    }
-
-    $headerRole = $request->header('X-User-Role');
-    if (!empty($headerRole) && $this->normalizeRole($headerRole) === 'superadmin') {
-        return true;
-    }
-
-    return false;
+    return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
 }
 
 private function normalizeRole(?string $role): string
 {
     return str_replace(['-', '_', ' '], '', strtolower((string) $role));
+}
+
+private function normalizePermissions(?string $permissions): ?string
+{
+    if ($permissions === null) {
+        return null;
+    }
+
+    $items = array_filter(array_map(
+        static fn (string $permission): string => trim($permission),
+        explode(',', $permissions)
+    ));
+
+    if ($items === []) {
+        return null;
+    }
+
+    return implode(',', array_values(array_unique($items)));
+}
+
+private function defaultPermissionsForRole(string $role): ?string
+{
+    return self::DEFAULT_PERMISSIONS_BY_ROLE[$role] ?? null;
+}
+
+private function canManageUser(Request $request, User $user): bool
+{
+    $actor = $this->resolveActorFromBearerToken($request);
+
+    if ($actor === null) {
+        return false;
+    }
+
+    return (int) $actor->id_utilisateur === (int) $user->id_utilisateur
+        || $this->isSuperAdminRequest($request);
 }
 
 public function competences($id)
@@ -297,25 +330,27 @@ public function index(Request $request)
         ]);
 
         $user = new User;
-        $user->nom_utilisateur = $validated['nom_utilisateur'];
-        $user->prenom_utilisateur = $validated['prenom_utilisateur'];
-        $user->email = $validated['email'];
-        $user->password = Hash::make($validated['password']);
-        $user->role_utilisateur = $validated['role_utilisateur'] ?? 'bénévole';
-        $user->telephone_utilisateur = $validated['telephone_utilisateur'] ?? null;
-        $user->adresse_utilisateur = $validated['adresse_utilisateur'] ?? null;
-        $user->date_naissance_utilisateur = $validated['date_naissance_utilisateur'] ?? null;
-        $user->allergies_utilisateur = $validated['allergies_utilisateur'] ?? null;
-        $user->problemes_sante_utilisateur = $validated['problemes_sante_utilisateur'] ?? null;
-        $user->possede_permis_utilisateur = (bool) ($validated['possede_permis_utilisateur'] ?? false);
-        $user->est_motorise_utilisateur = (bool) ($validated['est_motorise_utilisateur'] ?? false);
-        $user->possede_vehicule_utilisateur = (bool) ($validated['possede_vehicule_utilisateur'] ?? false);
-        $user->taille_tshirt_utilisateur = $validated['taille_tshirt_utilisateur'] ?? null;
-        $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
-        $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
-        $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
-        $user->permissions_utilisateur = $validated['permissions_utilisateur'] ?? null;
-        $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
+        $role = $request->role_utilisateur ?? 'bénévole';
+        $user->nom_utilisateur = $request->nom_utilisateur;
+        $user->prenom_utilisateur = $request->prenom_utilisateur;
+        $user->email = $request->email;
+        $user->password = Hash::make($request->password);
+        $user->role_utilisateur = $role;
+        $user->telephone_utilisateur = $request->telephone_utilisateur;
+        $user->adresse_utilisateur = $request->adresse_utilisateur;
+        $user->date_naissance_utilisateur = $request->date_naissance_utilisateur;
+        $user->allergies_utilisateur = $request->allergies_utilisateur;
+        $user->problemes_sante_utilisateur = $request->problemes_sante_utilisateur;
+        $user->possede_permis_utilisateur = (bool) $request->possede_permis_utilisateur;
+        $user->est_motorise_utilisateur = (bool) $request->est_motorise_utilisateur;
+        $user->possede_vehicule_utilisateur = (bool) $request->possede_vehicule_utilisateur;
+        $user->taille_tshirt_utilisateur = $request->taille_tshirt_utilisateur;
+        $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
+        $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
+        $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
+        $user->permissions_utilisateur = $this->normalizePermissions($request->permissions_utilisateur)
+            ?? $this->defaultPermissionsForRole($role);
+        $user->nombre_missions_utilisateur = $request->nombre_missions_utilisateur ?? 0;
 
         $user->save();
 
@@ -364,16 +399,34 @@ public function index(Request $request)
         }
 
         $user = User::find($id);
+        $actor = $this->resolveActorFromBearerToken($request);
+
+        if ($actor === null) {
+            return response()->json([
+                'message' => 'Non authentifié'
+            ], 401);
+        }
+
+        if (!$this->canManageUser($request, $user)) {
+            return response()->json([
+                'message' => 'Action non autorisée'
+            ], 403);
+        }
+
+        $roleChanged = array_key_exists('role_utilisateur', $validated)
+            && $validated['role_utilisateur'] !== $user->role_utilisateur;
 
         if (
-            array_key_exists('role_utilisateur', $validated)
-            && $validated['role_utilisateur'] !== $user->role_utilisateur
+            $roleChanged
             && !$this->isSuperAdminRequest($request)
         ) {
             return response()->json([
                 'message' => 'Action réservée aux super-admins'
             ], 403);
         }
+
+        $nextRole = $validated['role_utilisateur'] ?? $user->role_utilisateur;
+        $permissionsWereProvided = array_key_exists('permissions_utilisateur', $validated);
 
         $user->nom_utilisateur = $validated['nom_utilisateur'];
         $user->prenom_utilisateur = $validated['prenom_utilisateur'];
@@ -396,7 +449,11 @@ public function index(Request $request)
         $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
         $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
         $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
-        $user->permissions_utilisateur = $validated['permissions_utilisateur'] ?? null;
+        if ($permissionsWereProvided) {
+            $user->permissions_utilisateur = $this->normalizePermissions($validated['permissions_utilisateur']);
+        } elseif ($roleChanged) {
+            $user->permissions_utilisateur = $this->defaultPermissionsForRole($nextRole);
+        }
         $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
 
         $user->save();

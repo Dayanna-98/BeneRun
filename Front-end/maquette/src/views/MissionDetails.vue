@@ -358,25 +358,29 @@ const formatUserName = (user) => {
   return `${user.prenom_utilisateur ?? ''} ${user.nom_utilisateur ?? ''}`.trim() || user.email
 }
 
-const mapMissionFromApi = (rawMission, courseName, manager, currentVolunteersCount) => ({
+const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCount) => ({
   id: String(rawMission.id_mission),
-  eventName: courseName || `Course #${rawMission.id_course}`,
+  eventName: eventName || `Événement #${rawMission.id_evenement}`,
   name: rawMission.titre_mission,
   imageUrl: null,
-  date: rawMission.date_debut_mission,
+  date: rawMission.date_mission,
   startTime: toTime(rawMission.heure_debut_mission),
   endTime: toTime(rawMission.heure_fin_mission),
   location: rawMission.lieu_mission,
   currentVolunteers: currentVolunteersCount,
-  maxVolunteers: Number(rawMission.nombre_mission) || 0,
+  maxVolunteers: Number(rawMission.nombre_benevoles_max) || 0,
   description: rawMission.description_mission,
-  requiredSkills: [],
+  requiredSkills: Array.isArray(rawMission.competences)
+    ? rawMission.competences
+      .map((competence) => competence?.nom_competence)
+      .filter(Boolean)
+    : [],
   organizer: 'BeneRun',
   missionManagers: [
     {
-      id: manager?.id_utilisateur ?? String(rawMission.id_benevole),
+      id: manager?.id_utilisateur ?? String(rawMission.responsable_utilisateur_id),
       name: formatUserName(manager),
-      phone: 'Non renseigné',
+      phone: manager?.telephone_utilisateur || 'Non renseigné',
       email: manager?.email || 'Non renseigné',
       isDayContact: true,
       isDefault: true,
@@ -394,10 +398,8 @@ const loadMissionDetails = async () => {
   try {
     const missionId = route.params.id
 
-    const [missionResponse, coursesResponse, benevolesResponse, usersResponse, affectationsResponse] = await Promise.all([
+    const [missionResponse, usersResponse, affectationsResponse] = await Promise.all([
       api.get(`/missions/${missionId}`),
-      api.get('/courses'),
-      api.get('/benevoles'),
       api.get('/users'),
       api.get('/affectations'),
     ])
@@ -408,22 +410,19 @@ const loadMissionDetails = async () => {
       return
     }
 
-    const courses = coursesResponse.data ?? []
-    const benevoles = benevolesResponse.data ?? []
     const users = usersResponse.data ?? []
     const affectations = affectationsResponse.data ?? []
 
-    const course = courses.find(c => c.id_course === rawMission.id_course)
-    const managerBenevole = benevoles.find(b => b.id_benevole === rawMission.id_benevole)
-    const managerUser = users.find(u => u.id_utilisateur === managerBenevole?.id_utilisateur)
+    const managerUser = rawMission.responsable
+      || users.find(u => u.id_utilisateur === rawMission.responsable_utilisateur_id)
 
-    const currentVolunteersCount = affectations.filter(
+    const currentVolunteersCount = Number(rawMission.current_volunteers_count ?? affectations.filter(
       a => String(a.id_mission) === String(rawMission.id_mission)
-    ).length
+    ).length)
 
     mission.value = mapMissionFromApi(
       rawMission,
-      course?.nom_course,
+      rawMission.evenement?.nom_evenement,
       managerUser,
       currentVolunteersCount
     )

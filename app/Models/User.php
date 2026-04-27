@@ -13,6 +13,8 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    protected $primaryKey = 'id_utilisateur';
+
     protected $fillable = [
         'nom_utilisateur',
         'prenom_utilisateur',
@@ -62,7 +64,7 @@ class User extends Authenticatable
             'user_competences',
             'id_utilisateur',
             'id_competence'
-            )->withPivot('niveau_competence')
+            )->withPivot('niveau')
             ->withTimestamps();
     }
 

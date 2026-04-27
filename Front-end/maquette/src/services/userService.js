@@ -46,9 +46,24 @@ export const userService = {
       .filter(Boolean)
   },
 
+  permissionsToObject: (value) => {
+    if (!value) return {}
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return Object.fromEntries(
+        Object.entries(value).filter(([, enabled]) => !!enabled)
+      )
+    }
+
+    return userService.fromCsv(value).reduce((permissions, permission) => {
+      permissions[permission] = true
+      return permissions
+    }, {})
+  },
+
   mapApiUser: (apiUser) => {
     if (!apiUser) return null
-    const role = userService.mapRoleToFrontend(apiUser.role_utilisateur)
+    const roleSource = apiUser.role_utilisateur ?? userService.mapRoleToApi(apiUser.role)
+    const role = userService.mapRoleToFrontend(roleSource)
 
     return {
       id: String(apiUser.id_utilisateur ?? apiUser.id ?? ''),
@@ -76,7 +91,9 @@ export const userService = {
       suspended: !!apiUser.est_suspendu_utilisateur,
       suspensionReason: apiUser.raison_suspension_utilisateur || '',
       missionCount: Number(apiUser.nombre_missions_utilisateur || 0),
-      permissions: {},
+      permissions: userService.permissionsToObject(
+        apiUser.permissions_utilisateur ?? apiUser.permissions
+      ),
     }
   },
 
@@ -113,8 +130,11 @@ export const userService = {
       est_anonyme_utilisateur: !!userData.isAnonymous,
       est_suspendu_utilisateur: !!userData.isSuspended,
       raison_suspension_utilisateur: userData.suspensionReason || null,
-      permissions_utilisateur: userService.toCsv(userData.permissions),
       nombre_missions_utilisateur: Number(userData.missionCount || 0),
+    }
+
+    if (Object.prototype.hasOwnProperty.call(userData, 'permissions')) {
+      payload.permissions_utilisateur = userService.toCsv(userData.permissions)
     }
 
     if (userData.password) {
@@ -200,6 +220,32 @@ export const userService = {
       return userService.mapApiUser(response.data)
     } catch (error) {
       throw userService.formatApiError(error, 'Utilisateur non trouvé')
+    }
+  },
+
+  // Récupérer les badges d'un utilisateur
+  getBadges: async (userId) => {
+    try {
+      const response = await api.get(`/users/${userId}/badges`)
+      return (response.data || []).map(b => ({
+        id: b.id_badge,
+        name: b.titre_badge || '',
+        description: b.description_badge || '',
+        icon: b.icone_badge || '🏅',
+        earnedDate: b.pivot?.attribue_le ?? null,
+      }))
+    } catch (error) {
+      throw userService.formatApiError(error, 'Impossible de charger les badges')
+    }
+  },
+
+  // Récupérer l'utilisateur authentifié courant
+  getMe: async () => {
+    try {
+      const response = await api.get('/me')
+      return userService.mapApiUser(response.data)
+    } catch (error) {
+      throw userService.formatApiError(error, 'Impossible de récupérer le profil utilisateur')
     }
   },
 

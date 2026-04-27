@@ -227,13 +227,13 @@ const toTime = (value) => {
   return value.slice(0, 5)
 }
 
-const buildCourseMap = (courses) => {
+const buildEventMap = (apiEvents) => {
   const map = new Map()
-  for (const course of courses) {
-    map.set(course.id_course, {
-      id: String(course.id_course),
-      name: course.nom_course,
-      category: 'Sport',
+  for (const event of apiEvents) {
+    map.set(event.id_evenement, {
+      id: String(event.id_evenement),
+      name: event.nom_evenement,
+      category: 'Non défini',
     })
   }
   return map
@@ -248,27 +248,33 @@ const buildAffectationCountMap = (affectations) => {
   return map
 }
 
-const mapMissionFromApi = (mission, courseMap, affectationCountMap) => {
-  const event = courseMap.get(mission.id_course)
+const mapMissionFromApi = (mission, eventMap, affectationCountMap) => {
+  const event = eventMap.get(mission.id_evenement) || (mission.evenement
+    ? {
+        id: String(mission.evenement.id_evenement),
+        name: mission.evenement.nom_evenement,
+        category: 'Non défini',
+      }
+    : null)
   const missionId = String(mission.id_mission)
 
   return {
     id: missionId,
-    eventId: event?.id || String(mission.id_course),
-    eventName: event?.name || `Course #${mission.id_course}`,
+    eventId: event?.id || String(mission.id_evenement),
+    eventName: event?.name || `Événement #${mission.id_evenement}`,
     name: mission.titre_mission,
-    date: mission.date_debut_mission,
+    date: mission.date_mission,
     startTime: toTime(mission.heure_debut_mission),
     endTime: toTime(mission.heure_fin_mission),
     location: mission.lieu_mission,
     description: mission.description_mission,
     type: mission.type_mission || 'General',
     requiredSkills: [],
-    currentVolunteers: affectationCountMap.get(missionId) || 0,
-    maxVolunteers: Number(mission.nombre_mission) || 0,
+    currentVolunteers: Number(mission.current_volunteers_count ?? affectationCountMap.get(missionId) ?? 0),
+    maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
     imageUrl: null,
     isFavorite: false,
-    visibility: mission.publie_mission ? 'public' : 'private',
+    visibility: mission.visibilite_mission === 'publique' ? 'public' : 'private',
   }
 }
 
@@ -277,24 +283,24 @@ const loadMissions = async () => {
   loadError.value = ''
 
   try {
-    const [missionsResponse, coursesResponse, affectationsResponse] = await Promise.all([
+    const [missionsResponse, eventsResponse, affectationsResponse] = await Promise.all([
       api.get('/missions'),
-      api.get('/courses'),
+      api.get('/evenements'),
       api.get('/affectations'),
     ])
 
-    const courses = coursesResponse.data ?? []
-    const courseMap = buildCourseMap(courses)
+    const apiEvents = eventsResponse.data ?? []
+    const eventMap = buildEventMap(apiEvents)
     const affectationCountMap = buildAffectationCountMap(affectationsResponse.data ?? [])
 
-    events.value = courses.map(course => ({
-      id: String(course.id_course),
-      name: course.nom_course,
-      category: 'Sport',
+    events.value = apiEvents.map(event => ({
+      id: String(event.id_evenement),
+      name: event.nom_evenement,
+      category: 'Non défini',
     }))
 
     missions.value = (missionsResponse.data ?? []).map(mission =>
-      mapMissionFromApi(mission, courseMap, affectationCountMap)
+      mapMissionFromApi(mission, eventMap, affectationCountMap)
     )
 
     favorites.value = missions.value

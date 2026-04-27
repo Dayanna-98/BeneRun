@@ -148,40 +148,72 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Save, Plus, X } from 'lucide-vue-next'
 import { getCurrentUser, setCurrentUser } from '@/utils/auth'
 import userService from '@/services/userService'
 
 const router = useRouter()
-const user = getCurrentUser()
+const currentUser = ref(getCurrentUser())
 
-if (!user) {
+if (!currentUser.value) {
   router.push('/login')
 }
 
+const syncFormFromUser = (user) => {
+  if (!user) return
+
+  form.firstName = user.firstName || ''
+  form.lastName = user.lastName || ''
+  form.email = user.email || ''
+  form.phone = user.phone || ''
+  form.address = user.address || ''
+  form.dateOfBirth = user.dateOfBirth || ''
+  form.role = user.role || 'volunteer'
+  form.hasLicense = !!user.hasLicense
+  form.isMotorized = !!user.isMotorized
+  form.hasVehicle = !!user.hasVehicle
+  form.bibSize = user.bibSize || ''
+
+  allergies.value = [...(user.allergies || [])]
+  healthIssues.value = [...(user.healthIssues || [])]
+}
+
 const form = reactive({
-  firstName: user?.firstName || '',
-  lastName: user?.lastName || '',
-  email: user?.email || '',
-  phone: user?.phone || '',
-  address: user?.address || '',
-  dateOfBirth: user?.dateOfBirth || '',
-  role: user?.role || 'volunteer',
-  hasLicense: !!user?.hasLicense,
-  isMotorized: !!user?.isMotorized,
-  hasVehicle: !!user?.hasVehicle,
-  bibSize: user?.bibSize || '',
+  firstName: currentUser.value?.firstName || '',
+  lastName: currentUser.value?.lastName || '',
+  email: currentUser.value?.email || '',
+  phone: currentUser.value?.phone || '',
+  address: currentUser.value?.address || '',
+  dateOfBirth: currentUser.value?.dateOfBirth || '',
+  role: currentUser.value?.role || 'volunteer',
+  hasLicense: !!currentUser.value?.hasLicense,
+  isMotorized: !!currentUser.value?.isMotorized,
+  hasVehicle: !!currentUser.value?.hasVehicle,
+  bibSize: currentUser.value?.bibSize || '',
 })
 
-const allergies = ref([...(user?.allergies || [])])
-const healthIssues = ref([...(user?.healthIssues || [])])
+const allergies = ref([...(currentUser.value?.allergies || [])])
+const healthIssues = ref([...(currentUser.value?.healthIssues || [])])
 const newAllergy = ref('')
 const newHealthIssue = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+
+onMounted(async () => {
+  try {
+    const freshUser = await userService.getMe()
+    if (freshUser) {
+      currentUser.value = freshUser
+      setCurrentUser(freshUser)
+      syncFormFromUser(freshUser)
+    }
+  } catch {
+    // Keep the locally cached profile as fallback when the API refresh is unavailable.
+  }
+})
 
 const addAllergy = () => {
   if (newAllergy.value.trim()) {
@@ -212,7 +244,7 @@ const handleSubmit = async () => {
   if (newAllergy.value.trim()) addAllergy()
   if (newHealthIssue.value.trim()) addHealthIssue()
 
-  if (!user?.id) {
+  if (!currentUser.value?.id) {
     errorMessage.value = 'Impossible de modifier le profil : identifiant utilisateur manquant.'
     return
   }
@@ -220,7 +252,7 @@ const handleSubmit = async () => {
   isLoading.value = true
 
   try {
-    const response = await userService.update(user.id, {
+    const response = await userService.update(currentUser.value.id, {
       firstName: form.firstName,
       lastName: form.lastName,
       email: form.email,
@@ -234,14 +266,18 @@ const handleSubmit = async () => {
       isMotorized: form.isMotorized,
       hasVehicle: form.hasVehicle,
       bibSize: form.bibSize,
-      isAnonymous: !!user.anonymous,
-      isSuspended: !!user.suspended,
-      suspensionReason: user.suspensionReason || null,
-      missionCount: user.missionCount || 0,
+      isAnonymous: !!currentUser.value.anonymous,
+      isSuspended: !!currentUser.value.suspended,
+      suspensionReason: currentUser.value.suspensionReason || null,
+      missionCount: currentUser.value.missionCount || 0,
     })
 
-    if (response.user) {
-      setCurrentUser(response.user)
+    const freshUser = await userService.getMe().catch(() => response.user)
+
+    if (freshUser) {
+      currentUser.value = freshUser
+      setCurrentUser(freshUser)
+      syncFormFromUser(freshUser)
     }
 
     successMessage.value = 'Profil mis à jour avec succès.'

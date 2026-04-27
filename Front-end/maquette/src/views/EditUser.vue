@@ -428,7 +428,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2, Award, Edit } from 'lucide-vue-next'
-import { getCurrentUser, isRole } from '@/utils/auth'
+import { getCurrentUser, isRole, setCurrentUser } from '@/utils/auth'
 import { users } from '@/data/mockData'
 import userService from '@/services/userService'
 import competenceService from '@/services/competenceService'
@@ -441,6 +441,13 @@ const router = useRouter()
 const route = useRoute()
 const currentUser = getCurrentUser()
 if (!currentUser || !isRole('superadmin')) router.push('/')
+
+const syncCurrentUserIfNeeded = (updatedUser) => {
+  if (!updatedUser || !currentUser) return
+  if (String(updatedUser.id) === String(currentUser.id)) {
+    setCurrentUser(updatedUser)
+  }
+}
 
 const targetUser = ref(null)
 
@@ -746,6 +753,7 @@ const handleSaveInfo = async () => {
       targetUser.value = response.user
       selectedRole.value = response.user.role
       syncEditForm()
+      syncCurrentUserIfNeeded(response.user)
     }
     alert('Informations utilisateur mises à jour')
   } catch (error) {
@@ -763,6 +771,7 @@ const handleSubmit = async () => {
     const response = await userService.update(targetUser.value.id, toUpdatePayload({ role: selectedRole.value }))
     if (response.user) {
       targetUser.value = response.user
+      syncCurrentUserIfNeeded(response.user)
     }
     alert(`Rôle de ${targetUser.value.firstName} ${targetUser.value.lastName} mis à jour avec succès !`)
     router.push('/manage-users')
@@ -783,6 +792,7 @@ const handleSuspend = async () => {
     }))
     if (response.user) {
       targetUser.value = response.user
+      syncCurrentUserIfNeeded(response.user)
     }
     alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} suspendu.`)
     showSuspendDialog.value = false
@@ -803,6 +813,7 @@ const handleAnonymize = async () => {
     }))
     if (response.user) {
       targetUser.value = response.user
+      syncCurrentUserIfNeeded(response.user)
     }
     alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} ${targetUser.value.anonymous ? 'rendu anonyme' : 'désanonymisé'}.`)
     showAnonymizeDialog.value = false
@@ -823,6 +834,7 @@ const handleReactivate = async () => {
     }))
     if (response.user) {
       targetUser.value = response.user
+      syncCurrentUserIfNeeded(response.user)
     }
     alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} réactivé.`)
     showReactivateDialog.value = false
