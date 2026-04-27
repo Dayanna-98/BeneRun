@@ -387,18 +387,19 @@ import {
   Edit, Download, Star, Calendar, Plus, Trash2, Lock,
   UserX, LogOut
 } from 'lucide-vue-next'
-import { getCurrentUser, logout as authLogout } from '@/utils/auth'
+import { getCurrentUser, logout as authLogout, setCurrentUser } from '@/utils/auth'
 import competenceService from '@/services/competenceService'
 import certificatService from '@/services/certificatService'
 import userService from '@/services/userService'
 
 const router = useRouter()
-const user = getCurrentUser()
-if (!user) router.push('/login')
+const user = ref(getCurrentUser())
+if (!user.value) router.push('/login')
 
 const activeTab     = ref('info')
-const permissions   = ref({ ...user.permissions })
-const badges        = computed(() => user?.badges || [])
+const permissions   = ref({ ...(user.value?.permissions || {}) })
+const userBadges    = ref([])
+const badges        = computed(() => userBadges.value)
 const certificates  = ref([])
 const certLoading   = ref(false)
 const certError     = ref('')
@@ -413,7 +414,14 @@ const certForm      = ref({
   expiryDate: '',
   file: null,
 })
-const missionHistory = computed(() => user?.missionHistory || [])
+const missionHistory = computed(() => user.value?.missionHistory || [])
+
+const refreshCurrentUser = async () => {
+  const freshUser = await userService.getMe()
+  user.value = freshUser
+  permissions.value = { ...(freshUser?.permissions || {}) }
+  setCurrentUser(freshUser)
+}
 
 // --- Compétences ---
 const allCompetences    = ref([])   // toutes les compétences dispo en bdd
@@ -429,12 +437,21 @@ const availableToAdd = computed(() =>
   )
 )
 
+const loadBadges = async () => {
+  if (!user.value?.id) return
+  try {
+    userBadges.value = await userService.getBadges(user.value.id)
+  } catch {
+    userBadges.value = []
+  }
+}
+
 const loadSkills = async () => {
-  if (!user?.id) return
+  if (!user.value?.id) return
   try {
     const [all, mine] = await Promise.all([
       competenceService.getAll(),
-      competenceService.getUserCompetences(user.id),
+      competenceService.getUserCompetences(user.value.id),
     ])
     allCompetences.value  = all
     userCompetences.value = mine
@@ -448,7 +465,7 @@ const addSkill = async () => {
   skillError.value  = ''
   skillLoading.value = true
   try {
-    await competenceService.addToUser(user.id, selectedSkillId.value)
+    await competenceService.addToUser(user.value.id, selectedSkillId.value)
     await loadSkills()
     selectedSkillId.value = ''
     isAddingSkill.value   = false
@@ -463,7 +480,7 @@ const removeSkill = async (competenceId) => {
   skillError.value  = ''
   skillLoading.value = true
   try {
-    await competenceService.removeFromUser(user.id, competenceId)
+    await competenceService.removeFromUser(user.value.id, competenceId)
     await loadSkills()
   } catch (error) {
     skillError.value = error?.response?.data?.message || 'Erreur lors de la suppression de la compétence.'
@@ -478,7 +495,7 @@ const cancelAddSkill = () => {
 }
 
 const loadCertificates = async () => {
-  if (!user?.id) {
+  if (!user.value?.id) {
     certificates.value = []
     return
   }
@@ -486,11 +503,11 @@ const loadCertificates = async () => {
   certError.value = ''
   certLoading.value = true
   try {
-    const apiCertificates = await certificatService.getByUser(user.id)
+    const apiCertificates = await certificatService.getByUser(user.value.id)
     certificates.value = apiCertificates
   } catch {
     certError.value = 'Impossible de charger les certificats.'
-    certificates.value = user?.certificates || []
+    certificates.value = user.value?.certificates || []
   } finally {
     certLoading.value = false
   }
@@ -556,7 +573,7 @@ const triggerCertFileSelect = () => {
 }
 
 const submitCertificate = async () => {
-  if (!user?.id) return
+  if (!user.value?.id) return
   if (!certForm.value.name.trim()) {
     certError.value = 'Le titre du certificat est obligatoire.'
     return
@@ -567,7 +584,7 @@ const submitCertificate = async () => {
 
   try {
     await certificatService.create({
-      userId: user.id,
+      userId: user.value.id,
       name: certForm.value.name.trim(),
       issuer: certForm.value.issuer.trim() || 'Émetteur non renseigné',
       issueDate: certForm.value.issueDate || null,
@@ -613,7 +630,7 @@ const handleSuspendOwnAccount = async () => {
   if (!confirm('Voulez-vous vraiment suspendre votre compte ?')) return
 
   const reason = prompt('Raison de suspension (optionnel)', 'Suspension demandée par l\'utilisateur') || 'Suspension demandée par l\'utilisateur'
-  const userId = user.id
+  const userId = user.value.id
   if (!userId) {
     alert('Impossible de suspendre ce compte (ID utilisateur manquant).')
     return
@@ -621,23 +638,23 @@ const handleSuspendOwnAccount = async () => {
 
   try {
     await userService.update(userId, {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone || '',
-      address: user.address || '',
-      dateOfBirth: user.dateOfBirth || '',
-      role: user.role,
-      allergies: user.allergies || [],
-      healthIssues: user.healthIssues || [],
-      hasLicense: !!user.hasLicense,
-      isMotorized: !!user.isMotorized,
-      hasVehicle: !!user.hasVehicle,
-      bibSize: user.bibSize || '',
-      isAnonymous: !!user.anonymous,
+      firstName: user.value.firstName,
+      lastName: user.value.lastName,
+      email: user.value.email,
+      phone: user.value.phone || '',
+      address: user.value.address || '',
+      dateOfBirth: user.value.dateOfBirth || '',
+      role: user.value.role,
+      allergies: user.value.allergies || [],
+      healthIssues: user.value.healthIssues || [],
+      hasLicense: !!user.value.hasLicense,
+      isMotorized: !!user.value.isMotorized,
+      hasVehicle: !!user.value.hasVehicle,
+      bibSize: user.value.bibSize || '',
+      isAnonymous: !!user.value.anonymous,
       isSuspended: true,
       suspensionReason: reason,
-      missionCount: user.missionCount || 0,
+      missionCount: user.value.missionCount || 0,
     })
 
     try {
@@ -653,6 +670,15 @@ const handleSuspendOwnAccount = async () => {
   }
 }
 
-onMounted(loadSkills)
-onMounted(loadCertificates)
+onMounted(async () => {
+  try {
+    await refreshCurrentUser()
+  } catch {
+    // Keep the locally cached session when the profile refresh fails.
+  }
+
+  await loadBadges()
+  await loadSkills()
+  await loadCertificates()
+})
 </script>
