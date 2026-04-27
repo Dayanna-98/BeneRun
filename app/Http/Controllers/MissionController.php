@@ -5,6 +5,7 @@ use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
 class MissionController extends Controller
@@ -161,6 +162,34 @@ class MissionController extends Controller
         $mission->delete();
 
         return response()->json(['message' => 'Mission supprimée'], 200);
+    }
+
+    public function assignResponsable(Request $request, $id)
+    {
+        $mission = Mission::find($id);
+
+        if (!$mission) {
+            return response()->json(['message' => 'Mission inexistante'], 404);
+        }
+
+        $validated = $request->validate([
+            'responsable_utilisateur_id' => 'required|integer|exists:users,id_utilisateur',
+        ]);
+
+        DB::transaction(function () use ($mission, $validated): void {
+            $mission->update([
+                'responsable_utilisateur_id' => (int) $validated['responsable_utilisateur_id'],
+            ]);
+
+            $this->syncResponsibleAffectation($mission, (int) $validated['responsable_utilisateur_id']);
+        });
+
+        return response()->json([
+            'message' => 'Responsable de mission mis à jour',
+            'mission' => $mission->load([
+                'responsable:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,telephone_utilisateur',
+            ]),
+        ]);
     }
 
     private function validateMissionDateInsideEvent($validator, int $eventId, $dateMission): void

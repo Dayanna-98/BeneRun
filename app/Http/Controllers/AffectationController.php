@@ -2,7 +2,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
+use App\Models\Mission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AffectationController extends Controller
 {
@@ -42,7 +44,16 @@ class AffectationController extends Controller
             'date_presence' => 'nullable|date',
         ]);
 
-        $affectation = Affectation::create($validated);
+        $affectation = DB::transaction(function () use ($validated) {
+            $affectation = Affectation::create($validated);
+
+            if (($validated['est_responsable'] ?? false) === true) {
+                $this->syncMissionResponsible((int) $affectation->id_mission, (int) $affectation->id_utilisateur);
+                $affectation->refresh();
+            }
+
+            return $affectation;
+        });
 
         return response()->json([
             'message' => 'Affectation ajoutée',
@@ -67,7 +78,15 @@ class AffectationController extends Controller
                 'date_presence' => 'nullable|date',
             ]);
 
-            $affectation->update($validated);
+            DB::transaction(function () use ($affectation, $validated): void {
+                $affectation->update($validated);
+
+                if (($validated['est_responsable'] ?? false) === true) {
+                    $this->syncMissionResponsible((int) $affectation->id_mission, (int) $affectation->id_utilisateur);
+                }
+            });
+
+            $affectation->refresh();
             return response()->json([
                 'message' => 'Affectation mise à jour',
                 'affectation' => $affectation,
@@ -94,5 +113,23 @@ class AffectationController extends Controller
             ], 404);
         }
     } 
+
+    private function syncMissionResponsible(int $missionId, int $userId): void
+    {
+        Mission::where('id_mission', $missionId)
+            ->update(['responsable_utilisateur_id' => $userId]);
+
+        Affectation::where('id_mission', $missionId)
+            ->where('id_utilisateur', '!=', $userId)
+            ->where('est_responsable', true)
+            ->update(['est_responsable' => false]);
+
+        Affectation::where('id_mission', $missionId)
+            ->where('id_utilisateur', $userId)
+            ->update([
+                'est_responsable' => true,
+                'date_affectation' => now(),
+            ]);
+    }
 
 }

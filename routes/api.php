@@ -42,6 +42,8 @@ Route::apiResource('/courses', EvenementController::class);// ancien alias conse
 Route::apiResource('/documents', DocumentController::class);//->middleware('auth:sanctum');
 Route::apiResource('/evenements', EvenementController::class);//->middleware('auth:sanctum');
 Route::apiResource('/missions', MissionController::class);//->middleware('auth:sanctum');
+Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignResponsable']);
+Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
 Route::apiResource('/postulations', PostulationController::class);//->middleware('auth:sanctum');
 Route::apiResource('/telephones', TelephoneController::class);//->middleware('auth:sanctum');
 
