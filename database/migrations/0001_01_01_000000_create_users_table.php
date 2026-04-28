@@ -29,8 +29,6 @@ return new class extends Migration
         $table->boolean('possede_vehicule_utilisateur')->default(false);
         $table->enum('taille_tshirt_utilisateur', ['XS', 'S', 'M', 'L', 'XL'])->nullable();
         $table->boolean('est_anonyme_utilisateur')->default(false);
-        $table->boolean('est_suspendu_utilisateur')->default(false);
-        $table->string('raison_suspension_utilisateur')->nullable();
         $table->string('permissions_utilisateur')->nullable();
         $table->unsignedInteger('nombre_missions_utilisateur')->default(0);
         $table->rememberToken();
