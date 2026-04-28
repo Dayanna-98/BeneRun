@@ -14,28 +14,18 @@ return new class extends Migration
         Schema::create('user_competences', function (Blueprint $table) {
         $table->unsignedBigInteger('id_utilisateur');
         $table->unsignedBigInteger('id_competence');
-        $table->enum('niveau', [
-                'débutant',
-                'intermédaire',
-                'avancé',
-                'expert'
-            ])->default('débutant');
-
         $table->primary(['id_utilisateur', 'id_competence']);
-
         $table->foreign('id_utilisateur')
             ->references('id_utilisateur')
             ->on('users')
             ->cascadeOnDelete();
-
         $table->foreign('id_competence')
             ->references('id_competence')
             ->on('competences')
             ->cascadeOnDelete();
         $table->timestamps();
-});
+    });
     }
-
     /**
      * Reverse the migrations.
      */
@@ -43,4 +33,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('user_competences');
     }
-};
+    };
