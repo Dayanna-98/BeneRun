@@ -56,7 +56,7 @@
 									<span class="badge bg-warning text-dark">{{ b.score_badge ?? 0 }} pts</span>
 								</div>
 								<div v-if="b.description_badge" class="small text-muted">{{ b.description_badge }}</div>
-								<div v-if="b.regle_auto" class="small text-muted fst-italic mt-1">Regle auto: {{ b.regle_auto }}</div>
+								<div v-if="b.regle_auto" class="small text-muted fst-italic mt-1">📋 {{ formatRegle(b.regle_auto) }}</div>
 							</div>
 							<div v-if="canEdit" class="d-flex gap-2 flex-shrink-0">
 								<button class="btn btn-outline-primary btn-sm" @click="openEditModal(b)"><Pencil style="width:14px;height:14px" /></button>
@@ -93,8 +93,8 @@
 						<input v-model.number="form.score_badge" type="number" min="0" class="form-control" />
 					</div>
 					<div>
-						<label class="form-label fw-medium">Regle automatique</label>
-						<input v-model="form.regle_auto" type="text" class="form-control" />
+						<label class="form-label fw-medium">Règle d'attribution automatique</label>
+						<BadgeRuleBuilder v-model="form.regle_auto" />
 					</div>
 				</div>
 				<div class="card-footer d-flex gap-2 justify-content-end">
@@ -133,6 +133,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Pencil, Trash2, Search, Award, X } from 'lucide-vue-next'
 import { getCurrentUser, hasPermission } from '@/utils/auth'
 import badgeService from '@/services/badgeService'
+import BadgeRuleBuilder from '@/components/badges/BadgeRuleBuilder.vue'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -256,6 +257,26 @@ function showToast(message, type = 'success') {
 	toast.value = { show: true, message, type }
 	setTimeout(() => { toast.value.show = false }, 3000)
 }
+
+// ─── Rule preview helper ────────────────────────────────────────────────────
+const RULE_FIELD_LABELS  = { missions_completees: 'Missions complétées', evenements_participes: 'Événements', score_total: 'Score total', role_mission: 'Rôle' }
+const RULE_OP_LABELS     = { '=': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥' }
+const RULE_VALUE_LABELS  = { benevole: 'Bénévole', responsable: 'Responsable' }
+
+function formatRegle(regleStr) {
+	if (!regleStr) return ''
+	try {
+		const parsed = JSON.parse(regleStr)
+		if (!Array.isArray(parsed.conditions)) return regleStr
+		const sep = parsed.op === 'AND' ? ' ET ' : ' OU '
+		return parsed.conditions.map(c => {
+			const f = RULE_FIELD_LABELS[c.field] ?? c.field
+			const o = RULE_OP_LABELS[c.op]      ?? c.op
+			const v = RULE_VALUE_LABELS[c.value] ?? c.value
+			return `${f} ${o} ${v}`
+		}).join(sep)
+	} catch { return regleStr }
+}
 </script>
 
 <style scoped>
@@ -272,7 +293,7 @@ function showToast(message, type = 'success') {
 
 .modal-dialog-custom {
 	width: 100%;
-	max-width: 480px;
+	max-width: 560px;
 	max-height: 90vh;
 	overflow-y: auto;
 	border-radius: 0.75rem;

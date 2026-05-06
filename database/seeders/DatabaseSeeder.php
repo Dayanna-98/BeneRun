@@ -26,23 +26,26 @@ class DatabaseSeeder extends Seeder
         $this->seedMissionContacts($missions);
         $this->seedMissionMedias($missions, $users);
         $this->seedAffectations($users, $missions);
-        $this->seedPostulations($users, $missions);
+        $this->seedPostulations($users, $events, $missions);
         $badges = $this->seedBadges();
         $this->seedUserBadges($users, $badges);
         $this->seedCertificates($users);
         $this->seedFavorites($users, $missions);
+        $this->seedEmergencyMessages($users, $events, $missions);
     }
 
     private function seedUsers(): array
     {
         $defaultPassword = Hash::make('password');
         $emmaPassword = Hash::make('Soleil1234');
+        $dayannaPassword = Hash::make('vanille18');
+        $sofianPassword = Hash::make('fraise23');
 
         $rows = [
             'emma' => [
                 'nom_utilisateur' => 'Rougeron',
                 'prenom_utilisateur' => 'Emma',
-                'email' => 'emmazeghdoud@gmail.com',
+                'email' => 'emma.rougeron@benerun.test',
                 'role_utilisateur' => 'superadmin',
                 'telephone_utilisateur' => '0791112233',
                 'adresse_utilisateur' => 'Rue du Rhone 14, Geneve',
@@ -56,13 +59,17 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => false,
+                'latitude_localisation_directe_utilisateur' => null,
+                'longitude_localisation_directe_utilisateur' => null,
+                'date_localisation_directe_utilisateur' => null,
                 'permissions_utilisateur' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
                 'nombre_missions_utilisateur' => 6,
             ],
             'alexandre' => [
                 'nom_utilisateur' => 'Rousseau',
                 'prenom_utilisateur' => 'Alexandre',
-                'email' => 'admin@benerun.ch',
+                'email' => 'alexandre.rousseau@benerun.test',
                 'role_utilisateur' => 'superadmin',
                 'telephone_utilisateur' => '0793334455',
                 'adresse_utilisateur' => 'Avenue de France 10, Geneve',
@@ -76,13 +83,17 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => false,
+                'latitude_localisation_directe_utilisateur' => null,
+                'longitude_localisation_directe_utilisateur' => null,
+                'date_localisation_directe_utilisateur' => null,
                 'permissions_utilisateur' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
                 'nombre_missions_utilisateur' => 10,
             ],
-            'clara' => [
-                'nom_utilisateur' => 'Martin',
-                'prenom_utilisateur' => 'Clara',
-                'email' => 'clara.admin@benerun.test',
+            'sofian' => [
+                'nom_utilisateur' => 'Madani',
+                'prenom_utilisateur' => 'Sofian',
+                'email' => 'sofian.madani@benerun.test',
                 'role_utilisateur' => 'admin',
                 'telephone_utilisateur' => '0795556677',
                 'adresse_utilisateur' => 'Rue de Lausanne 8, Geneve',
@@ -96,6 +107,10 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => false,
+                'latitude_localisation_directe_utilisateur' => null,
+                'longitude_localisation_directe_utilisateur' => null,
+                'date_localisation_directe_utilisateur' => null,
                 'permissions_utilisateur' => 'createEvent,editEvent,createMission,editMission',
                 'nombre_missions_utilisateur' => 8,
             ],
@@ -116,13 +131,17 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => true,
+                'latitude_localisation_directe_utilisateur' => 46.2021205,
+                'longitude_localisation_directe_utilisateur' => 6.1499801,
+                'date_localisation_directe_utilisateur' => now()->subMinutes(6),
                 'permissions_utilisateur' => 'createMission,editMission,deleteMission,contactMissionMembers',
                 'nombre_missions_utilisateur' => 5,
             ],
-            'marie' => [
-                'nom_utilisateur' => 'Cossart',
-                'prenom_utilisateur' => 'Marie',
-                'email' => 'momo@gmail.com',
+            'dayanna' => [
+                'nom_utilisateur' => 'Tenecela',
+                'prenom_utilisateur' => 'Dayanna',
+                'email' => 'dayanna.tenecela@benerun.test',
                 'role_utilisateur' => 'bénévole',
                 'telephone_utilisateur' => '0771234567',
                 'adresse_utilisateur' => 'Boulevard Carl-Vogt 21, Geneve',
@@ -136,6 +155,10 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => true,
+                'latitude_localisation_directe_utilisateur' => 46.2020500,
+                'longitude_localisation_directe_utilisateur' => 6.1497600,
+                'date_localisation_directe_utilisateur' => now()->subMinutes(2),
                 'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
                 'nombre_missions_utilisateur' => 2,
             ],
@@ -156,6 +179,10 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => false,
+                'latitude_localisation_directe_utilisateur' => null,
+                'longitude_localisation_directe_utilisateur' => null,
+                'date_localisation_directe_utilisateur' => null,
                 'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
                 'nombre_missions_utilisateur' => 4,
             ],
@@ -176,6 +203,10 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => false,
                 'est_suspendu_utilisateur' => true,
                 'raison_suspension_utilisateur' => 'Absences répétées non justifiées',
+                'partage_localisation_directe_utilisateur' => false,
+                'latitude_localisation_directe_utilisateur' => null,
+                'longitude_localisation_directe_utilisateur' => null,
+                'date_localisation_directe_utilisateur' => null,
                 'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
                 'nombre_missions_utilisateur' => 1,
             ],
@@ -196,6 +227,10 @@ class DatabaseSeeder extends Seeder
                 'est_anonyme_utilisateur' => true,
                 'est_suspendu_utilisateur' => false,
                 'raison_suspension_utilisateur' => null,
+                'partage_localisation_directe_utilisateur' => true,
+                'latitude_localisation_directe_utilisateur' => 46.2022800,
+                'longitude_localisation_directe_utilisateur' => 6.1501500,
+                'date_localisation_directe_utilisateur' => now()->subMinutes(4),
                 'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
                 'nombre_missions_utilisateur' => 3,
             ],
@@ -206,7 +241,12 @@ class DatabaseSeeder extends Seeder
         foreach ($rows as $key => $row) {
             $ids[$key] = DB::table('users')->insertGetId([
                 ...$row,
-                'password' => $key === 'emma' ? $emmaPassword : $defaultPassword,
+                'password' => match ($key) {
+                    'emma' => $emmaPassword,
+                    'dayanna' => $dayannaPassword,
+                    'sofian' => $sofianPassword,
+                    default => $defaultPassword,
+                },
                 'email_verified_at' => now(),
                 'remember_token' => null,
                 'created_at' => now(),
@@ -253,16 +293,18 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_evenement' => '08:30:00',
                 'heure_fin_evenement' => '13:00:00',
                 'lieu_evenement' => 'Quai du Mont-Blanc, Geneve',
+                'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2094471,6.1475688',
+                'rayon_localisation_evenement' => 2500,
                 'latitude_evenement' => 46.2094471,
                 'longitude_evenement' => 6.1475688,
                 'organisateur_evenement' => 'Running Geneva',
                 'image_evenement' => 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200',
-                'nombre_benevoles_requis' => 18,
+                'nombre_benevoles_requis' => 12,
                 'est_annule_evenement' => false,
                 'date_annulation_evenement' => null,
                 'raison_annulation_evenement' => null,
                 'est_publie_evenement' => true,
-                'cree_par_utilisateur_id' => $users['clara'],
+                'cree_par_utilisateur_id' => $users['sofian'],
             ],
             'night_run' => [
                 'nom_evenement' => 'Geneva Night Run',
@@ -272,6 +314,8 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_evenement' => '20:00:00',
                 'heure_fin_evenement' => '23:00:00',
                 'lieu_evenement' => 'Parc La Grange, Geneve',
+                'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2049939,6.1628491',
+                'rayon_localisation_evenement' => 1500,
                 'latitude_evenement' => 46.2049939,
                 'longitude_evenement' => 6.1628491,
                 'organisateur_evenement' => 'Ville de Geneve',
@@ -281,7 +325,28 @@ class DatabaseSeeder extends Seeder
                 'date_annulation_evenement' => null,
                 'raison_annulation_evenement' => null,
                 'est_publie_evenement' => false,
-                'cree_par_utilisateur_id' => $users['clara'],
+                'cree_par_utilisateur_id' => $users['sofian'],
+            ],
+            'semi_printemps' => [
+                'nom_evenement' => 'Semi du Printemps',
+                'description_evenement' => 'Deuxième événement public sur un créneau proche pour tester les blocages de liste d attente et les redirections.',
+                'date_debut_evenement' => '2026-05-09',
+                'date_fin_evenement' => '2026-05-09',
+                'heure_debut_evenement' => '09:00:00',
+                'heure_fin_evenement' => '12:00:00',
+                'lieu_evenement' => 'Plainpalais, Geneve',
+                'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.1984130,6.1420180',
+                'rayon_localisation_evenement' => 1800,
+                'latitude_evenement' => 46.1984130,
+                'longitude_evenement' => 6.1420180,
+                'organisateur_evenement' => 'Association Sportive Genevoise',
+                'image_evenement' => 'https://images.unsplash.com/photo-1486218119243-13883505764c?w=1200',
+                'nombre_benevoles_requis' => 9,
+                'est_annule_evenement' => false,
+                'date_annulation_evenement' => null,
+                'raison_annulation_evenement' => null,
+                'est_publie_evenement' => true,
+                'cree_par_utilisateur_id' => $users['sofian'],
             ],
             'tri_rhone' => [
                 'nom_evenement' => 'Tri du Rhone',
@@ -291,6 +356,8 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_evenement' => '09:00:00',
                 'heure_fin_evenement' => '15:30:00',
                 'lieu_evenement' => 'Jonction, Geneve',
+                'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.1965072,6.1324421',
+                'rayon_localisation_evenement' => 1200,
                 'latitude_evenement' => 46.1965072,
                 'longitude_evenement' => 6.1324421,
                 'organisateur_evenement' => 'Club Rhone Sport',
@@ -330,6 +397,7 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_mission' => '07:30:00',
                 'heure_fin_mission' => '11:30:00',
                 'lieu_mission' => 'Parc des Bastions',
+                'google_maps_url_mission' => 'https://www.google.com/maps?q=46.1997540,6.1423040',
                 'latitude_mission' => 46.1997540,
                 'longitude_mission' => 6.1423040,
                 'nombre_benevoles_max' => 6,
@@ -343,7 +411,7 @@ class DatabaseSeeder extends Seeder
             ],
             'signalisation' => [
                 'id_evenement' => $events['geneva10k'],
-                'responsable_utilisateur_id' => $users['clara'],
+                'responsable_utilisateur_id' => $users['sofian'],
                 'titre_mission' => 'Signalisation centre-ville',
                 'type_mission' => 'technique',
                 'description_mission' => 'Orienter les coureurs et sécuriser les traversées piétonnes en centre-ville.',
@@ -351,6 +419,7 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_mission' => '08:00:00',
                 'heure_fin_mission' => '12:30:00',
                 'lieu_mission' => 'Rue du Rhone',
+                'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2021205,6.1499801',
                 'latitude_mission' => 46.2021205,
                 'longitude_mission' => 6.1499801,
                 'nombre_benevoles_max' => 5,
@@ -372,6 +441,7 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_mission' => '08:15:00',
                 'heure_fin_mission' => '13:15:00',
                 'lieu_mission' => 'Village partenaires',
+                'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2081000,6.1479000',
                 'latitude_mission' => 46.2081000,
                 'longitude_mission' => 6.1479000,
                 'nombre_benevoles_max' => 3,
@@ -393,6 +463,7 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_mission' => '17:30:00',
                 'heure_fin_mission' => '20:15:00',
                 'lieu_mission' => 'Parc La Grange - entrée nord',
+                'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2048100,6.1632100',
                 'latitude_mission' => 46.2048100,
                 'longitude_mission' => 6.1632100,
                 'nombre_benevoles_max' => 4,
@@ -404,9 +475,31 @@ class DatabaseSeeder extends Seeder
                 'image_mission' => null,
                 'publie_le_mission' => now()->subDays(20),
             ],
+            'briefing_printemps' => [
+                'id_evenement' => $events['semi_printemps'],
+                'responsable_utilisateur_id' => $users['marc'],
+                'titre_mission' => 'Briefing bénévoles départ',
+                'type_mission' => 'accueil',
+                'description_mission' => 'Coordonner l accueil des bénévoles et la mise en place sur la zone de départ.',
+                'date_mission' => '2026-05-09',
+                'heure_debut_mission' => '08:45:00',
+                'heure_fin_mission' => '10:30:00',
+                'lieu_mission' => 'Plainpalais - arche départ',
+                'google_maps_url_mission' => 'https://www.google.com/maps?q=46.1988500,6.1422500',
+                'latitude_mission' => 46.1988500,
+                'longitude_mission' => 6.1422500,
+                'nombre_benevoles_max' => 4,
+                'nombre_benevoles_backup' => 1,
+                'statut_mission' => 'À venir',
+                'inscription_requise' => true,
+                'visibilite_mission' => 'publique',
+                'consignes_securite' => 'Radio remise au briefing, arrivée 20 min avant.',
+                'image_mission' => null,
+                'publie_le_mission' => now()->subDays(4),
+            ],
             'canoe' => [
                 'id_evenement' => $events['tri_rhone'],
-                'responsable_utilisateur_id' => $users['clara'],
+                'responsable_utilisateur_id' => $users['sofian'],
                 'titre_mission' => 'Zone départ canoë',
                 'type_mission' => 'secours',
                 'description_mission' => 'Sécurisation de la mise à l eau et coordination avec l équipe secours.',
@@ -414,6 +507,7 @@ class DatabaseSeeder extends Seeder
                 'heure_debut_mission' => '08:00:00',
                 'heure_fin_mission' => '12:00:00',
                 'lieu_mission' => 'Quai du Rhone',
+                'google_maps_url_mission' => 'https://www.google.com/maps?q=46.1991000,6.1327000',
                 'latitude_mission' => 46.1991000,
                 'longitude_mission' => 6.1327000,
                 'nombre_benevoles_max' => 4,
@@ -447,12 +541,12 @@ class DatabaseSeeder extends Seeder
             [$users['emma'], $competences['logistique'], 'expert'],
             [$users['alexandre'], $competences['accueil'], 'expert'],
             [$users['alexandre'], $competences['orientation'], 'avancé'],
-            [$users['clara'], $competences['signalisation'], 'expert'],
-            [$users['clara'], $competences['ravitaillement'], 'avancé'],
+            [$users['sofian'], $competences['signalisation'], 'expert'],
+            [$users['sofian'], $competences['ravitaillement'], 'avancé'],
             [$users['marc'], $competences['ravitaillement'], 'expert'],
             [$users['marc'], $competences['logistique'], 'expert'],
-            [$users['marie'], $competences['accueil'], 'avancé'],
-            [$users['marie'], $competences['premiers_secours'], 'débutant'],
+            [$users['dayanna'], $competences['accueil'], 'avancé'],
+            [$users['dayanna'], $competences['premiers_secours'], 'débutant'],
             [$users['leo'], $competences['signalisation'], 'avancé'],
             [$users['leo'], $competences['radio'], 'intermédaire'],
             [$users['nina'], $competences['ravitaillement'], 'débutant'],
@@ -480,6 +574,8 @@ class DatabaseSeeder extends Seeder
             [$missions['vip'], $competences['accueil']],
             [$missions['vip'], $competences['orientation']],
             [$missions['dossards'], $competences['accueil']],
+            [$missions['briefing_printemps'], $competences['accueil']],
+            [$missions['briefing_printemps'], $competences['radio']],
             [$missions['canoe'], $competences['premiers_secours']],
         ];
 
@@ -497,9 +593,10 @@ class DatabaseSeeder extends Seeder
     {
         $rows = [
             [$missions['ravitaillement'], 'Marc Duval', '0782223344', 'marc.manager@benerun.test', true, true],
-            [$missions['signalisation'], 'Clara Martin', '0795556677', 'clara.admin@benerun.test', true, true],
-            [$missions['vip'], 'Alexandre Rousseau', '0793334455', 'admin@benerun.ch', true, false],
+            [$missions['signalisation'], 'Sofian Madani', '0795556677', 'sofian.madani@benerun.test', true, true],
+            [$missions['vip'], 'Alexandre Rousseau', '0793334455', 'alexandre.rousseau@benerun.test', true, false],
             [$missions['dossards'], 'Marc Duval', '0782223344', 'marc.manager@benerun.test', true, true],
+            [$missions['briefing_printemps'], 'Marc Duval', '0782223344', 'marc.manager@benerun.test', true, true],
         ];
 
         foreach ($rows as [$missionId, $name, $phone, $email, $isMain, $isDay]) {
@@ -520,7 +617,7 @@ class DatabaseSeeder extends Seeder
     {
         $rows = [
             [$missions['ravitaillement'], 'missions/ravitaillement-plan.pdf', 'application/pdf', 245760, $users['marc']],
-            [$missions['signalisation'], 'missions/signalisation-zone.jpg', 'image/jpeg', 184320, $users['clara']],
+            [$missions['signalisation'], 'missions/signalisation-zone.jpg', 'image/jpeg', 184320, $users['sofian']],
         ];
 
         foreach ($rows as [$missionId, $path, $mime, $size, $uploaderId]) {
@@ -540,14 +637,16 @@ class DatabaseSeeder extends Seeder
     {
         $rows = [
             [$users['marc'], $missions['ravitaillement'], 'assigne', true, 'Responsable mission.', now()->subDays(8), null, null],
-            [$users['marie'], $missions['ravitaillement'], 'confirme', false, 'Disponible dès 07h15.', now()->subDays(6), now()->subDays(4), null],
+            [$users['dayanna'], $missions['ravitaillement'], 'confirme', false, 'Disponible dès 07h15.', now()->subDays(6), now()->subDays(4), null],
             [$users['leo'], $missions['ravitaillement'], 'assigne', false, 'Renfort ravitaillement.', now()->subDays(5), null, null],
-            [$users['clara'], $missions['signalisation'], 'present', true, 'Coordination parcours.', now()->subDays(7), now()->subDays(3), now()->subDays(1)],
+            [$users['sofian'], $missions['signalisation'], 'present', true, 'Coordination parcours.', now()->subDays(7), now()->subDays(3), now()->subDays(1)],
+            [$users['dayanna'], $missions['signalisation'], 'present', false, 'Disponible en zone 1.', now()->subDays(5), now()->subDays(2), now()->subMinutes(10)],
             [$users['zoe'], $missions['signalisation'], 'confirme', false, 'Disponible en zone 2.', now()->subDays(5), now()->subDays(2), null],
             [$users['alexandre'], $missions['vip'], 'assigne', true, 'Pilotage partenaires.', now()->subDays(5), null, null],
             [$users['marc'], $missions['dossards'], 'present', true, 'Mission terminée.', now()->subDays(20), now()->subDays(18), now()->subDays(16)],
-            [$users['marie'], $missions['dossards'], 'present', false, 'Accueil participants.', now()->subDays(20), now()->subDays(18), now()->subDays(16)],
-            [$users['clara'], $missions['canoe'], 'annule', true, 'Mission annulée avec l événement.', now()->subDays(12), null, null],
+            [$users['dayanna'], $missions['dossards'], 'present', false, 'Accueil participants.', now()->subDays(20), now()->subDays(18), now()->subDays(16)],
+            [$users['marc'], $missions['briefing_printemps'], 'assigne', true, 'Responsable briefing.', now()->subDays(4), null, null],
+            [$users['sofian'], $missions['canoe'], 'annule', true, 'Mission annulée avec l événement.', now()->subDays(12), null, null],
         ];
 
         foreach ($rows as [$userId, $missionId, $status, $isResponsible, $note, $assignedAt, $confirmedAt, $presentAt]) {
@@ -566,18 +665,20 @@ class DatabaseSeeder extends Seeder
         }
     }
 
-    private function seedPostulations(array $users, array $missions): void
+    private function seedPostulations(array $users, array $events, array $missions): void
     {
         $rows = [
-            [$missions['ravitaillement'], $users['zoe'], 'en_attente', 'Disponible toute la matinée.', now()->subDays(2), null, null],
-            [$missions['signalisation'], $users['leo'], 'accepte', 'Déjà présent sur des courses urbaines.', now()->subDays(6), now()->subDays(4), null],
-            [$missions['vip'], $users['marie'], 'refuse', 'Souhaite un poste au contact public.', now()->subDays(3), now()->subDays(2), null],
-            [$missions['canoe'], $users['nina'], 'annule', 'Se retire suite à l annulation.', now()->subDays(10), now()->subDays(8), now()->subDays(7)],
+            [$missions['ravitaillement'], $events['geneva10k'] ?? null, $users['zoe'], 'en_attente', 'Disponible toute la matinée.', now()->subDays(2), null, null],
+            [$missions['vip'], $events['geneva10k'] ?? null, $users['leo'], 'refuse', 'Préfère une mission publique.', now()->subDays(3), now()->subDays(2), null],
+            [$missions['canoe'], $events['tri_rhone'] ?? null, $users['nina'], 'annule', 'Se retire suite à l annulation.', now()->subDays(10), now()->subDays(8), now()->subDays(7)],
+            [null, $events['geneva10k'], $users['nina'], 'en_attente', 'Souhaite être dispatché sur l événement principal.', now()->subDays(1), null, null],
+            [null, $events['semi_printemps'], $users['leo'], 'en_attente', 'Disponible seulement sur le créneau matin.', now()->subHours(18), null, null],
         ];
 
-        foreach ($rows as [$missionId, $userId, $status, $note, $postedAt, $decisionAt, $cancelledAt]) {
+        foreach ($rows as [$missionId, $eventId, $userId, $status, $note, $postedAt, $decisionAt, $cancelledAt]) {
             DB::table('postulations')->insert([
                 'id_mission' => $missionId,
+                'id_evenement' => $eventId,
                 'id_utilisateur' => $userId,
                 'statut_postulation' => $status,
                 'remarque' => $note,
@@ -632,9 +733,9 @@ class DatabaseSeeder extends Seeder
     private function seedUserBadges(array $users, array $badges): void
     {
         $rows = [
-            [$users['marie'], $badges['starter'], now()->subDays(10)],
+            [$users['dayanna'], $badges['starter'], now()->subDays(10)],
             [$users['leo'], $badges['team'], now()->subDays(30)],
-            [$users['marie'], $badges['secours'], now()->subDays(2)],
+            [$users['dayanna'], $badges['secours'], now()->subDays(2)],
         ];
 
         foreach ($rows as [$userId, $badgeId, $grantedAt]) {
@@ -652,7 +753,7 @@ class DatabaseSeeder extends Seeder
     {
         $rows = [
             [
-                'id_utilisateur' => $users['marie'],
+                'id_utilisateur' => $users['dayanna'],
                 'titre_certificat' => 'PSC1',
                 'emetteur_certificat' => 'Croix-Rouge genevoise',
                 'date_emission_certificat' => '2025-11-15',
@@ -695,8 +796,8 @@ class DatabaseSeeder extends Seeder
     private function seedFavorites(array $users, array $missions): void
     {
         $rows = [
-            [$users['marie'], $missions['ravitaillement']],
-            [$users['marie'], $missions['signalisation']],
+            [$users['dayanna'], $missions['ravitaillement']],
+            [$users['dayanna'], $missions['signalisation']],
             [$users['leo'], $missions['vip']],
         ];
 
@@ -716,6 +817,8 @@ class DatabaseSeeder extends Seeder
 
         $tables = [
             'personal_access_tokens',
+            'mission_emergency_message_views',
+            'mission_emergency_messages',
             'favorites',
             'user_badges',
             'certificats',
@@ -739,5 +842,48 @@ class DatabaseSeeder extends Seeder
         }
 
         Schema::enableForeignKeyConstraints();
+    }
+
+    private function seedEmergencyMessages(array $users, array $events, array $missions): void
+    {
+        $openEmergencyId = DB::table('mission_emergency_messages')->insertGetId([
+            'id_mission' => $missions['signalisation'],
+            'id_evenement' => $events['geneva10k'],
+            'id_emetteur_utilisateur' => $users['dayanna'],
+            'categorie_urgence' => 'security',
+            'message_urgence' => 'Un spectateur force le passage à une barrière au carrefour zone 1.',
+            'pris_en_charge_par_utilisateur_id' => null,
+            'pris_en_charge_le' => null,
+            'created_at' => now()->subMinutes(18),
+            'updated_at' => now()->subMinutes(18),
+        ], 'id_mission_emergency_message');
+
+        $ownedEmergencyId = DB::table('mission_emergency_messages')->insertGetId([
+            'id_mission' => $missions['signalisation'],
+            'id_evenement' => $events['geneva10k'],
+            'id_emetteur_utilisateur' => $users['zoe'],
+            'categorie_urgence' => 'medical',
+            'message_urgence' => 'Un coureur désorienté a besoin d assistance au point de traversée sud.',
+            'pris_en_charge_par_utilisateur_id' => $users['emma'],
+            'pris_en_charge_le' => now()->subMinutes(35),
+            'created_at' => now()->subMinutes(42),
+            'updated_at' => now()->subMinutes(35),
+        ], 'id_mission_emergency_message');
+
+        $views = [
+            [$openEmergencyId, $users['alexandre'], now()->subMinutes(15)],
+            [$ownedEmergencyId, $users['emma'], now()->subMinutes(36)],
+            [$ownedEmergencyId, $users['alexandre'], now()->subMinutes(33)],
+        ];
+
+        foreach ($views as [$messageId, $userId, $viewedAt]) {
+            DB::table('mission_emergency_message_views')->insert([
+                'id_mission_emergency_message' => $messageId,
+                'id_utilisateur' => $userId,
+                'consulte_le' => $viewedAt,
+                'created_at' => $viewedAt,
+                'updated_at' => $viewedAt,
+            ]);
+        }
     }
 }

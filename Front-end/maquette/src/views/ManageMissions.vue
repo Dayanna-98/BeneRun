@@ -19,13 +19,60 @@
 
     <div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:1024px">
 
+      <!-- Filtres -->
+      <div class="card">
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-12 col-md-7">
+              <input
+                v-model="searchQuery"
+                class="form-control"
+                type="text"
+                placeholder="Rechercher une mission, un lieu ou un événement..."
+              />
+            </div>
+            <div class="col-12 col-md-5">
+              <select v-model="selectedEventId" class="form-select">
+                <option value="">Tous les événements</option>
+                <option v-for="event in events" :key="event.id" :value="event.id">
+                  {{ event.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button
+              class="btn btn-sm"
+              :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="timelineFilter = 'upcoming'"
+            >
+              À venir
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="timelineFilter = 'past'"
+            >
+              Passées
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="timelineFilter = 'all'"
+            >
+              Toutes
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Stats -->
       <div class="row g-3">
         <div class="col-6 col-md-3">
           <div class="card text-center">
             <div class="card-body p-3">
-              <div class="fs-3 fw-bold text-primary">{{ missions.length }}</div>
-              <div class="x-small text-muted">Total missions</div>
+              <div class="fs-3 fw-bold text-primary">{{ filteredMissions.length }}</div>
+              <div class="x-small text-muted">Missions visibles</div>
             </div>
           </div>
         </div>
@@ -61,7 +108,7 @@
         <div class="card-body d-flex flex-column gap-3">
           <div v-if="isLoading" class="text-muted small">Chargement des missions...</div>
           <div v-else-if="errorMessage" class="alert alert-danger small mb-0">{{ errorMessage }}</div>
-          <div v-for="mission in missions" :key="mission.id"
+          <div v-for="mission in filteredMissions" :key="mission.id"
             class="border rounded p-3">
 
             <div class="d-flex align-items-start justify-content-between mb-3">
@@ -75,6 +122,8 @@
                   <Edit style="width:16px;height:16px" />
                 </button>
                 <button class="btn btn-link p-1 text-danger"
+                  :disabled="!canDeleteMission(mission)"
+                  :title="!canDeleteMission(mission) ? 'Suppression interdite pour traçabilité (mission en cours ou passée)' : 'Supprimer la mission'"
                   @click="handleDeleteMission(mission.id)">
                   <Trash2 style="width:16px;height:16px" />
                 </button>
@@ -113,7 +162,7 @@
             </div>
 
           </div>
-          <div v-if="!isLoading && !errorMessage && missions.length === 0" class="text-muted small">
+          <div v-if="!isLoading && !errorMessage && filteredMissions.length === 0" class="text-muted small">
             Aucune mission trouvée.
           </div>
         </div>
@@ -128,6 +177,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, MapPin, Clock } from 'lucide-vue-next'
 import missionService from '@/services/missionService'
+import eventService from '@/services/eventService'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
 
 const router = useRouter()
@@ -135,22 +185,54 @@ const user = getCurrentUser()
 if (!user || !hasMinRole('organizer')) router.push('/')
 
 const missions = ref([])
+const events = ref([])
 const isLoading = ref(true)
 const errorMessage = ref('')
+const searchQuery = ref('')
+const selectedEventId = ref('')
+const timelineFilter = ref('upcoming')
 
-const availableCount = computed(() => missions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
-const fullCount = computed(() => missions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
-const totalVolunteers = computed(() => missions.value.reduce((s, m) => s + m.currentVolunteers, 0))
+const normalizedMissionSearch = computed(() => searchQuery.value.trim().toLowerCase())
+
+const filteredMissions = computed(() => {
+  return missions.value.filter((mission) => {
+    const matchEvent = !selectedEventId.value || mission.eventId === selectedEventId.value
+    const matchSearch = !normalizedMissionSearch.value || [mission.name, mission.eventName, mission.location]
+      .some((value) => String(value || '').toLowerCase().includes(normalizedMissionSearch.value))
+    const missionEndDate = new Date(`${mission.date}T${mission.endTime || '23:59'}:00`)
+    const isPast = missionEndDate.getTime() < Date.now()
+    const matchTimeline = timelineFilter.value === 'all'
+      ? true
+      : timelineFilter.value === 'past'
+        ? isPast
+        : !isPast
+
+    return matchEvent && matchSearch && matchTimeline
+  })
+})
+
+const getMissionStartDate = (mission) => new Date(`${mission.date}T${mission.startTime || '00:00'}:00`)
+const canDeleteMission = (mission) => getMissionStartDate(mission).getTime() > Date.now()
+
+const availableCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
+const fullCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
+const totalVolunteers = computed(() => filteredMissions.value.reduce((sum, mission) => sum + mission.currentVolunteers, 0))
 
 const formatDate = (d) =>
   new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const loadMissions = async () => {
+const loadData = async () => {
   isLoading.value = true
   errorMessage.value = ''
 
   try {
-    missions.value = await missionService.getAll()
+    const [missionsPayload, eventsPayload] = await Promise.all([
+      missionService.getAll(),
+      eventService.getAll(),
+    ])
+
+    missions.value = missionsPayload
+    events.value = eventsPayload
   } catch (error) {
     errorMessage.value = error.message || 'Impossible de charger les missions'
   } finally {
@@ -170,5 +252,5 @@ const handleDeleteMission = async (id) => {
   }
 }
 
-onMounted(loadMissions)
+onMounted(loadData)
 </script>

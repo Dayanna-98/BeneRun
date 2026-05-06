@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -303,6 +304,35 @@ public function index(Request $request)
 
     public function store(Request $request)
     {
+        $validated = $request->validate([
+            'nom_utilisateur' => 'required|string|max:255',
+            'prenom_utilisateur' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8',
+            'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
+            'telephone_utilisateur' => 'nullable|string|max:255',
+            'adresse_utilisateur' => 'nullable|string|max:255',
+            'date_naissance_utilisateur' => 'nullable|date',
+            'allergies_utilisateur' => 'nullable|string',
+            'problemes_sante_utilisateur' => 'nullable|string',
+            'possede_permis_utilisateur' => 'nullable|boolean',
+            'est_motorise_utilisateur' => 'nullable|boolean',
+            'possede_vehicule_utilisateur' => 'nullable|boolean',
+            'taille_tshirt_utilisateur' => 'nullable|in:XS,S,M,L,XL',
+            'est_anonyme_utilisateur' => 'nullable|boolean',
+            'est_suspendu_utilisateur' => 'nullable|boolean',
+            'raison_suspension_utilisateur' => 'nullable|string|max:255',
+            'partage_localisation_directe_utilisateur' => 'nullable|boolean',
+            'latitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-90,90',
+            'longitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-180,180',
+            'date_localisation_directe_utilisateur' => 'nullable|date',
+            'permissions_utilisateur' => 'nullable|string',
+            'nombre_missions_utilisateur' => 'nullable|integer|min:0',
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé.',
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
+        ]);
+
         $user = new User;
         $role = $request->role_utilisateur ?? 'bénévole';
         $user->nom_utilisateur = $request->nom_utilisateur;
@@ -322,9 +352,19 @@ public function index(Request $request)
         $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
         $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
         $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
+        $user->partage_localisation_directe_utilisateur = (bool) $request->partage_localisation_directe_utilisateur;
+        $user->latitude_localisation_directe_utilisateur = $request->latitude_localisation_directe_utilisateur;
+        $user->longitude_localisation_directe_utilisateur = $request->longitude_localisation_directe_utilisateur;
+        $user->date_localisation_directe_utilisateur = $request->date_localisation_directe_utilisateur;
         $user->permissions_utilisateur = $this->normalizePermissions($request->permissions_utilisateur)
             ?? $this->defaultPermissionsForRole($role);
         $user->nombre_missions_utilisateur = $request->nombre_missions_utilisateur ?? 0;
+
+        if (!$user->partage_localisation_directe_utilisateur) {
+            $user->latitude_localisation_directe_utilisateur = null;
+            $user->longitude_localisation_directe_utilisateur = null;
+            $user->date_localisation_directe_utilisateur = null;
+        }
 
         $user->save();
 
@@ -339,7 +379,12 @@ public function index(Request $request)
         $validated = $request->validate([
             'nom_utilisateur' => 'required|string|max:255',
             'prenom_utilisateur' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($id, 'id_utilisateur'),
+            ],
             'password' => 'nullable|string|min:8',
             'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
             'telephone_utilisateur' => 'nullable|string|max:255',
@@ -354,8 +399,15 @@ public function index(Request $request)
             'est_anonyme_utilisateur' => 'nullable|boolean',
             'est_suspendu_utilisateur' => 'nullable|boolean',
             'raison_suspension_utilisateur' => 'nullable|string|max:255',
+            'partage_localisation_directe_utilisateur' => 'nullable|boolean',
+            'latitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-90,90',
+            'longitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-180,180',
+            'date_localisation_directe_utilisateur' => 'nullable|date',
             'permissions_utilisateur' => 'nullable|string',
             'nombre_missions_utilisateur' => 'nullable|integer|min:0',
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé.',
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
         ]);
 
         if (!User::where('id_utilisateur', $id)->exists()) {
@@ -415,12 +467,22 @@ public function index(Request $request)
         $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
         $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
         $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
+        $user->partage_localisation_directe_utilisateur = (bool) ($validated['partage_localisation_directe_utilisateur'] ?? false);
+        $user->latitude_localisation_directe_utilisateur = $validated['latitude_localisation_directe_utilisateur'] ?? $user->latitude_localisation_directe_utilisateur;
+        $user->longitude_localisation_directe_utilisateur = $validated['longitude_localisation_directe_utilisateur'] ?? $user->longitude_localisation_directe_utilisateur;
+        $user->date_localisation_directe_utilisateur = $validated['date_localisation_directe_utilisateur'] ?? $user->date_localisation_directe_utilisateur;
         if ($permissionsWereProvided) {
             $user->permissions_utilisateur = $this->normalizePermissions($validated['permissions_utilisateur']);
         } elseif ($roleChanged) {
             $user->permissions_utilisateur = $this->defaultPermissionsForRole($nextRole);
         }
         $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
+
+        if (!$user->partage_localisation_directe_utilisateur) {
+            $user->latitude_localisation_directe_utilisateur = null;
+            $user->longitude_localisation_directe_utilisateur = null;
+            $user->date_localisation_directe_utilisateur = null;
+        }
 
         $user->save();
 

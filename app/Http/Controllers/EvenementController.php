@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Evenement;
+use App\Support\GoogleMapsUrl;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class EvenementController extends Controller
@@ -37,8 +39,8 @@ class EvenementController extends Controller
             'heure_debut_evenement' => 'nullable|date_format:H:i',
             'heure_fin_evenement' => 'nullable|date_format:H:i',
             'lieu_evenement' => 'required|string|max:255',
-            'latitude_evenement' => 'nullable|numeric|between:-90,90',
-            'longitude_evenement' => 'nullable|numeric|between:-180,180',
+            'google_maps_url_evenement' => 'required|string|max:1000',
+            'rayon_localisation_evenement' => 'required|integer|min:1|max:100000',
             'organisateur_evenement' => 'required|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
             'nombre_benevoles_requis' => 'required|integer|min:1',
@@ -48,6 +50,8 @@ class EvenementController extends Controller
             'est_publie_evenement' => 'nullable|boolean',
             'cree_par_utilisateur_id' => 'required|integer|exists:users,id_utilisateur',
         ]);
+
+        $validated = $this->hydrateEventLocation($validated);
 
         $event = Evenement::create($validated);
 
@@ -73,8 +77,8 @@ class EvenementController extends Controller
             'heure_debut_evenement' => 'nullable|date_format:H:i',
             'heure_fin_evenement' => 'nullable|date_format:H:i',
             'lieu_evenement' => 'sometimes|string|max:255',
-            'latitude_evenement' => 'nullable|numeric|between:-90,90',
-            'longitude_evenement' => 'nullable|numeric|between:-180,180',
+            'google_maps_url_evenement' => 'sometimes|string|max:1000',
+            'rayon_localisation_evenement' => 'sometimes|integer|min:1|max:100000',
             'organisateur_evenement' => 'sometimes|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
             'nombre_benevoles_requis' => 'sometimes|integer|min:1',
@@ -84,6 +88,8 @@ class EvenementController extends Controller
             'est_publie_evenement' => 'nullable|boolean',
             'cree_par_utilisateur_id' => 'sometimes|integer|exists:users,id_utilisateur',
         ]);
+
+        $validated = $this->hydrateEventLocation($validated, $event);
 
         $event->update($validated);
 
@@ -101,8 +107,53 @@ class EvenementController extends Controller
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
+        if ($this->hasEventStarted($event)) {
+            return response()->json([
+                'message' => 'Suppression interdite pour la traçabilité: cet événement est en cours ou passé. Utilisez l\'annulation à la place.',
+            ], 409);
+        }
+
         $event->delete();
 
         return response()->json(['message' => 'Événement supprimé'], 200);
+    }
+
+    private function hasEventStarted(Evenement $event): bool
+    {
+        $startDate = $event->date_debut_evenement
+            ? Carbon::parse($event->date_debut_evenement)->format('Y-m-d')
+            : null;
+
+        if (!$startDate) {
+            return false;
+        }
+
+        $startTime = $event->heure_debut_evenement ?: '00:00:00';
+        $eventStart = Carbon::parse("{$startDate} {$startTime}");
+
+        return now()->greaterThanOrEqualTo($eventStart);
+    }
+
+    private function hydrateEventLocation(array $validated, ?Evenement $event = null): array
+    {
+        $mapsUrl = $validated['google_maps_url_evenement'] ?? $event?->google_maps_url_evenement;
+        $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
+
+        if ($coordinates === null) {
+            abort(response()->json([
+                'message' => 'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
+                'errors' => [
+                    'google_maps_url_evenement' => [
+                        'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
+                    ],
+                ],
+            ], 422));
+        }
+
+        $validated['google_maps_url_evenement'] = $mapsUrl;
+        $validated['latitude_evenement'] = $coordinates['latitude'];
+        $validated['longitude_evenement'] = $coordinates['longitude'];
+
+        return $validated;
     }
 }

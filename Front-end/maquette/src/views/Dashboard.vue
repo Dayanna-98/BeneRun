@@ -205,15 +205,28 @@
       <div v-if="isManager" class="card mb-4 border-primary border-opacity-25">
         <div class="card-header d-flex align-items-center gap-2">
           <Settings style="width:20px;height:20px;color:#1a2230" />
-          <h5 class="mb-0">
-            Gestion
-            <span v-if="user.role === 'mission_manager'"> Responsable de mission</span>
-            <span v-else-if="user.role === 'admin'"> Admin</span>
-            <span v-else> Super-Admin</span>
-          </h5>
+          <h5 class="mb-0">Espace gestion</h5>
         </div>
         <div class="card-body">
-          <div class="row g-3">
+          <div v-if="user.role === 'superadmin'" class="d-flex gap-2 mb-3">
+            <button
+              class="btn btn-sm flex-fill"
+              :class="superAdminPanelTab === 'management' ? 'btn-dark' : 'btn-outline-secondary'"
+              @click="superAdminPanelTab = 'management'">
+              Gestion
+            </button>
+            <button
+              class="btn btn-sm flex-fill position-relative"
+              :class="superAdminPanelTab === 'emergency' ? 'btn-danger' : 'btn-outline-danger'"
+              @click="superAdminPanelTab = 'emergency'">
+              Urgence
+              <span v-if="openEmergencyCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">
+                {{ openEmergencyCount }}
+              </span>
+            </button>
+          </div>
+
+          <div v-if="user.role !== 'superadmin' || superAdminPanelTab === 'management'" class="row g-3">
             <div class="col-6">
               <button class="btn btn-outline-secondary w-100 d-flex flex-column align-items-center gap-2 py-3" @click="router.push('/manage-missions')">
                 <Briefcase style="width:24px;height:24px;color:#1a2230" />
@@ -259,6 +272,61 @@
               </button>
             </div>
           </div>
+
+          <div v-if="user.role === 'superadmin' && superAdminPanelTab === 'emergency'" class="d-flex flex-column gap-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="small text-muted">Messages d'urgence centralisés pour tous les superadmins</div>
+              <button class="btn btn-sm btn-outline-secondary" @click="loadEmergencyMessages">Actualiser</button>
+            </div>
+
+            <div v-if="emergencyLoading" class="text-muted small">Chargement des urgences...</div>
+            <div v-else-if="emergencyError" class="alert alert-danger small mb-0">{{ emergencyError }}</div>
+            <div v-else-if="emergencyItems.length === 0" class="text-muted small">Aucun message d'urgence reçu.</div>
+
+            <div v-else class="d-flex flex-column gap-3">
+              <div v-for="item in emergencyItems" :key="item.id" class="border rounded p-3">
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                  <div>
+                    <div class="fw-semibold small text-danger">Urgence {{ item.category || 'general' }}</div>
+                    <div class="small">
+                      <strong>{{ item.sender.fullName }}</strong> • {{ item.missionName }} • {{ item.eventName }}
+                    </div>
+                    <div class="x-small text-muted">Envoyé le {{ formatDateTime(item.sentAt) }}</div>
+                  </div>
+                  <span class="badge" :class="item.owner ? 'text-bg-success' : 'text-bg-secondary'">
+                    {{ item.owner ? `Pris en charge par ${item.owner.fullName}` : 'Non attribué' }}
+                  </span>
+                </div>
+
+                <div class="alert alert-danger small mb-2">{{ item.message }}</div>
+
+                <div class="small mb-2">
+                  <strong>Consultations:</strong>
+                  <span v-if="!item.views.length" class="text-muted"> Aucune consultation enregistrée.</span>
+                </div>
+                <div v-if="item.views.length" class="d-flex flex-column gap-1 mb-3">
+                  <div v-for="view in item.views" :key="`${item.id}-${view.viewer.id}-${view.viewedAt}`" class="x-small text-muted">
+                    {{ view.viewer.fullName }} a consulté le {{ formatDateTime(view.viewedAt) }}
+                  </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                  <button
+                    class="btn btn-outline-primary btn-sm"
+                    :disabled="emergencyProcessingId === item.id"
+                    @click="markEmergencyViewed(item)">
+                    Marquer comme consulté
+                  </button>
+                  <button
+                    class="btn btn-danger btn-sm"
+                    :disabled="emergencyProcessingId === item.id || (item.owner && item.owner.id !== String(user.id))"
+                    @click="takeEmergencyOwnership(item)">
+                    Prendre en charge
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -278,11 +346,12 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Calendar, Award, TrendingUp, MapPin, Briefcase, Heart, Settings, Users, BarChart3, Shield, Star, FileText } from 'lucide-vue-next'
 import { myActiveMissions, availableMissions } from '@/data/mockData'
 import { getCurrentUser } from '@/utils/auth'
+import emergencyService from '@/services/emergencyService'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -309,9 +378,114 @@ const managedMissions = computed(() =>
     : []
 )
 
+const superAdminPanelTab = ref('management')
+const emergencyItems = ref([])
+const emergencyLoading = ref(false)
+const emergencyError = ref('')
+const emergencyProcessingId = ref('')
+
+const openEmergencyCount = computed(() =>
+  emergencyItems.value.filter((item) => !item.owner).length
+)
+
+const formatDateTime = (value) => {
+  if (!value) return 'Date inconnue'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Date inconnue'
+
+  return parsed.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const sortEmergencyItems = (items) =>
+  [...items].sort((a, b) => new Date(b.sentAt || 0).getTime() - new Date(a.sentAt || 0).getTime())
+
+const loadEmergencyMessages = async () => {
+  if (user.role !== 'superadmin') return
+
+  emergencyLoading.value = true
+  emergencyError.value = ''
+
+  try {
+    const rows = await emergencyService.listForSuperadmin()
+    emergencyItems.value = sortEmergencyItems(rows)
+  } catch (error) {
+    emergencyError.value = error.message || 'Impossible de charger les urgences.'
+  } finally {
+    emergencyLoading.value = false
+  }
+}
+
+const replaceEmergency = (nextEmergency) => {
+  const index = emergencyItems.value.findIndex((item) => item.id === nextEmergency.id)
+  if (index === -1) {
+    emergencyItems.value = sortEmergencyItems([nextEmergency, ...emergencyItems.value])
+    return
+  }
+
+  const nextItems = [...emergencyItems.value]
+  nextItems[index] = nextEmergency
+  emergencyItems.value = sortEmergencyItems(nextItems)
+}
+
+const markEmergencyViewed = async (item) => {
+  if (user.role !== 'superadmin') return
+
+  emergencyProcessingId.value = item.id
+  emergencyError.value = ''
+
+  try {
+    const response = await emergencyService.markViewed({
+      emergencyId: item.id,
+      userId: user.id,
+    })
+
+    if (response.urgence) {
+      replaceEmergency(response.urgence)
+    }
+  } catch (error) {
+    emergencyError.value = error.message || 'Impossible d\'enregistrer la consultation.'
+  } finally {
+    emergencyProcessingId.value = ''
+  }
+}
+
+const takeEmergencyOwnership = async (item) => {
+  if (user.role !== 'superadmin') return
+
+  emergencyProcessingId.value = item.id
+  emergencyError.value = ''
+
+  try {
+    const response = await emergencyService.takeOwnership({
+      emergencyId: item.id,
+      userId: user.id,
+    })
+
+    if (response.urgence) {
+      replaceEmergency(response.urgence)
+    }
+  } catch (error) {
+    emergencyError.value = error.message || 'Impossible de prendre en charge cette urgence.'
+  } finally {
+    emergencyProcessingId.value = ''
+  }
+}
+
 const formatDate = (date) =>
   new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
 const formatDateShort = (date) =>
   new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+onMounted(async () => {
+  if (user.role === 'superadmin') {
+    await loadEmergencyMessages()
+  }
+})
 </script>

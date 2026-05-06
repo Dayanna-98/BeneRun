@@ -90,41 +90,40 @@
               <input v-model="formData.location" class="form-control" placeholder="Ex: Place Neuve, Genève" required />
             </div>
 
-            <!-- Géolocalisation -->
             <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
               <div class="d-flex align-items-center justify-content-between">
                 <label class="form-label small fw-medium mb-0 d-flex align-items-center gap-2">
-                  <MapPin style="width:16px;height:16px" /> Position GPS exacte
+                  <MapPin style="width:16px;height:16px" /> Point Google Maps de la mission
                 </label>
                 <button type="button" class="btn btn-outline-secondary btn-sm" @click="getCurrentLocation">
                   Utiliser ma position
                 </button>
               </div>
-              <div class="row g-3">
-                <div class="col-6">
-                  <label class="form-label x-small text-muted">Latitude</label>
-                  <input v-model="formData.latitude" type="number" step="any" class="form-control form-control-sm" placeholder="Ex: 46.2044" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label x-small text-muted">Longitude</label>
-                  <input v-model="formData.longitude" type="number" step="any" class="form-control form-control-sm" placeholder="Ex: 6.1432" />
-                </div>
+              <div>
+                <input
+                  v-model="formData.googleMapsUrl"
+                  class="form-control"
+                  placeholder="Collez le lien Google Maps du point de mission"
+                  required
+                />
+                <div class="form-text">Le point doit impérativement être situé dans le périmètre de l'événement.</div>
               </div>
-              <div v-if="formData.latitude && formData.longitude" class="bg-white border rounded p-2">
-                <p class="small text-muted mb-2">Aperçu sur la carte :</p>
-                <a
-                  :href="`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`"
-                  target="_blank"
-                  class="small text-primary d-flex align-items-center gap-1 mb-2"
-                >
-                  <MapPin style="width:12px;height:12px" /> Voir sur Google Maps
-                </a>
-                <iframe
-                  width="100%" height="200" frameborder="0" style="border:0;border-radius:4px"
-                  :src="`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}&output=embed`"
-                  allowfullscreen
+
+              <LeafletPreview
+                :maps-url="formData.googleMapsUrl"
+                link-label="Ouvrir le point de mission dans Google Maps"
+              />
+
+              <div v-if="selectedEvent?.googleMapsUrl" class="bg-white border rounded p-3 d-flex flex-column gap-2">
+                <div class="small fw-medium">Périmètre de l'événement sélectionné</div>
+                <LeafletPreview
+                  :maps-url="selectedEvent.googleMapsUrl"
+                  :radius-meters="selectedEvent.radiusMeters"
+                  link-label="Ouvrir le périmètre de l'événement dans Google Maps"
                 />
               </div>
+
+              <div v-if="locationPerimeterError" class="text-danger small">{{ locationPerimeterError }}</div>
             </div>
 
             <!-- Photos -->
@@ -254,10 +253,13 @@ import { reactive, ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Save, MapPin, Upload, X } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
+import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 import eventService from '@/services/eventService'
 import missionService from '@/services/missionService'
 import competenceService from '@/services/competenceService'
 import userService from '@/services/userService'
+import chatService from '@/services/chatService'
+import { distanceInMeters, extractGoogleMapsCoordinates, formatRadius } from '@/utils/googleMaps'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -279,7 +281,7 @@ const formData = reactive({
   name: '', eventId: '', date: '', startTime: '', endTime: '',
   location: '', description: '', type: '', maxVolunteers: '',
   backupVolunteers: '', responsibleUserId: '', responsiblePhone: '',
-  responsibleEmail: '', latitude: '', longitude: '',
+  responsibleEmail: '', googleMapsUrl: '',
   postable: true, inscription: true, public: true,
   competenceIds: [],
 })
@@ -344,13 +346,28 @@ const quotaError = computed(() => {
   return ''
 })
 
+const locationPerimeterError = computed(() => {
+  if (!selectedEvent.value?.googleMapsUrl || !selectedEvent.value?.radiusMeters || !formData.googleMapsUrl) {
+    return ''
+  }
+
+  const eventCoordinates = extractGoogleMapsCoordinates(selectedEvent.value.googleMapsUrl)
+  const missionCoordinates = extractGoogleMapsCoordinates(formData.googleMapsUrl)
+  if (!eventCoordinates || !missionCoordinates) return ''
+
+  const distance = distanceInMeters(eventCoordinates, missionCoordinates)
+  if (distance === null || distance <= Number(selectedEvent.value.radiusMeters || 0)) {
+    return ''
+  }
+
+  return `La mission est hors périmètre. Distance estimée: ${Math.round(distance)} m, périmètre autorisé: ${formatRadius(selectedEvent.value.radiusMeters)}.`
+})
+
 const handleEventChange = () => {
   const selected = eventsList.value.find(e => e.id === formData.eventId)
   if (selected) {
     formData.date = selected.startDate || selected.date || ''
     formData.location = selected.location || ''
-    formData.latitude = selected.latitude || ''
-    formData.longitude = selected.longitude || ''
   }
 }
 
@@ -379,8 +396,7 @@ const getCurrentLocation = () => {
   if (!navigator.geolocation) return alert("Géolocalisation non supportée")
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      formData.latitude = pos.coords.latitude.toString()
-      formData.longitude = pos.coords.longitude.toString()
+      formData.googleMapsUrl = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
       alert('Position actuelle détectée !')
     },
     (err) => alert('Impossible de récupérer votre position : ' + err.message)
@@ -458,10 +474,16 @@ const handleSubmit = async () => {
     return
   }
 
+  if (locationPerimeterError.value) {
+    alert(locationPerimeterError.value)
+    return
+  }
+
   isSubmitting.value = true
 
   try {
-    await missionService.create(formData)
+    const createdMissionPayload = await missionService.create(formData)
+    chatService.ensureMissionGroupConversation(createdMissionPayload, user?.id)
     alert('Mission créée avec succès !')
     router.push('/manage-missions')
   } catch (error) {

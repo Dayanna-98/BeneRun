@@ -26,8 +26,8 @@ export const eventService = {
       currentVolunteers: 0,
       missionsCount: Number(apiEvent.missions_count || 0),
       category: 'Non défini',
-      latitude: apiEvent.latitude_evenement == null ? '' : String(apiEvent.latitude_evenement),
-      longitude: apiEvent.longitude_evenement == null ? '' : String(apiEvent.longitude_evenement),
+      googleMapsUrl: apiEvent.google_maps_url_evenement || '',
+      radiusMeters: Number(apiEvent.rayon_localisation_evenement || 0),
       isPublished: !!apiEvent.est_publie_evenement,
       isCancelled: !!apiEvent.est_annule_evenement,
       cancellationDate: apiEvent.date_annulation_evenement || '',
@@ -49,8 +49,8 @@ export const eventService = {
       heure_fin_evenement: formData.endTime || null,
       lieu_evenement: formData.location,
       organisateur_evenement: formData.organizer,
-      latitude_evenement: formData.latitude ? Number(formData.latitude) : null,
-      longitude_evenement: formData.longitude ? Number(formData.longitude) : null,
+      google_maps_url_evenement: formData.googleMapsUrl || null,
+      rayon_localisation_evenement: Number(formData.radiusMeters || 0),
       image_evenement: formData.imageUrl || null,
       nombre_benevoles_requis: Number(formData.totalVolunteersNeeded || 0),
       est_annule_evenement: !!formData.isCancelled,
@@ -64,6 +64,14 @@ export const eventService = {
   validatePayload: (payload) => {
     if (!payload.cree_par_utilisateur_id || Number.isNaN(payload.cree_par_utilisateur_id)) {
       throw { message: 'Utilisateur non identifié. Reconnectez-vous pour créer ou modifier un événement.' }
+    }
+
+    if (!payload.google_maps_url_evenement) {
+      throw { message: 'Veuillez renseigner un lien Google Maps pour l\'événement.' }
+    }
+
+    if (!payload.rayon_localisation_evenement || Number.isNaN(payload.rayon_localisation_evenement)) {
+      throw { message: 'Veuillez renseigner un périmètre valide pour l\'événement.' }
     }
   },
 

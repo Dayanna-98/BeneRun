@@ -293,7 +293,11 @@ const handleSubmit = async () => {
     }, 1500)
   } catch (error) {
     console.error('Erreur création utilisateur:', error)
-    errorMessage.value = error.message || 'Erreur lors de la création de l\'utilisateur. Veuillez réessayer.'
+    const validationMessage = error?.errors
+      ? Object.values(error.errors).flat().find(Boolean)
+      : null
+
+    errorMessage.value = validationMessage || error.message || 'Erreur lors de la création de l\'utilisateur. Veuillez réessayer.'
   } finally {
     isLoading.value = false
   }
