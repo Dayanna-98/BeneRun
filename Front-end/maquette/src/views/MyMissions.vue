@@ -23,8 +23,16 @@
 
     <div class="px-3 pt-3 d-flex flex-column gap-3 mx-auto" style="max-width:576px">
 
+      <div v-if="isLoading" class="text-center py-4 text-muted">
+        Chargement des missions en cours...
+      </div>
+
+      <div v-else-if="loadError" class="alert alert-danger" role="alert">
+        {{ loadError }}
+      </div>
+
       <!-- Empty state -->
-      <div v-if="myActiveMissions.length === 0" class="text-center py-5">
+      <div v-if="!isLoading && !loadError && myActiveMissions.length === 0" class="text-center py-5">
         <Calendar class="text-muted mb-3" style="width:64px;height:64px" />
         <p class="text-muted mb-3">Aucune mission en cours</p>
         <button class="btn btn-primary" @click="router.push('/events')">
@@ -95,15 +103,167 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { MapPin, Calendar, Users, Clock } from 'lucide-vue-next'
-import { myActiveMissions } from '@/data/mockData'
+import api from '@/services/api'
+import { getCurrentUser } from '@/utils/auth'
 
 const router = useRouter()
+const currentUser = getCurrentUser()
+const allMissions = ref([])
+const isLoading = ref(false)
+const loadError = ref('')
 
-const daysUntil = (m) =>
-  Math.ceil((new Date(m.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
 
-const formatDate = (d) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+const normalizeDate = (value) => {
+  if (!value) return ''
+  return String(value).slice(0, 10)
+}
+
+const parseLocalDateTime = (dateValue, timeValue = '00:00') => {
+  const datePart = normalizeDate(dateValue)
+  if (!datePart) return null
+
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hours, minutes] = String(timeValue || '00:00').split(':').map(Number)
+
+  if ([year, month, day, hours, minutes].some(Number.isNaN)) return null
+
+  return new Date(year, month - 1, day, hours, minutes, 0, 0)
+}
+
+const buildEventMap = (rows) => {
+  const map = new Map()
+  for (const event of rows) {
+    map.set(String(event.id_evenement), event.nom_evenement)
+  }
+  return map
+}
+
+const missionStartDateTime = (mission) => {
+  if (!mission.date) return null
+  const startTime = mission.startTime || '00:00'
+  return parseLocalDateTime(mission.date, startTime)
+}
+
+const missionEndDateTime = (mission) => {
+  if (!mission.date) return null
+  const endTime = mission.endTime || '23:59'
+  const end = parseLocalDateTime(mission.date, endTime)
+  const start = missionStartDateTime(mission)
+
+  if (!end) return null
+
+  // Gère les créneaux qui passent minuit (ex: 22:00 -> 02:00)
+  if (start && end < start) {
+    end.setDate(end.getDate() + 1)
+  }
+
+  return end
+}
+
+const isMissionActiveNow = (mission) => {
+  if (!mission.date) return false
+
+  const start = missionStartDateTime(mission)
+  const end = missionEndDateTime(mission)
+  const now = new Date()
+  if (!start || !end) return false
+
+  return now >= start && now <= end
+}
+
+const myActiveMissions = computed(() => allMissions.value.filter(isMissionActiveNow))
+
+const mapMission = (mission, eventMap, currentVolunteersMap) => {
+  const missionId = String(mission.id_mission)
+  return {
+    id: missionId,
+    eventName: eventMap.get(String(mission.id_evenement)) || `Événement #${mission.id_evenement}`,
+    name: mission.titre_mission,
+    date: normalizeDate(mission.date_mission),
+    startTime: toTime(mission.heure_debut_mission),
+    endTime: toTime(mission.heure_fin_mission),
+    location: mission.lieu_mission,
+    imageUrl: mission.image_mission || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop',
+    currentVolunteers: Number(mission.current_volunteers_count ?? currentVolunteersMap.get(missionId) ?? 0),
+    maxVolunteers: Number(mission.nombre_benevoles_max || 0),
+    status: mission.statut_mission || 'À venir',
+    responsible: {
+      name: [mission.responsable?.prenom_utilisateur, mission.responsable?.nom_utilisateur].filter(Boolean).join(' ') || 'Responsable non défini',
+      phone: mission.responsable?.telephone_utilisateur || 'N/A',
+    },
+  }
+}
+
+const loadMyMissions = async () => {
+  if (!currentUser?.id) {
+    allMissions.value = []
+    return
+  }
+
+  isLoading.value = true
+  loadError.value = ''
+
+  try {
+    const [missionsResponse, affectationsResponse, eventsResponse] = await Promise.all([
+      api.get('/missions'),
+      api.get('/affectations'),
+      api.get('/evenements'),
+    ])
+
+    const missions = Array.isArray(missionsResponse.data) ? missionsResponse.data : []
+    const affectations = Array.isArray(affectationsResponse.data) ? affectationsResponse.data : []
+    const events = Array.isArray(eventsResponse.data) ? eventsResponse.data : []
+
+    const myAffectations = affectations.filter((row) =>
+      String(row.id_utilisateur) === String(currentUser.id)
+      && ['assigne', 'confirme', 'present'].includes(row.statut_affectation)
+    )
+
+    const missionIds = new Set(myAffectations.map((row) => String(row.id_mission)))
+
+    const currentVolunteersMap = new Map()
+    for (const affectation of affectations) {
+      if (!['assigne', 'confirme', 'present'].includes(affectation.statut_affectation)) continue
+      const missionId = String(affectation.id_mission)
+      currentVolunteersMap.set(missionId, (currentVolunteersMap.get(missionId) || 0) + 1)
+    }
+
+    const eventMap = buildEventMap(events)
+
+    allMissions.value = missions
+      .filter((mission) => missionIds.has(String(mission.id_mission)))
+      .map((mission) => mapMission(mission, eventMap, currentVolunteersMap))
+      .sort((a, b) => {
+        const aStart = missionStartDateTime(a)?.getTime() || 0
+        const bStart = missionStartDateTime(b)?.getTime() || 0
+        return aStart - bStart
+      })
+  } catch (error) {
+    console.error('Erreur chargement mes missions:', error)
+    loadError.value = 'Impossible de charger vos missions en cours.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const daysUntil = (m) => {
+  const parsed = parseLocalDateTime(m.date)
+  if (!parsed) return 0
+  return Math.ceil((parsed.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+}
+
+const formatDate = (d) => {
+  const parsed = parseLocalDateTime(d)
+  if (!parsed) return 'Date non définie'
+  return parsed.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+onMounted(loadMyMissions)
 </script>

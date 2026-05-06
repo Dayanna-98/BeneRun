@@ -76,6 +76,36 @@
                 <input v-model="formData.totalVolunteersNeeded" type="number" class="form-control" placeholder="Ex: 100" required />
               </div>
 
+              <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
+                <div>
+                  <label class="form-label small fw-medium">Lien Google Maps du centre *</label>
+                  <input
+                    v-model="formData.googleMapsUrl"
+                    class="form-control"
+                    placeholder="Collez le lien Google Maps du point central"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label class="form-label small fw-medium">Périmètre autorisé (mètres) *</label>
+                  <input
+                    v-model="formData.radiusMeters"
+                    type="number"
+                    min="1"
+                    class="form-control"
+                    placeholder="Ex: 1000"
+                    required
+                  />
+                </div>
+
+                <LeafletPreview
+                  :maps-url="formData.googleMapsUrl"
+                  :radius-meters="formData.radiusMeters"
+                  link-label="Ouvrir le centre dans Google Maps"
+                />
+              </div>
+
               <div>
                 <label class="form-label small fw-medium">URL de l'image</label>
                 <input v-model="formData.imageUrl" class="form-control" placeholder="https://..." />
@@ -103,6 +133,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
 import eventService from '@/services/eventService'
+import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -121,6 +152,8 @@ const formData = reactive({
   organizer: '',
   category: '',
   totalVolunteersNeeded: '',
+  googleMapsUrl: '',
+  radiusMeters: '1000',
   imageUrl: '',
 })
 
@@ -138,6 +171,8 @@ const loadEvent = async () => {
     formData.organizer = loadedEvent?.organizer || ''
     formData.category = loadedEvent?.category || ''
     formData.totalVolunteersNeeded = loadedEvent?.totalVolunteersNeeded?.toString() || ''
+    formData.googleMapsUrl = loadedEvent?.googleMapsUrl || ''
+    formData.radiusMeters = loadedEvent?.radiusMeters ? String(loadedEvent.radiusMeters) : '1000'
     formData.imageUrl = loadedEvent?.imageUrl || ''
   } catch {
     event.value = null

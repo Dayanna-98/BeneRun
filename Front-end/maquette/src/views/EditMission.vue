@@ -103,6 +103,42 @@
                 <input v-model="formData.location" class="form-control" placeholder="Ex: Place Neuve, Genève" required />
               </div>
 
+              <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
+                <div class="d-flex align-items-center justify-content-between">
+                  <label class="form-label small fw-medium mb-0 d-flex align-items-center gap-2">
+                    <MapPin style="width:16px;height:16px" /> Point Google Maps de la mission
+                  </label>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" @click="getCurrentLocation">
+                    Utiliser ma position
+                  </button>
+                </div>
+
+                <div>
+                  <input
+                    v-model="formData.googleMapsUrl"
+                    class="form-control"
+                    placeholder="Collez le lien Google Maps du point de mission"
+                    required
+                  />
+                </div>
+
+                <LeafletPreview
+                  :maps-url="formData.googleMapsUrl"
+                  link-label="Ouvrir le point de mission dans Google Maps"
+                />
+
+                <div v-if="selectedEvent?.googleMapsUrl" class="bg-white border rounded p-3 d-flex flex-column gap-2">
+                  <div class="small fw-medium">Périmètre de l'événement sélectionné</div>
+                  <LeafletPreview
+                    :maps-url="selectedEvent.googleMapsUrl"
+                    :radius-meters="selectedEvent.radiusMeters"
+                    link-label="Ouvrir le périmètre de l'événement dans Google Maps"
+                  />
+                </div>
+
+                <div v-if="locationPerimeterError" class="text-danger small">{{ locationPerimeterError }}</div>
+              </div>
+
               <div>
                 <label class="form-label small fw-medium">Description *</label>
                 <textarea v-model="formData.description" class="form-control" rows="4" placeholder="Décrivez la mission en détail..." required style="resize:none" />
@@ -198,12 +234,14 @@
 <script setup>
 import { reactive, ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Save } from 'lucide-vue-next'
+import { ArrowLeft, MapPin, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
+import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 import eventService from '@/services/eventService'
 import missionService from '@/services/missionService'
 import competenceService from '@/services/competenceService'
 import userService from '@/services/userService'
+import { distanceInMeters, extractGoogleMapsCoordinates, formatRadius } from '@/utils/googleMaps'
 
 const router = useRouter()
 const route = useRoute()
@@ -241,8 +279,7 @@ const formData = reactive({
   postable: true,
   inscription: true,
   public: true,
-  latitude: '',
-  longitude: '',
+  googleMapsUrl: '',
   status: 'À venir',
   imageUrl: '',
   safetyInstructions: '',
@@ -312,14 +349,41 @@ const quotaError = computed(() => {
   return ''
 })
 
+const locationPerimeterError = computed(() => {
+  if (!selectedEvent.value?.googleMapsUrl || !selectedEvent.value?.radiusMeters || !formData.googleMapsUrl) {
+    return ''
+  }
+
+  const eventCoordinates = extractGoogleMapsCoordinates(selectedEvent.value.googleMapsUrl)
+  const missionCoordinates = extractGoogleMapsCoordinates(formData.googleMapsUrl)
+  if (!eventCoordinates || !missionCoordinates) return ''
+
+  const distance = distanceInMeters(eventCoordinates, missionCoordinates)
+  if (distance === null || distance <= Number(selectedEvent.value.radiusMeters || 0)) {
+    return ''
+  }
+
+  return `La mission est hors périmètre. Distance estimée: ${Math.round(distance)} m, périmètre autorisé: ${formatRadius(selectedEvent.value.radiusMeters)}.`
+})
+
 const handleEventChange = () => {
   const selected = eventsList.value.find(e => e.id === formData.eventId)
   if (selected) {
     formData.date = formData.date || selected.startDate || selected.date || ''
     formData.location = selected.location || formData.location
-    formData.latitude = selected.latitude || formData.latitude
-    formData.longitude = selected.longitude || formData.longitude
   }
+}
+
+const getCurrentLocation = () => {
+  if (!navigator.geolocation) return alert('Géolocalisation non supportée')
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      formData.googleMapsUrl = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
+      alert('Position actuelle détectée !')
+    },
+    (err) => alert('Impossible de récupérer votre position : ' + err.message)
+  )
 }
 
 const toggleSkill = (competenceId) => {
@@ -412,8 +476,7 @@ const loadMission = async () => {
     formData.responsibleUserId = loadedMission.responsibleUserId || ''
     formData.responsiblePhone = loadedMission.responsiblePhone || ''
     formData.responsibleEmail = loadedMission.responsibleEmail || ''
-    formData.latitude = loadedMission.latitude || ''
-    formData.longitude = loadedMission.longitude || ''
+    formData.googleMapsUrl = loadedMission.googleMapsUrl || ''
     formData.inscription = loadedMission.inscription
     formData.public = loadedMission.public
     formData.status = loadedMission.status || 'À venir'
@@ -439,6 +502,11 @@ const handleSubmit = async () => {
 
   if (quotaError.value) {
     alert(quotaError.value)
+    return
+  }
+
+  if (locationPerimeterError.value) {
+    alert(locationPerimeterError.value)
     return
   }
 

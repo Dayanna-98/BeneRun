@@ -90,6 +90,10 @@ export const userService = {
       anonymous: !!apiUser.est_anonyme_utilisateur,
       suspended: !!apiUser.est_suspendu_utilisateur,
       suspensionReason: apiUser.raison_suspension_utilisateur || '',
+      liveLocationSharingEnabled: !!apiUser.partage_localisation_directe_utilisateur,
+      liveLocationLatitude: apiUser.latitude_localisation_directe_utilisateur == null ? null : Number(apiUser.latitude_localisation_directe_utilisateur),
+      liveLocationLongitude: apiUser.longitude_localisation_directe_utilisateur == null ? null : Number(apiUser.longitude_localisation_directe_utilisateur),
+      liveLocationUpdatedAt: apiUser.date_localisation_directe_utilisateur || null,
       missionCount: Number(apiUser.nombre_missions_utilisateur || 0),
       permissions: userService.permissionsToObject(
         apiUser.permissions_utilisateur ?? apiUser.permissions
@@ -131,6 +135,13 @@ export const userService = {
       est_suspendu_utilisateur: !!userData.isSuspended,
       raison_suspension_utilisateur: userData.suspensionReason || null,
       nombre_missions_utilisateur: Number(userData.missionCount || 0),
+    }
+
+    if (Object.prototype.hasOwnProperty.call(userData, 'liveLocationSharingEnabled')) {
+      payload.partage_localisation_directe_utilisateur = !!userData.liveLocationSharingEnabled
+      payload.latitude_localisation_directe_utilisateur = userData.liveLocationLatitude ?? null
+      payload.longitude_localisation_directe_utilisateur = userData.liveLocationLongitude ?? null
+      payload.date_localisation_directe_utilisateur = userData.liveLocationUpdatedAt || null
     }
 
     if (Object.prototype.hasOwnProperty.call(userData, 'permissions')) {

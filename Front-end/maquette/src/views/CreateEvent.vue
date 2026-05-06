@@ -80,15 +80,35 @@
               <input v-model="formData.totalVolunteersNeeded" type="number" class="form-control" placeholder="Ex: 100" required />
             </div>
 
-            <div class="row g-3">
-              <div class="col-6">
-                <label class="form-label small fw-medium">Latitude</label>
-                <input v-model="formData.latitude" type="number" step="0.0000001" class="form-control" placeholder="46.2044" />
+            <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
+              <div>
+                <label class="form-label small fw-medium">Lien Google Maps du centre *</label>
+                <input
+                  v-model="formData.googleMapsUrl"
+                  class="form-control"
+                  placeholder="Collez le lien Google Maps du point central"
+                  required
+                />
+                <div class="form-text">Le lien doit contenir le point central du périmètre de l'événement.</div>
               </div>
-              <div class="col-6">
-                <label class="form-label small fw-medium">Longitude</label>
-                <input v-model="formData.longitude" type="number" step="0.0000001" class="form-control" placeholder="6.1432" />
+
+              <div>
+                <label class="form-label small fw-medium">Périmètre autorisé (mètres) *</label>
+                <input
+                  v-model="formData.radiusMeters"
+                  type="number"
+                  min="1"
+                  class="form-control"
+                  placeholder="Ex: 1000"
+                  required
+                />
               </div>
+
+              <LeafletPreview
+                :maps-url="formData.googleMapsUrl"
+                :radius-meters="formData.radiusMeters"
+                link-label="Ouvrir le centre dans Google Maps"
+              />
             </div>
 
             <div>
@@ -143,6 +163,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
 import eventService from '@/services/eventService'
+import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -153,7 +174,7 @@ const formData = reactive({
   name: '', startDate: '', endDate: '', startTime: '', endTime: '',
   location: '', description: '',
   organizer: '', category: '', totalVolunteersNeeded: '', imageUrl: '',
-  latitude: '', longitude: '',
+  googleMapsUrl: '', radiusMeters: '1000',
   isPublished: true, isCancelled: false,
   cancellationDate: '', cancellationReason: '',
 })

@@ -137,13 +137,16 @@
               <div class="d-flex align-items-center gap-2">
                 <MapPin style="width:20px;height:20px;color:#6b7280" />
                 <div>
-                  <div class="small fw-medium">Localisation</div>
-                  <div class="x-small text-muted">Pour la carte en temps réel</div>
+                  <div class="small fw-medium">Partage de localisation en direct</div>
+                  <div class="x-small text-muted">Visible pendant une mission en cours si vous êtes inscrit</div>
                 </div>
               </div>
               <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" v-model="permissions.location" />
+                <input class="form-check-input" type="checkbox" :checked="!!user.liveLocationSharingEnabled" @change="handleToggleLiveLocationSharing" />
               </div>
+            </div>
+            <div class="x-small text-muted">
+              {{ user.liveLocationSharingEnabled ? 'Partage activé. Votre position pourra être envoyée pendant vos missions en cours.' : 'Partage désactivé. Votre position ne sera pas visible des autres participants.' }}
             </div>
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center gap-2">
@@ -354,6 +357,9 @@
       <div v-if="activeTab === 'history'" class="card">
         <div class="card-header"><h5 class="mb-0">Historique des Missions ({{ missionHistory.length }})</h5></div>
         <div class="card-body d-flex flex-column gap-3">
+          <div v-if="missionHistoryLoading" class="small text-muted">Chargement de l'historique...</div>
+          <div v-else-if="missionHistoryError" class="alert alert-danger py-2 mb-0 small">{{ missionHistoryError }}</div>
+          <div v-else-if="missionHistory.length === 0" class="small text-muted">Aucune mission passée pour le moment.</div>
           <div v-for="m in missionHistory" :key="m.id" class="border rounded p-3">
             <div class="fw-semibold mb-1">{{ m.missionName }}</div>
             <div class="small text-muted mb-2">{{ m.eventName }}</div>
@@ -391,6 +397,7 @@ import { getCurrentUser, logout as authLogout, setCurrentUser } from '@/utils/au
 import competenceService from '@/services/competenceService'
 import certificatService from '@/services/certificatService'
 import userService from '@/services/userService'
+import api from '@/services/api'
 
 const router = useRouter()
 const user = ref(getCurrentUser())
@@ -414,7 +421,9 @@ const certForm      = ref({
   expiryDate: '',
   file: null,
 })
-const missionHistory = computed(() => user.value?.missionHistory || [])
+const missionHistory = ref([])
+const missionHistoryLoading = ref(false)
+const missionHistoryError = ref('')
 
 const refreshCurrentUser = async () => {
   const freshUser = await userService.getMe()
@@ -422,6 +431,111 @@ const refreshCurrentUser = async () => {
   permissions.value = { ...(freshUser?.permissions || {}) }
   setCurrentUser(freshUser)
 }
+
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const formatDuration = (startTime, endTime) => {
+  if (!startTime || !endTime) return 'Durée non définie'
+  const [sh, sm] = startTime.split(':').map(Number)
+  const [eh, em] = endTime.split(':').map(Number)
+  if ([sh, sm, eh, em].some(Number.isNaN)) return `${startTime} - ${endTime}`
+
+  const start = sh * 60 + sm
+  const end = eh * 60 + em
+  const total = Math.max(end - start, 0)
+  const h = Math.floor(total / 60)
+  const m = total % 60
+
+  if (h === 0) return `${m} min`
+  if (m === 0) return `${h} h`
+  return `${h} h ${m} min`
+}
+
+const loadMissionHistory = async () => {
+  if (!user.value?.id) {
+    missionHistory.value = []
+    return
+  }
+
+  missionHistoryLoading.value = true
+  missionHistoryError.value = ''
+
+  try {
+    const [missionsResponse, affectationsResponse, eventsResponse] = await Promise.all([
+      api.get('/missions'),
+      api.get('/affectations'),
+      api.get('/evenements'),
+    ])
+
+    const missions = Array.isArray(missionsResponse.data) ? missionsResponse.data : []
+    const affectations = Array.isArray(affectationsResponse.data) ? affectationsResponse.data : []
+    const events = Array.isArray(eventsResponse.data) ? eventsResponse.data : []
+
+    const eventMap = new Map(events.map((event) => [String(event.id_evenement), event.nom_evenement]))
+    const missionMap = new Map(missions.map((mission) => [String(mission.id_mission), mission]))
+
+    missionHistory.value = affectations
+      .filter((row) => String(row.id_utilisateur) === String(user.value.id))
+      .map((row) => {
+        const mission = missionMap.get(String(row.id_mission))
+        if (!mission) return null
+
+        const date = mission.date_mission
+        const startTime = toTime(mission.heure_debut_mission)
+        const endTime = toTime(mission.heure_fin_mission)
+        const endDate = new Date(`${date}T${endTime || '23:59'}:00`)
+        const isPast = mission.statut_mission === 'Terminée' || endDate.getTime() < Date.now()
+        if (!isPast) return null
+
+        const rating = row.statut_affectation === 'present' ? 5 : row.statut_affectation === 'confirme' ? 4 : 3
+
+        return {
+          id: String(row.id_affectation || `${row.id_mission}-${row.id_utilisateur}`),
+          missionName: mission.titre_mission,
+          eventName: eventMap.get(String(mission.id_evenement)) || `Événement #${mission.id_evenement}`,
+          date,
+          duration: formatDuration(startTime, endTime),
+          role: row.est_responsable ? 'Responsable' : 'Bénévole',
+          rating,
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  } catch (error) {
+    console.error('Erreur chargement historique missions:', error)
+    missionHistoryError.value = 'Impossible de charger l\'historique des missions.'
+    missionHistory.value = []
+  } finally {
+    missionHistoryLoading.value = false
+  }
+}
+
+const buildUserUpdatePayload = (extra = {}) => ({
+  firstName: extra.firstName ?? user.value.firstName,
+  lastName: extra.lastName ?? user.value.lastName,
+  email: extra.email ?? user.value.email,
+  phone: extra.phone ?? (user.value.phone || ''),
+  address: extra.address ?? (user.value.address || ''),
+  dateOfBirth: extra.dateOfBirth ?? (user.value.dateOfBirth || ''),
+  role: extra.role ?? user.value.role,
+  allergies: extra.allergies ?? (user.value.allergies || []),
+  healthIssues: extra.healthIssues ?? (user.value.healthIssues || []),
+  hasLicense: extra.hasLicense ?? !!user.value.hasLicense,
+  isMotorized: extra.isMotorized ?? !!user.value.isMotorized,
+  hasVehicle: extra.hasVehicle ?? !!user.value.hasVehicle,
+  bibSize: extra.bibSize ?? (user.value.bibSize || ''),
+  isAnonymous: extra.isAnonymous ?? !!user.value.anonymous,
+  isSuspended: extra.isSuspended ?? !!user.value.suspended,
+  suspensionReason: extra.suspensionReason ?? (user.value.suspensionReason || null),
+  missionCount: extra.missionCount ?? (user.value.missionCount || 0),
+  liveLocationSharingEnabled: extra.liveLocationSharingEnabled ?? !!user.value.liveLocationSharingEnabled,
+  liveLocationLatitude: Object.prototype.hasOwnProperty.call(extra, 'liveLocationLatitude') ? extra.liveLocationLatitude : user.value.liveLocationLatitude ?? null,
+  liveLocationLongitude: Object.prototype.hasOwnProperty.call(extra, 'liveLocationLongitude') ? extra.liveLocationLongitude : user.value.liveLocationLongitude ?? null,
+  liveLocationUpdatedAt: Object.prototype.hasOwnProperty.call(extra, 'liveLocationUpdatedAt') ? extra.liveLocationUpdatedAt : user.value.liveLocationUpdatedAt || null,
+})
 
 // --- Compétences ---
 const allCompetences    = ref([])   // toutes les compétences dispo en bdd
@@ -626,6 +740,32 @@ const handleEditProfile = () => {
   router.push('/profile/edit')
 }
 
+const handleToggleLiveLocationSharing = async (event) => {
+  const nextValue = event.target.checked
+  const previousValue = !!user.value.liveLocationSharingEnabled
+
+  user.value = {
+    ...user.value,
+    liveLocationSharingEnabled: nextValue,
+  }
+
+  try {
+    await userService.update(user.value.id, buildUserUpdatePayload({
+      liveLocationSharingEnabled: nextValue,
+      liveLocationLatitude: nextValue ? user.value.liveLocationLatitude ?? null : null,
+      liveLocationLongitude: nextValue ? user.value.liveLocationLongitude ?? null : null,
+      liveLocationUpdatedAt: nextValue ? user.value.liveLocationUpdatedAt || null : null,
+    }))
+    await refreshCurrentUser()
+  } catch (error) {
+    user.value = {
+      ...user.value,
+      liveLocationSharingEnabled: previousValue,
+    }
+    alert(error.message || 'Impossible de modifier le partage de localisation.')
+  }
+}
+
 const handleSuspendOwnAccount = async () => {
   if (!confirm('Voulez-vous vraiment suspendre votre compte ?')) return
 
@@ -638,23 +778,10 @@ const handleSuspendOwnAccount = async () => {
 
   try {
     await userService.update(userId, {
-      firstName: user.value.firstName,
-      lastName: user.value.lastName,
-      email: user.value.email,
-      phone: user.value.phone || '',
-      address: user.value.address || '',
-      dateOfBirth: user.value.dateOfBirth || '',
-      role: user.value.role,
-      allergies: user.value.allergies || [],
-      healthIssues: user.value.healthIssues || [],
-      hasLicense: !!user.value.hasLicense,
-      isMotorized: !!user.value.isMotorized,
-      hasVehicle: !!user.value.hasVehicle,
-      bibSize: user.value.bibSize || '',
-      isAnonymous: !!user.value.anonymous,
+      ...buildUserUpdatePayload({
       isSuspended: true,
       suspensionReason: reason,
-      missionCount: user.value.missionCount || 0,
+      }),
     })
 
     try {
@@ -678,6 +805,7 @@ onMounted(async () => {
   }
 
   await loadBadges()
+  await loadMissionHistory()
   await loadSkills()
   await loadCertificates()
 })

@@ -28,6 +28,39 @@
           placeholder="Rechercher une mission..." />
       </div>
 
+      <div class="d-flex gap-2 mb-3">
+        <button
+          class="btn btn-sm"
+          :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="timelineFilter = 'upcoming'"
+        >
+          À venir
+        </button>
+        <button
+          class="btn btn-sm"
+          :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="timelineFilter = 'past'"
+        >
+          Passées
+        </button>
+        <button
+          class="btn btn-sm"
+          :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="timelineFilter = 'all'"
+        >
+          Toutes
+        </button>
+      </div>
+
+      <div v-if="eventFilterId" class="alert alert-info d-flex align-items-center justify-content-between py-2">
+        <div class="small">
+          Filtre actif: missions liées à <strong>{{ eventFilterName }}</strong>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" @click="clearFilters">
+          Retirer
+        </button>
+      </div>
+
       <!-- Filtres -->
       <div class="mb-3">
         <button class="btn btn-light w-100 d-flex align-items-center justify-content-between shadow-sm"
@@ -122,9 +155,9 @@
               </div>
             </div>
 
-            <button class="btn btn-primary w-100" :disabled="!canApply(mission)"
+            <button class="btn btn-primary w-100"
               @click.stop="router.push(`/mission/${mission.id}`)">
-              {{ canApply(mission) ? "S'inscrire" : 'Voir les détails' }}
+              Détails
             </button>
           </div>
         </div>
@@ -199,14 +232,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Search, MapPin, Users, Star, Share2, Clock, Calendar, Filter, X } from 'lucide-vue-next'
 import { skills } from '@/data/mockData'
 import api from '@/services/api'
 
 const router = useRouter()
+const route = useRoute()
 const searchQuery      = ref('')
+const timelineFilter   = ref('upcoming')
 const filterType       = ref('all')
 const filterCategory   = ref('all')
 const filterDate       = ref('all')
@@ -217,6 +252,7 @@ const missions         = ref([])
 const events           = ref([])
 const isLoading        = ref(false)
 const loadError        = ref('')
+const eventFilterId    = ref('')
 
 const userSkillNames   = skills.map(s => s.name)
 const missionTypes     = computed(() => ['all', ...new Set(missions.value.map(m => m.type))])
@@ -315,14 +351,19 @@ const loadMissions = async () => {
 }
 
 const activeFiltersCount = computed(() =>
-  [filterType.value, filterCategory.value, filterDate.value, filterVisibility.value]
+  [filterType.value, filterCategory.value, filterDate.value, filterVisibility.value, eventFilterId.value ? 'event' : 'all']
     .filter(f => f !== 'all').length
+)
+
+const eventFilterName = computed(() =>
+  events.value.find((event) => event.id === eventFilterId.value)?.name || `Événement #${eventFilterId.value}`
 )
 
 const filteredMissions = computed(() => {
   const today     = new Date()
   const nextWeek  = new Date(today); nextWeek.setDate(today.getDate() + 7)
   const nextMonth = new Date(today); nextMonth.setMonth(today.getMonth() + 1)
+  const nowTs = Date.now()
 
   return missions.value.filter(m => {
     const q = searchQuery.value.toLowerCase()
@@ -335,8 +376,18 @@ const filteredMissions = computed(() => {
     if (filterDate.value === 'today')  matchDate = d.toDateString() === today.toDateString()
     if (filterDate.value === 'week')   matchDate = d >= today && d <= nextWeek
     if (filterDate.value === 'month')  matchDate = d >= today && d <= nextMonth
+
+    const missionEndDate = new Date(`${m.date}T${m.endTime || '23:59'}:00`)
+    const isPast = missionEndDate.getTime() < nowTs
+    const matchTimeline = timelineFilter.value === 'all'
+      ? true
+      : timelineFilter.value === 'past'
+        ? isPast
+        : !isPast
+
     const matchVis    = filterVisibility.value === 'all' || m.visibility === filterVisibility.value
-    return matchSearch && matchType && matchCat && matchDate && matchVis
+    const matchEvent  = !eventFilterId.value || m.eventId === eventFilterId.value
+    return matchSearch && matchType && matchCat && matchDate && matchTimeline && matchVis && matchEvent
   })
 })
 
@@ -348,7 +399,20 @@ const toggleFavorite = (id) => {
 }
 const clearFilters = () => {
   filterType.value = filterCategory.value = filterDate.value = filterVisibility.value = 'all'
+  eventFilterId.value = ''
+  if (route.query.eventId) {
+    router.replace({ path: '/missions', query: {} })
+  }
 }
 
+const applyEventFilterFromRoute = () => {
+  const rawEventId = route.query.eventId
+  const nextEventId = Array.isArray(rawEventId) ? String(rawEventId[0] || '') : String(rawEventId || '')
+  eventFilterId.value = nextEventId
+}
+
+watch(() => route.query.eventId, applyEventFilterFromRoute)
+
+onMounted(applyEventFilterFromRoute)
 onMounted(loadMissions)
 </script>

@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
+use App\Support\GoogleMapsUrl;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
 class MissionController extends Controller
@@ -65,8 +68,7 @@ class MissionController extends Controller
             'heure_debut_mission' => 'required|date_format:H:i',
             'heure_fin_mission' => 'required|date_format:H:i|after:heure_debut_mission',
             'lieu_mission' => 'required|string|max:255',
-            'latitude_mission' => 'nullable|numeric|between:-90,90',
-            'longitude_mission' => 'nullable|numeric|between:-180,180',
+            'google_maps_url_mission' => 'required|string|max:1000',
             'nombre_benevoles_max' => 'required|integer|min:1',
             'nombre_benevoles_backup' => 'nullable|integer|min:0',
             'statut_mission' => 'nullable|in:À venir,En cours,Terminée,Annulée',
@@ -81,9 +83,15 @@ class MissionController extends Controller
         $validator->after(function ($validator) use ($request) {
             $this->validateMissionDateInsideEvent($validator, (int) $request->id_evenement, $request->date_mission);
             $this->validateMissionCapacityAgainstEvent($validator, (int) $request->id_evenement, (int) $request->nombre_benevoles_max);
+            $this->validateMissionInsideEventPerimeter(
+                $validator,
+                (int) $request->id_evenement,
+                $request->google_maps_url_mission
+            );
         });
 
         $validated = $validator->validate();
+        $validated = $this->hydrateMissionLocation($validated);
 
         $mission = Mission::create($validated);
         $mission->competences()->sync($request->input('competence_ids', []));
@@ -113,8 +121,7 @@ class MissionController extends Controller
             'heure_debut_mission' => 'sometimes|date_format:H:i',
             'heure_fin_mission' => 'sometimes|date_format:H:i',
             'lieu_mission' => 'sometimes|string|max:255',
-            'latitude_mission' => 'nullable|numeric|between:-90,90',
-            'longitude_mission' => 'nullable|numeric|between:-180,180',
+            'google_maps_url_mission' => 'sometimes|string|max:1000',
             'nombre_benevoles_max' => 'sometimes|integer|min:1',
             'nombre_benevoles_backup' => 'nullable|integer|min:0',
             'statut_mission' => 'nullable|in:À venir,En cours,Terminée,Annulée',
@@ -133,9 +140,15 @@ class MissionController extends Controller
 
             $this->validateMissionDateInsideEvent($validator, $eventId, $dateMission);
             $this->validateMissionCapacityAgainstEvent($validator, $eventId, $newCapacity, (int) $mission->id_mission);
+            $this->validateMissionInsideEventPerimeter(
+                $validator,
+                $eventId,
+                $request->google_maps_url_mission ?? $mission->google_maps_url_mission
+            );
         });
 
         $validated = $validator->validate();
+        $validated = $this->hydrateMissionLocation($validated, $mission);
 
         $mission->update($validated);
         $this->syncResponsibleAffectation($mission, (int) $mission->responsable_utilisateur_id);
@@ -158,9 +171,43 @@ class MissionController extends Controller
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
 
+        if ($this->hasMissionStarted($mission) || in_array($mission->statut_mission, ['En cours', 'Terminée'], true)) {
+            return response()->json([
+                'message' => 'Suppression interdite pour la traçabilité: cette mission est en cours ou passée. Utilisez l\'annulation à la place.',
+            ], 409);
+        }
+
         $mission->delete();
 
         return response()->json(['message' => 'Mission supprimée'], 200);
+    }
+
+    public function assignResponsable(Request $request, $id)
+    {
+        $mission = Mission::find($id);
+
+        if (!$mission) {
+            return response()->json(['message' => 'Mission inexistante'], 404);
+        }
+
+        $validated = $request->validate([
+            'responsable_utilisateur_id' => 'required|integer|exists:users,id_utilisateur',
+        ]);
+
+        DB::transaction(function () use ($mission, $validated): void {
+            $mission->update([
+                'responsable_utilisateur_id' => (int) $validated['responsable_utilisateur_id'],
+            ]);
+
+            $this->syncResponsibleAffectation($mission, (int) $validated['responsable_utilisateur_id']);
+        });
+
+        return response()->json([
+            'message' => 'Responsable de mission mis à jour',
+            'mission' => $mission->load([
+                'responsable:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,telephone_utilisateur',
+            ]),
+        ]);
     }
 
     private function validateMissionDateInsideEvent($validator, int $eventId, $dateMission): void
@@ -211,6 +258,91 @@ class MissionController extends Controller
                 "Le quota de l'événement est dépassé. Places restantes: {$remaining}."
             );
         }
+    }
+
+    private function validateMissionInsideEventPerimeter($validator, int $eventId, ?string $missionMapsUrl): void
+    {
+        if (empty($eventId) || empty($missionMapsUrl)) {
+            return;
+        }
+
+        $event = Evenement::find($eventId);
+        if (!$event) {
+            return;
+        }
+
+        $missionCoordinates = GoogleMapsUrl::extractCoordinates($missionMapsUrl);
+        if ($missionCoordinates === null) {
+            $validator->errors()->add(
+                'google_maps_url_mission',
+                'Le lien Google Maps de la mission doit contenir une position exploitable.'
+            );
+
+            return;
+        }
+
+        if (
+            $event->latitude_evenement === null
+            || $event->longitude_evenement === null
+            || empty($event->rayon_localisation_evenement)
+        ) {
+            $validator->errors()->add(
+                'id_evenement',
+                'L\'événement sélectionné ne possède pas de périmètre Google Maps valide.'
+            );
+
+            return;
+        }
+
+        $distance = GoogleMapsUrl::distanceInMeters(
+            (float) $event->latitude_evenement,
+            (float) $event->longitude_evenement,
+            $missionCoordinates['latitude'],
+            $missionCoordinates['longitude']
+        );
+
+        if ($distance > (int) $event->rayon_localisation_evenement) {
+            $validator->errors()->add(
+                'google_maps_url_mission',
+                'La mission doit se trouver à l\'intérieur du périmètre défini pour l\'événement.'
+            );
+        }
+    }
+
+    private function hasMissionStarted(Mission $mission): bool
+    {
+        if (empty($mission->date_mission)) {
+            return false;
+        }
+
+        $missionDate = Carbon::parse($mission->date_mission)->format('Y-m-d');
+        $startTime = $mission->heure_debut_mission ?: '00:00:00';
+        $missionStart = Carbon::parse("{$missionDate} {$startTime}");
+
+        return now()->greaterThanOrEqualTo($missionStart);
+    }
+
+    private function hydrateMissionLocation(array $validated, ?Mission $mission = null): array
+    {
+        $mapsUrl = $validated['google_maps_url_mission'] ?? $mission?->google_maps_url_mission;
+        $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
+
+        if ($coordinates === null) {
+            abort(response()->json([
+                'message' => 'Le lien Google Maps de la mission doit contenir une position exploitable.',
+                'errors' => [
+                    'google_maps_url_mission' => [
+                        'Le lien Google Maps de la mission doit contenir une position exploitable.',
+                    ],
+                ],
+            ], 422));
+        }
+
+        $validated['google_maps_url_mission'] = $mapsUrl;
+        $validated['latitude_mission'] = $coordinates['latitude'];
+        $validated['longitude_mission'] = $coordinates['longitude'];
+
+        return $validated;
     }
 
     private function syncResponsibleAffectation(Mission $mission, int $responsableUserId): void
