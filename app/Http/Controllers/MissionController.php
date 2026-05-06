@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
+use App\Models\MissionMedia;
 use App\Support\GoogleMapsUrl;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
 
 class MissionController extends Controller
@@ -36,7 +38,40 @@ class MissionController extends Controller
             $query->where('visibilite_mission', $request->visibilite_mission);
         }
 
-        return response()->json($query->orderBy('date_mission')->get());
+        if ($request->filled('search')) {
+            $search = trim((string) $request->query('search'));
+
+            $query->where(function ($builder) use ($search) {
+                $builder->where('titre_mission', 'like', "%{$search}%")
+                    ->orWhere('description_mission', 'like', "%{$search}%")
+                    ->orWhere('lieu_mission', 'like', "%{$search}%")
+                    ->orWhereHas('evenement', function ($eventQuery) use ($search) {
+                        $eventQuery->where('nom_evenement', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('timeline')) {
+            $today = now()->startOfDay()->toDateString();
+
+            if ($request->query('timeline') === 'upcoming') {
+                $query->whereDate('date_mission', '>=', $today);
+            }
+
+            if ($request->query('timeline') === 'past') {
+                $query->whereDate('date_mission', '<', $today);
+            }
+        }
+
+        $query->orderBy('date_mission')->orderBy('heure_debut_mission');
+
+        $perPage = min(max((int) $request->integer('per_page', 0), 0), 50);
+
+        if ($perPage > 0) {
+            return response()->json($query->paginate($perPage));
+        }
+
+        return response()->json($query->get());
     }
 
     public function show($id)
@@ -76,6 +111,9 @@ class MissionController extends Controller
             'visibilite_mission' => 'nullable|in:publique,privée,limitée',
             'consignes_securite' => 'nullable|string',
             'image_mission' => 'nullable|string|max:500',
+            'image_file' => 'nullable|image|max:5120',
+            'media_files' => 'nullable|array|max:6',
+            'media_files.*' => 'image|max:5120',
             'competence_ids' => 'nullable|array',
             'competence_ids.*' => 'integer|exists:competences,id_competence',
         ]);
@@ -92,10 +130,12 @@ class MissionController extends Controller
 
         $validated = $validator->validate();
         $validated = $this->hydrateMissionLocation($validated);
+        $validated = $this->hydrateMissionImage($request, $validated);
 
         $mission = Mission::create($validated);
         $mission->competences()->sync($request->input('competence_ids', []));
         $this->syncResponsibleAffectation($mission, (int) $validated['responsable_utilisateur_id']);
+        $this->storeMissionMedias($request, $mission, (int) $validated['responsable_utilisateur_id']);
 
         return response()->json([
             'message' => 'Mission ajoutée',
@@ -129,6 +169,9 @@ class MissionController extends Controller
             'visibilite_mission' => 'nullable|in:publique,privée,limitée',
             'consignes_securite' => 'nullable|string',
             'image_mission' => 'nullable|string|max:500',
+            'image_file' => 'nullable|image|max:5120',
+            'media_files' => 'nullable|array|max:6',
+            'media_files.*' => 'image|max:5120',
             'competence_ids' => 'nullable|array',
             'competence_ids.*' => 'integer|exists:competences,id_competence',
         ]);
@@ -149,9 +192,15 @@ class MissionController extends Controller
 
         $validated = $validator->validate();
         $validated = $this->hydrateMissionLocation($validated, $mission);
+        $validated = $this->hydrateMissionImage($request, $validated, $mission);
 
         $mission->update($validated);
         $this->syncResponsibleAffectation($mission, (int) $mission->responsable_utilisateur_id);
+        $this->storeMissionMedias(
+            $request,
+            $mission,
+            (int) ($validated['responsable_utilisateur_id'] ?? $mission->responsable_utilisateur_id)
+        );
 
         if ($request->has('competence_ids')) {
             $mission->competences()->sync($request->input('competence_ids', []));
@@ -343,6 +392,52 @@ class MissionController extends Controller
         $validated['longitude_mission'] = $coordinates['longitude'];
 
         return $validated;
+    }
+
+    private function hydrateMissionImage(Request $request, array $validated, ?Mission $mission = null): array
+    {
+        if ($request->hasFile('image_file')) {
+            $validated['image_mission'] = $this->storeUploadedImage($request->file('image_file'), 'missions');
+        } elseif (!array_key_exists('image_mission', $validated) && $mission?->image_mission) {
+            $validated['image_mission'] = $mission->image_mission;
+        }
+
+        return $validated;
+    }
+
+    private function storeMissionMedias(Request $request, Mission $mission, int $uploadedByUserId): void
+    {
+        if (!$request->hasFile('media_files')) {
+            return;
+        }
+
+        foreach ((array) $request->file('media_files') as $file) {
+            if (!$file) {
+                continue;
+            }
+
+            MissionMedia::create([
+                'id_mission' => $mission->id_mission,
+                'chemin_fichier' => $this->storeUploadedImage($file, 'mission-media'),
+                'type_mime' => $file->getClientMimeType() ?: 'image/jpeg',
+                'taille_fichier' => $file->getSize(),
+                'telecharge_par_utilisateur_id' => $uploadedByUserId > 0 ? $uploadedByUserId : null,
+            ]);
+        }
+    }
+
+    private function storeUploadedImage($file, string $directory): string
+    {
+        $targetDirectory = public_path("uploads/{$directory}");
+
+        if (!File::exists($targetDirectory)) {
+            File::makeDirectory($targetDirectory, 0755, true);
+        }
+
+        $filename = uniqid("{$directory}_", true) . '.' . $file->getClientOriginalExtension();
+        $file->move($targetDirectory, $filename);
+
+        return url("uploads/{$directory}/{$filename}");
     }
 
     private function syncResponsibleAffectation(Mission $mission, int $responsableUserId): void

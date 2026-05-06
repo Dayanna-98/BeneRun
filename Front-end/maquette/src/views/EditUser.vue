@@ -429,13 +429,10 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Save, UserX, Eye, EyeOff, Plus, Trash2, Award, Edit } from 'lucide-vue-next'
 import { getCurrentUser, isRole, setCurrentUser } from '@/utils/auth'
-import { users } from '@/data/mockData'
 import userService from '@/services/userService'
 import competenceService from '@/services/competenceService'
 import badgeService from '@/services/badgeService'
 import certificatService from '@/services/certificatService'
-
-const demoUsers = users.filter(user => user.email === 'admin@benerun.ch')
 
 const router = useRouter()
 const route = useRoute()
@@ -474,7 +471,7 @@ onMounted(async () => {
   try {
     targetUser.value = await userService.getById(route.params.id)
   } catch {
-    targetUser.value = demoUsers.find(u => String(u.id) === String(route.params.id)) || null
+    targetUser.value = null
   }
 
   if (targetUser.value?.id) {

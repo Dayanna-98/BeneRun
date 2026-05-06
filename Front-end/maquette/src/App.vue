@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UserRound } from 'lucide-vue-next'
 import BottomNav from '@/components/ui/BottomNav.vue'
+import NotificationBell from '@/components/notifications/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,25 +45,33 @@ const showProfileQuickAccess = computed(() => showLayout.value && route.path !==
 
 <template>
   <div>
-    <button
-      v-if="showProfileQuickAccess"
-      type="button"
-      class="profile-quick-access"
-      @click="router.push('/profile')">
-      <UserRound style="width:15px;height:15px" />
-      <span>Profil</span>
-    </button>
+    <div v-if="showProfileQuickAccess" class="quick-actions">
+      <NotificationBell />
+      <button
+        type="button"
+        class="profile-quick-access"
+        @click="router.push('/profile')">
+        <UserRound style="width:15px;height:15px" />
+        <span>Profil</span>
+      </button>
+    </div>
     <RouterView />
     <BottomNav v-if="showLayout" />
   </div>
 </template>
 
 <style scoped>
-.profile-quick-access {
+.quick-actions {
   position: fixed;
   top: 14px;
   right: 14px;
   z-index: 1060;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-quick-access {
   display: inline-flex;
   align-items: center;
   gap: 6px;

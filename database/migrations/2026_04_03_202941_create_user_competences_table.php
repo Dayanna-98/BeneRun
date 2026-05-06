@@ -15,6 +15,7 @@ return new class extends Migration
         $table->unsignedBigInteger('id_utilisateur');
         $table->unsignedBigInteger('id_competence');
         $table->primary(['id_utilisateur', 'id_competence']);
+        $table->string('niveau')->nullable();
         $table->foreign('id_utilisateur')
             ->references('id_utilisateur')
             ->on('users')

@@ -28,7 +28,7 @@
           placeholder="Rechercher une mission..." />
       </div>
 
-      <div class="d-flex gap-2 mb-3">
+      <div class="filter-pills mb-3">
         <button
           class="btn btn-sm"
           :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
@@ -75,9 +75,7 @@
         </button>
       </div>
 
-      <div v-if="isLoading" class="text-center py-4 text-muted">
-        Chargement des missions...
-      </div>
+      <CardListSkeleton v-if="isLoading" :count="3" :image-height="160" />
 
       <div v-else-if="loadError" class="alert alert-danger" role="alert">
         {{ loadError }}
@@ -85,7 +83,7 @@
 
       <!-- Mission Cards -->
       <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
-        <div v-for="mission in filteredMissions" :key="mission.id"
+        <div v-for="mission in visibleMissions" :key="mission.id"
           class="card border-0 shadow overflow-hidden"
           style="cursor:pointer"
           @click="router.push(`/mission/${mission.id}`)">
@@ -161,11 +159,21 @@
             </button>
           </div>
         </div>
+
+        <div v-if="hasMoreMissions" ref="sentinelRef" class="text-center py-3 text-muted small">
+          Faites défiler ou chargez plus de missions.
+        </div>
+        <button v-if="hasMoreMissions" class="btn btn-outline-primary btn-sm w-100" @click="loadMoreMissions">
+          Voir plus de missions
+        </button>
       </div>
 
-      <div v-if="!isLoading && !loadError && filteredMissions.length === 0" class="text-center py-5 text-muted">
-        Aucune mission trouvée
-      </div>
+      <EmptyState
+        v-if="!isLoading && !loadError && filteredMissions.length === 0"
+        icon="🧭"
+        title="Aucune mission trouvée"
+        description="Essayez d'élargir vos filtres ou de chercher un autre lieu."
+      />
     </div>
 
     <!-- Offcanvas Filtres (remplace Sheet) -->
@@ -237,6 +245,9 @@ import { useRouter, useRoute } from 'vue-router'
 import { Search, MapPin, Users, Star, Share2, Clock, Calendar, Filter, X } from 'lucide-vue-next'
 import { skills } from '@/data/mockData'
 import api from '@/services/api'
+import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 
 const router = useRouter()
 const route = useRoute()
@@ -253,6 +264,8 @@ const events           = ref([])
 const isLoading        = ref(false)
 const loadError        = ref('')
 const eventFilterId    = ref('')
+const PAGE_SIZE        = 6
+const visibleCount     = ref(PAGE_SIZE)
 
 const userSkillNames   = skills.map(s => s.name)
 const missionTypes     = computed(() => ['all', ...new Set(missions.value.map(m => m.type))])
@@ -391,6 +404,13 @@ const filteredMissions = computed(() => {
   })
 })
 
+const visibleMissions = computed(() => filteredMissions.value.slice(0, visibleCount.value))
+const hasMoreMissions = computed(() => visibleCount.value < filteredMissions.value.length)
+const loadMoreMissions = () => {
+  if (hasMoreMissions.value) visibleCount.value += PAGE_SIZE
+}
+const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreMissions.value, onLoadMore: loadMoreMissions })
+
 const spotsLeft  = (m) => m.maxVolunteers - m.currentVolunteers
 const canApply   = (m) => m.requiredSkills.every(s => userSkillNames.includes(s)) && spotsLeft(m) > 0
 const toggleFavorite = (id) => {
@@ -412,6 +432,9 @@ const applyEventFilterFromRoute = () => {
 }
 
 watch(() => route.query.eventId, applyEventFilterFromRoute)
+watch([searchQuery, filterType, filterCategory, filterDate, filterVisibility, timelineFilter, eventFilterId], () => {
+  visibleCount.value = PAGE_SIZE
+})
 
 onMounted(applyEventFilterFromRoute)
 onMounted(loadMissions)

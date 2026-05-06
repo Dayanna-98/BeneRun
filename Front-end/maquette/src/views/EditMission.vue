@@ -34,17 +34,19 @@
 
               <div>
                 <label class="form-label small fw-medium">Titre de la mission *</label>
-                <input v-model="formData.name" class="form-control" placeholder="Ex: Poste de Secours Zone A" required />
+                <input v-model="formData.name" class="form-control" :class="fieldErrors.name ? 'is-invalid' : ''" placeholder="Ex: Poste de Secours Zone A" required />
+                <div v-if="fieldErrors.name" class="invalid-feedback d-block">{{ fieldErrors.name }}</div>
               </div>
 
               <div>
                 <label class="form-label small fw-medium">Événement associé *</label>
-                <select v-model="formData.eventId" class="form-select" required @change="handleEventChange">
+                <select v-model="formData.eventId" class="form-select" :class="fieldErrors.eventId ? 'is-invalid' : ''" required @change="handleEventChange">
                   <option value="">Sélectionnez un événement...</option>
                   <option v-for="event in futureEvents" :key="event.id" :value="event.id">
                     {{ event.name }} - {{ new Date(event.startDate || event.date).toLocaleDateString('fr-FR') }}
                   </option>
                 </select>
+                <div v-if="fieldErrors.eventId" class="invalid-feedback d-block">{{ fieldErrors.eventId }}</div>
                 <div v-if="isLoadingEvents" class="text-muted small mt-1">Chargement des événements...</div>
                 <div v-else-if="eventsError" class="text-danger small mt-1">{{ eventsError }}</div>
                 <div v-if="futureEvents.length === 0" class="text-warning small mt-1">
@@ -54,7 +56,7 @@
 
               <div>
                 <label class="form-label small fw-medium">Type de mission *</label>
-                <select v-model="formData.type" class="form-select" required>
+                <select v-model="formData.type" class="form-select" :class="fieldErrors.type ? 'is-invalid' : ''" required>
                   <option value="">Sélectionner...</option>
                   <option>Secours</option>
                   <option>Logistique</option>
@@ -63,17 +65,20 @@
                   <option>Animation</option>
                   <option>Autre</option>
                 </select>
+                <div v-if="fieldErrors.type" class="invalid-feedback d-block">{{ fieldErrors.type }}</div>
               </div>
 
               <div class="row g-3">
                 <div class="col-6">
                   <label class="form-label small fw-medium">Date *</label>
-                  <input v-model="formData.date" type="date" class="form-control" required />
+                  <input v-model="formData.date" type="date" class="form-control" :class="fieldErrors.date ? 'is-invalid' : ''" required />
+                  <div v-if="fieldErrors.date" class="invalid-feedback d-block">{{ fieldErrors.date }}</div>
                   <div v-if="dateRangeError" class="text-danger small mt-1">{{ dateRangeError }}</div>
                 </div>
                 <div class="col-6">
                   <label class="form-label small fw-medium">Nombre de places *</label>
-                  <input v-model="formData.maxVolunteers" type="number" min="1" class="form-control" placeholder="Ex: 10" required />
+                  <input v-model="formData.maxVolunteers" type="number" min="1" class="form-control" :class="fieldErrors.maxVolunteers ? 'is-invalid' : ''" placeholder="Ex: 10" required />
+                  <div v-if="fieldErrors.maxVolunteers" class="invalid-feedback d-block">{{ fieldErrors.maxVolunteers }}</div>
                   <div v-if="remainingEventPlaces !== null" class="small mt-1" :class="quotaError ? 'text-danger' : 'text-muted'">
                     Places restantes pour l'événement: {{ remainingEventPlaces }}
                   </div>
@@ -83,24 +88,28 @@
 
               <div>
                 <label class="form-label small fw-medium">Quota de bénévoles de backup</label>
-                <input v-model="formData.backupVolunteers" type="number" min="0" class="form-control" placeholder="Ex: 2" />
+                <input v-model="formData.backupVolunteers" type="number" min="0" class="form-control" :class="fieldErrors.backupVolunteers ? 'is-invalid' : ''" placeholder="Ex: 2" />
+                <div v-if="fieldErrors.backupVolunteers" class="invalid-feedback d-block">{{ fieldErrors.backupVolunteers }}</div>
                 <div class="form-text">Nombre de bénévoles en réserve en cas d'absence</div>
               </div>
 
               <div class="row g-3">
                 <div class="col-6">
                   <label class="form-label small fw-medium">Heure de début *</label>
-                  <input v-model="formData.startTime" type="time" class="form-control" required />
+                  <input v-model="formData.startTime" type="time" class="form-control" :class="fieldErrors.startTime ? 'is-invalid' : ''" required />
+                  <div v-if="fieldErrors.startTime" class="invalid-feedback d-block">{{ fieldErrors.startTime }}</div>
                 </div>
                 <div class="col-6">
                   <label class="form-label small fw-medium">Heure de fin *</label>
-                  <input v-model="formData.endTime" type="time" class="form-control" required />
+                  <input v-model="formData.endTime" type="time" class="form-control" :class="fieldErrors.endTime ? 'is-invalid' : ''" required />
+                  <div v-if="fieldErrors.endTime" class="invalid-feedback d-block">{{ fieldErrors.endTime }}</div>
                 </div>
               </div>
 
               <div>
                 <label class="form-label small fw-medium">Localisation *</label>
-                <input v-model="formData.location" class="form-control" placeholder="Ex: Place Neuve, Genève" required />
+                <input v-model="formData.location" class="form-control" :class="fieldErrors.location ? 'is-invalid' : ''" placeholder="Ex: Place Neuve, Genève" required />
+                <div v-if="fieldErrors.location" class="invalid-feedback d-block">{{ fieldErrors.location }}</div>
               </div>
 
               <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
@@ -117,9 +126,11 @@
                   <input
                     v-model="formData.googleMapsUrl"
                     class="form-control"
+                    :class="fieldErrors.googleMapsUrl ? 'is-invalid' : ''"
                     placeholder="Collez le lien Google Maps du point de mission"
                     required
                   />
+                  <div v-if="fieldErrors.googleMapsUrl" class="invalid-feedback d-block">{{ fieldErrors.googleMapsUrl }}</div>
                 </div>
 
                 <LeafletPreview
@@ -140,8 +151,18 @@
               </div>
 
               <div>
+                <label class="form-label small fw-medium">Visuel principal</label>
+                <input type="file" accept="image/*" class="form-control mb-2" :class="fieldErrors.imageFile ? 'is-invalid' : ''" @change="handleMainImageChange" />
+                <div v-if="fieldErrors.imageFile" class="invalid-feedback d-block">{{ fieldErrors.imageFile }}</div>
+                <div v-if="mainImagePreviewUrl || formData.imageUrl" class="mb-2">
+                  <img :src="mainImagePreviewUrl || formData.imageUrl" alt="Visuel principal" class="w-100 rounded object-fit-cover" style="height:140px" />
+                </div>
+              </div>
+
+              <div>
                 <label class="form-label small fw-medium">Description *</label>
-                <textarea v-model="formData.description" class="form-control" rows="4" placeholder="Décrivez la mission en détail..." required style="resize:none" />
+                <textarea v-model="formData.description" class="form-control" :class="fieldErrors.description ? 'is-invalid' : ''" rows="4" placeholder="Décrivez la mission en détail..." required style="resize:none" />
+                <div v-if="fieldErrors.description" class="invalid-feedback d-block">{{ fieldErrors.description }}</div>
               </div>
 
               <!-- Compétences -->
@@ -173,12 +194,13 @@
                 <h6 class="fw-medium mb-0">Responsable de la mission</h6>
                 <div>
                   <label class="form-label small fw-medium">Nom du responsable *</label>
-                  <select v-model="formData.responsibleUserId" class="form-select" required>
+                  <select v-model="formData.responsibleUserId" class="form-select" :class="fieldErrors.responsibleUserId ? 'is-invalid' : ''" required>
                     <option value="">Sélectionner un responsable...</option>
                     <option v-for="responsible in responsiblesList" :key="responsible.id" :value="responsible.id">
                       {{ responsible.firstName }} {{ responsible.lastName }}
                     </option>
                   </select>
+                  <div v-if="fieldErrors.responsibleUserId" class="invalid-feedback d-block">{{ fieldErrors.responsibleUserId }}</div>
                   <div v-if="isLoadingResponsibles" class="text-muted small mt-1">Chargement des responsables...</div>
                   <div v-else-if="responsiblesError" class="text-danger small mt-1">{{ responsiblesError }}</div>
                 </div>
@@ -215,6 +237,8 @@
                 </div>
               </div>
 
+              <div v-if="submitError" class="alert alert-danger mb-0">{{ submitError }}</div>
+
               <div class="d-flex gap-3 pt-2">
                 <button type="button" class="btn btn-outline-secondary flex-fill" @click="router.go(-1)">Annuler</button>
                 <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2" :disabled="isSubmitting || isLoadingEvents">
@@ -242,11 +266,13 @@ import missionService from '@/services/missionService'
 import competenceService from '@/services/competenceService'
 import userService from '@/services/userService'
 import { distanceInMeters, extractGoogleMapsCoordinates, formatRadius } from '@/utils/googleMaps'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
 const user = getCurrentUser()
 if (!user || !hasMinRole('organizer')) router.push('/')
+const toast = useToast()
 
 const mission = ref(null)
 const eventsList = ref([])
@@ -261,6 +287,9 @@ const isLoadingResponsibles = ref(true)
 const eventsError = ref('')
 const competencesError = ref('')
 const responsiblesError = ref('')
+const fieldErrors = ref({})
+const submitError = ref('')
+const mainImagePreviewUrl = ref('')
 
 const formData = reactive({
   name: '',
@@ -281,8 +310,10 @@ const formData = reactive({
   public: true,
   googleMapsUrl: '',
   status: 'À venir',
+  imageFile: null,
   imageUrl: '',
   safetyInstructions: '',
+  photoFiles: [],
   competenceIds: [],
 })
 
@@ -399,6 +430,21 @@ const toggleSkill = (competenceId) => {
   }
 }
 
+const handleMainImageChange = (event) => {
+  const file = event.target.files?.[0] || null
+  formData.imageFile = file
+  mainImagePreviewUrl.value = file ? URL.createObjectURL(file) : ''
+}
+
+const validateForm = () => {
+  const errors = missionService.validateFormData(formData)
+  if (dateRangeError.value) errors.date = dateRangeError.value
+  if (quotaError.value) errors.maxVolunteers = quotaError.value
+  if (locationPerimeterError.value) errors.googleMapsUrl = locationPerimeterError.value
+  fieldErrors.value = errors
+  return Object.keys(errors).length === 0
+}
+
 const loadEvents = async () => {
   isLoadingEvents.value = true
   eventsError.value = ''
@@ -494,30 +540,17 @@ const loadMission = async () => {
 
 const handleSubmit = async () => {
   if (!mission.value) return
-
-  if (dateRangeError.value) {
-    alert(dateRangeError.value)
-    return
-  }
-
-  if (quotaError.value) {
-    alert(quotaError.value)
-    return
-  }
-
-  if (locationPerimeterError.value) {
-    alert(locationPerimeterError.value)
-    return
-  }
+  submitError.value = ''
+  if (!validateForm()) return
 
   isSubmitting.value = true
 
   try {
     await missionService.update(mission.value.id, formData)
-    alert('Mission modifiée avec succès !')
+    toast.success('Mission mise à jour avec succès.')
     router.push('/manage-missions')
   } catch (error) {
-    alert(error.message || 'Erreur lors de la mise à jour de la mission')
+    submitError.value = error.message || 'Erreur lors de la mise à jour de la mission'
   } finally {
     isSubmitting.value = false
   }
@@ -537,4 +570,8 @@ onMounted(async () => {
   await Promise.all([loadEvents(), loadCompetences(), loadResponsibles()])
   await loadMission()
 })
+
+watch(formData, () => {
+  if (Object.keys(fieldErrors.value).length > 0) validateForm()
+}, { deep: true })
 </script>

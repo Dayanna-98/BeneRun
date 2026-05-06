@@ -49,7 +49,10 @@
       </div>
 
       <!-- Prochaine mission -->
-      <div v-if="nextMission" class="card border-0 shadow-sm mb-4 overflow-hidden">
+      <div v-if="dashLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+      <div v-else-if="nextMission" class="card border-0 shadow-sm mb-4 overflow-hidden">
         <div class="text-white p-3" style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
           <div class="d-flex align-items-center gap-2 mb-1">
             <Calendar style="width:20px;height:20px;color:#d4e645" />
@@ -77,7 +80,7 @@
       </div>
 
       <!-- Missions suggérées (bénévoles) -->
-      <div v-if="user.role === 'volunteer' && suggestedMissions.length > 0" class="card border-0 shadow-sm mb-4 overflow-hidden">
+      <div v-if="user.role === 'volunteer' && !dashLoading && suggestedMissions.length > 0" class="card border-0 shadow-sm mb-4 overflow-hidden">
         <div class="p-3" style="background:linear-gradient(135deg,#e8f5a3,#d4e645)">
           <div class="d-flex align-items-center gap-2 mb-1">
             <Star style="width:20px;height:20px" />
@@ -116,7 +119,7 @@
       </div>
 
       <!-- Missions gérées (responsable/admin/superadmin) -->
-      <div v-if="isManager && managedMissions.length > 0" class="card border-0 shadow-sm mb-4 overflow-hidden">
+      <div v-if="isManager && !dashLoading && managedMissions.length > 0" class="card border-0 shadow-sm mb-4 overflow-hidden">
         <div class="text-white p-3" style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
           <div class="d-flex align-items-center gap-2 mb-1">
             <Shield style="width:20px;height:20px;color:#d4e645" />
@@ -349,33 +352,47 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Calendar, Award, TrendingUp, MapPin, Briefcase, Heart, Settings, Users, BarChart3, Shield, Star, FileText } from 'lucide-vue-next'
-import { myActiveMissions, availableMissions } from '@/data/mockData'
 import { getCurrentUser } from '@/utils/auth'
+import api from '@/services/api'
+import { missionService } from '@/services/missionService'
 import emergencyService from '@/services/emergencyService'
 
 const router = useRouter()
 const user = getCurrentUser()
 if (!user) router.push('/login')
 
-const nextMission = myActiveMissions[0]
-const badges = computed(() => user?.badges || [])
-const missionHistory = computed(() => user?.missionHistory || [])
-const totalMissions = computed(() => (missionHistory.value?.length || 0) + (myActiveMissions?.length || 0))
+// \u2500\u2500 Stats du tableau de bord (depuis API) \u2500\u2500
+const dashLoading        = ref(true)
+const totalMissions      = ref(0)
+const myActiveMissions   = ref([])
+const nextMission        = ref(null)
+const badges             = ref(user?.badges || [])
+const managedMissions    = ref([])
+const suggestedMissions  = ref([])
+
+onMounted(async () => {
+  try {
+    const res = await api.get('/stats/me')
+    const d = res.data
+    totalMissions.value     = d.totalMissions ?? 0
+    myActiveMissions.value  = Array.isArray(d.activeMissions) ? d.activeMissions.map(missionService.mapApiMission).filter(Boolean) : []
+    nextMission.value       = d.nextMission ? missionService.mapApiMission(d.nextMission) : null
+    badges.value            = Array.isArray(d.badges) ? d.badges : []
+    managedMissions.value   = Array.isArray(d.managedMissions) ? d.managedMissions.map(missionService.mapApiMission).filter(Boolean) : []
+    suggestedMissions.value = Array.isArray(d.suggestedMissions) ? d.suggestedMissions.map(missionService.mapApiMission).filter(Boolean) : []
+  } catch (e) {
+    console.error('Erreur chargement dashboard:', e)
+  } finally {
+    dashLoading.value = false
+  }
+
+  if (user.role === 'superadmin') {
+    await loadEmergencyMessages()
+  }
+})
 
 const isManager = computed(() =>
   ['mission_manager', 'admin', 'superadmin'].includes(user.role)
-)
-
-const suggestedMissions = computed(() =>
-  user.role === 'volunteer'
-    ? availableMissions.filter(m => m.visibility === 'public' && m.inscription).slice(0, 3)
-    : []
-)
-
-const managedMissions = computed(() =>
-  isManager.value
-    ? availableMissions.filter(m => m.missionManagers.some(mgr => mgr.id === user.id)).slice(0, 3)
-    : []
 )
 
 const superAdminPanelTab = ref('management')

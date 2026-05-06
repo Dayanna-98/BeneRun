@@ -20,7 +20,10 @@
     <div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:1024px">
 
       <!-- KPI Cards -->
-      <div class="row g-3">
+      <div v-if="statsLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+      <div v-else class="row g-3">
         <div v-for="kpi in kpis" :key="kpi.label" class="col-6 col-md-4">
           <div class="card border-0 text-white h-100" :style="`background:${kpi.gradient}`">
             <div class="card-body p-3 d-flex align-items-center gap-3">
@@ -57,11 +60,12 @@
       <div class="card">
         <div class="card-header"><h5 class="mb-0">Missions par événement</h5></div>
         <div class="card-body d-flex flex-column gap-2">
-          <div v-for="event in events" :key="event.id"
+          <div v-if="statsLoading" class="text-muted small py-2">Chargement...</div>
+          <div v-for="event in missionsByEvent" :key="event.id"
             class="d-flex align-items-center justify-content-between p-3 bg-light rounded">
             <div class="flex-fill">
               <div class="small fw-medium">{{ event.name }}</div>
-              <div class="x-small text-muted">{{ event.currentVolunteers }}/{{ event.totalVolunteersNeeded }} bénévoles</div>
+              <div class="x-small text-muted">{{ event.currentVolunteers }}/{{ event.totalNeeded }} bénévoles</div>
             </div>
             <div class="text-end">
               <div class="fs-5 fw-bold text-primary">{{ event.missionsCount }}</div>
@@ -180,7 +184,7 @@
                   </div>
                 </div>
                 <div class="bg-light rounded p-3 d-flex flex-column gap-2" style="max-height:160px;overflow-y:auto">
-                  <div v-for="event in events" :key="event.id" class="form-check mb-0">
+                  <div v-for="event in exportEvents" :key="event.id" class="form-check mb-0">
                     <input class="form-check-input" type="checkbox"
                       :id="`ev-${event.id}`"
                       :checked="selectedEvents.includes(event.id)"
@@ -201,7 +205,7 @@
                   </div>
                 </div>
                 <div class="bg-light rounded p-3 d-flex flex-column gap-2" style="max-height:160px;overflow-y:auto">
-                  <div v-for="mission in availableMissions" :key="mission.id" class="form-check mb-0">
+                  <div v-for="mission in exportMissions" :key="mission.id" class="form-check mb-0">
                     <input class="form-check-input" type="checkbox"
                       :id="`ms-${mission.id}`"
                       :checked="selectedMissions.includes(mission.id)"
@@ -233,45 +237,88 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowLeft, Download, TrendingUp, Users, Calendar, Award,
   Briefcase, BarChart3, FileText, FileSpreadsheet
 } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
-import { users, events, availableMissions, badges } from '@/data/mockData'
+import api from '@/services/api'
+import { eventService } from '@/services/eventService'
+import { missionService } from '@/services/missionService'
 
 const router = useRouter()
 
-// ✅ Redirection si pas superadmin ou admin
 const user = getCurrentUser()
 if (!user || !isRole(['superadmin', 'admin'])) {
   router.push('/')
 }
 
-// ── KPIs ──────────────────────────────────────────────────────────────────────
-const totalVolunteers   = users.filter(u => u.role === 'volunteer').length
-const totalBadgesIssued = badges.length * users.length
+// ── State ─────────────────────────────────────────────────────────────────────
+const statsLoading  = ref(false)
+const rawKpis       = ref(null)
+const rawRoleStats  = ref({})
+const missionsByEvent = ref([])
 
-const kpis = [
-  { label: 'Utilisateurs',       value: users.length,             icon: Users,      gradient: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
-  { label: 'Événements',         value: events.length,            icon: Calendar,   gradient: 'linear-gradient(135deg,#22c55e,#16a34a)' },
-  { label: 'Missions',           value: availableMissions.length, icon: Briefcase,  gradient: 'linear-gradient(135deg,#a855f7,#7c3aed)' },
-  { label: 'Bénévoles',          value: totalVolunteers,          icon: Users,      gradient: 'linear-gradient(135deg,#f97316,#ea580c)' },
-  { label: 'Badges délivrés',    value: totalBadgesIssued,        icon: Award,      gradient: 'linear-gradient(135deg,#eab308,#ca8a04)' },
-  { label: 'Taux de complétion', value: '85%',                    icon: TrendingUp, gradient: 'linear-gradient(135deg,#ec4899,#db2777)' },
-]
+// Pour l'export : listes complètes
+const exportEvents   = ref([])
+const exportMissions = ref([])
+
+onMounted(async () => {
+  statsLoading.value = true
+  try {
+    const [statsRes, eventsRes, missionsRes] = await Promise.all([
+      api.get('/stats'),
+      eventService.getAll(),
+      missionService.getAll(),
+    ])
+
+    rawKpis.value        = statsRes.data.kpis
+    rawRoleStats.value   = statsRes.data.roleStats || {}
+    missionsByEvent.value = statsRes.data.missionsByEvent || []
+
+    exportEvents.value   = eventsRes
+    exportMissions.value = missionsRes
+
+    selectedEvents.value   = exportEvents.value.map(e => e.id)
+    selectedMissions.value = exportMissions.value.map(m => m.id)
+  } catch (e) {
+    console.error('Erreur chargement statistiques:', e)
+  } finally {
+    statsLoading.value = false
+  }
+})
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+const kpis = computed(() => {
+  const k = rawKpis.value
+  if (!k) return []
+  return [
+    { label: 'Utilisateurs',       value: k.totalUsers,             icon: Users,      gradient: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
+    { label: 'Événements',         value: k.totalEvents,            icon: Calendar,   gradient: 'linear-gradient(135deg,#22c55e,#16a34a)' },
+    { label: 'Missions',           value: k.totalMissions,          icon: Briefcase,  gradient: 'linear-gradient(135deg,#a855f7,#7c3aed)' },
+    { label: 'Bénévoles',          value: k.volunteerCount,         icon: Users,      gradient: 'linear-gradient(135deg,#f97316,#ea580c)' },
+    { label: 'Badges disponibles', value: k.totalBadges,            icon: Award,      gradient: 'linear-gradient(135deg,#eab308,#ca8a04)' },
+    { label: 'Taux de complétion', value: `${k.completionRate}%`,   icon: TrendingUp, gradient: 'linear-gradient(135deg,#ec4899,#db2777)' },
+  ]
+})
 
 // ── Rôles ─────────────────────────────────────────────────────────────────────
-const roleStats = [
-  { role: 'volunteer',       label: 'Bénévoles',        color: '#3b82f6' },
-  { role: 'mission_manager', label: 'Resp. de mission', color: '#22c55e' },
-  { role: 'admin',           label: 'Administrateurs',  color: '#a855f7' },
-  { role: 'superadmin',      label: 'Super-admins',     color: '#ef4444' },
-].map(r => {
-  const count = users.filter(u => u.role === r.role).length
-  return { ...r, count, pct: users.length ? Math.round((count / users.length) * 100) : 0 }
+const ROLE_META = [
+  { key: 'bénévole',    label: 'Bénévoles',        color: '#3b82f6' },
+  { key: 'responsable', label: 'Resp. de mission',  color: '#22c55e' },
+  { key: 'admin',       label: 'Administrateurs',   color: '#a855f7' },
+  { key: 'superadmin',  label: 'Super-admins',      color: '#ef4444' },
+]
+
+const roleStats = computed(() => {
+  const rs = rawRoleStats.value
+  const total = Object.values(rs).reduce((s, v) => s + Number(v), 0) || 1
+  return ROLE_META.map(r => {
+    const count = Number(rs[r.key] || 0)
+    return { ...r, count, pct: Math.round((count / total) * 100) }
+  })
 })
 
 // ── Export dialog ─────────────────────────────────────────────────────────────
@@ -279,8 +326,8 @@ const showExportDialog  = ref(false)
 const exportFormat      = ref('pdf')
 
 const selectedDataTypes = ref({ users: true, events: true, missions: true, badges: true })
-const selectedEvents    = ref(events.map(e => e.id))
-const selectedMissions  = ref(availableMissions.map(m => m.id))
+const selectedEvents    = ref([])
+const selectedMissions  = ref([])
 
 const dataTypeOptions = [
   { key: 'users',    label: 'Données utilisateurs', icon: Users     },
@@ -297,18 +344,16 @@ const toggleMission = (id) => {
   const i = selectedMissions.value.indexOf(id)
   i === -1 ? selectedMissions.value.push(id) : selectedMissions.value.splice(i, 1)
 }
-const selectAllEvents     = () => { selectedEvents.value   = events.map(e => e.id) }
+const selectAllEvents     = () => { selectedEvents.value   = exportEvents.value.map(e => e.id) }
 const deselectAllEvents   = () => { selectedEvents.value   = [] }
-const selectAllMissions   = () => { selectedMissions.value = availableMissions.map(m => m.id) }
+const selectAllMissions   = () => { selectedMissions.value = exportMissions.value.map(m => m.id) }
 const deselectAllMissions = () => { selectedMissions.value = [] }
 
 const exportStatistics = () => {
-  const filteredEvents   = events.filter(e => selectedEvents.value.includes(e.id))
-  const filteredMissions = availableMissions.filter(m => selectedMissions.value.includes(m.id))
   alert(
     `Export ${exportFormat.value.toUpperCase()}\n\n` +
-    `Événements : ${filteredEvents.length}\n` +
-    `Missions : ${filteredMissions.length}\n\n` +
+    `Événements : ${selectedEvents.value.length}\n` +
+    `Missions : ${selectedMissions.value.length}\n\n` +
     `Le fichier ${exportFormat.value === 'pdf' ? 'PDF' : 'Excel'} sera téléchargé.`
   )
   showExportDialog.value = false

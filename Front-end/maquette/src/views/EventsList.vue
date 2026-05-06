@@ -33,7 +33,10 @@
       </div>
 
       <!-- Event Cards -->
-      <div class="d-flex flex-column gap-4">
+      <div v-if="loading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+      <div v-else class="d-flex flex-column gap-4">
         <div
           v-for="event in filteredEvents" :key="event.id"
           class="card border-0 shadow overflow-hidden"
@@ -94,7 +97,7 @@
       </div>
 
       <!-- Empty state -->
-      <div v-if="filteredEvents.length === 0" class="text-center py-5 text-muted">
+      <div v-if="!loading && filteredEvents.length === 0" class="text-center py-5 text-muted">
         Aucun événement trouvé
       </div>
 
@@ -103,24 +106,42 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, MapPin, Users, Calendar, Tag } from 'lucide-vue-next'
-import { events } from '@/data/mockData'
+import { eventService } from '@/services/eventService'
 
 const router = useRouter()
 const searchQuery = ref('')
+const loading = ref(false)
+const events = ref([])
 
-const filteredEvents = computed(() =>
-  events.filter(e =>
-    [e.name, e.description, e.category, e.location].some(f =>
-      f.toLowerCase().includes(searchQuery.value.toLowerCase())
+onMounted(async () => {
+  loading.value = true
+  try {
+    const res = await eventService.getAll()
+    events.value = res
+  } catch (e) {
+    console.error('Erreur chargement événements:', e)
+  } finally {
+    loading.value = false
+  }
+})
+
+const filteredEvents = computed(() => {
+  const q = searchQuery.value.toLowerCase()
+  if (!q) return events.value
+  return events.value.filter(e =>
+    [e.name, e.description, e.location].some(f =>
+      (f || '').toLowerCase().includes(q)
     )
   )
-)
+})
 
-const completionPct = (event) =>
-  Math.round((event.currentVolunteers / event.totalVolunteersNeeded) * 100)
+const completionPct = (event) => {
+  if (!event.totalVolunteersNeeded) return 0
+  return Math.round((event.currentVolunteers / event.totalVolunteersNeeded) * 100)
+}
 
 const formatDate = (date) =>
   new Date(date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })

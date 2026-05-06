@@ -6,16 +6,45 @@ use App\Models\Evenement;
 use App\Support\GoogleMapsUrl;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 
 class EvenementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $events = Evenement::withCount('missions')
-            ->orderBy('date_debut_evenement')
-            ->get();
+        $query = Evenement::withCount('missions')
+            ->orderBy('date_debut_evenement');
 
-        return response()->json($events);
+        if ($request->filled('search')) {
+            $search = trim((string) $request->query('search'));
+
+            $query->where(function ($builder) use ($search) {
+                $builder->where('nom_evenement', 'like', "%{$search}%")
+                    ->orWhere('description_evenement', 'like', "%{$search}%")
+                    ->orWhere('lieu_evenement', 'like', "%{$search}%")
+                    ->orWhere('organisateur_evenement', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('timeline')) {
+            $today = now()->startOfDay()->toDateString();
+
+            if ($request->query('timeline') === 'upcoming') {
+                $query->whereDate('date_fin_evenement', '>=', $today);
+            }
+
+            if ($request->query('timeline') === 'past') {
+                $query->whereDate('date_fin_evenement', '<', $today);
+            }
+        }
+
+        $perPage = min(max((int) $request->integer('per_page', 0), 0), 50);
+
+        if ($perPage > 0) {
+            return response()->json($query->paginate($perPage));
+        }
+
+        return response()->json($query->get());
     }
 
     public function show($id)
@@ -43,6 +72,7 @@ class EvenementController extends Controller
             'rayon_localisation_evenement' => 'required|integer|min:1|max:100000',
             'organisateur_evenement' => 'required|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
+            'image_file' => 'nullable|image|max:5120',
             'nombre_benevoles_requis' => 'required|integer|min:1',
             'est_annule_evenement' => 'nullable|boolean',
             'date_annulation_evenement' => 'nullable|date',
@@ -52,6 +82,7 @@ class EvenementController extends Controller
         ]);
 
         $validated = $this->hydrateEventLocation($validated);
+    $validated = $this->hydrateEventImage($request, $validated);
 
         $event = Evenement::create($validated);
 
@@ -81,6 +112,7 @@ class EvenementController extends Controller
             'rayon_localisation_evenement' => 'sometimes|integer|min:1|max:100000',
             'organisateur_evenement' => 'sometimes|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
+            'image_file' => 'nullable|image|max:5120',
             'nombre_benevoles_requis' => 'sometimes|integer|min:1',
             'est_annule_evenement' => 'nullable|boolean',
             'date_annulation_evenement' => 'nullable|date',
@@ -90,6 +122,7 @@ class EvenementController extends Controller
         ]);
 
         $validated = $this->hydrateEventLocation($validated, $event);
+    $validated = $this->hydrateEventImage($request, $validated, $event);
 
         $event->update($validated);
 
@@ -155,5 +188,30 @@ class EvenementController extends Controller
         $validated['longitude_evenement'] = $coordinates['longitude'];
 
         return $validated;
+    }
+
+    private function hydrateEventImage(Request $request, array $validated, ?Evenement $event = null): array
+    {
+        if ($request->hasFile('image_file')) {
+            $validated['image_evenement'] = $this->storeUploadedImage($request->file('image_file'), 'events');
+        } elseif (!array_key_exists('image_evenement', $validated) && $event?->image_evenement) {
+            $validated['image_evenement'] = $event->image_evenement;
+        }
+
+        return $validated;
+    }
+
+    private function storeUploadedImage($file, string $directory): string
+    {
+        $targetDirectory = public_path("uploads/{$directory}");
+
+        if (!File::exists($targetDirectory)) {
+            File::makeDirectory($targetDirectory, 0755, true);
+        }
+
+        $filename = uniqid("{$directory}_", true) . '.' . $file->getClientOriginalExtension();
+        $file->move($targetDirectory, $filename);
+
+        return url("uploads/{$directory}/{$filename}");
     }
 }

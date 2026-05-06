@@ -1,6 +1,29 @@
 import api from './api'
 import { getCurrentUser } from '@/utils/auth'
 
+const extractRows = (payload) => {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload?.events)) return payload.events
+  return []
+}
+
+const extractMeta = (payload) => {
+  if (!payload || Array.isArray(payload)) return null
+
+  return {
+    currentPage: Number(payload.current_page || 1),
+    lastPage: Number(payload.last_page || 1),
+    perPage: Number(payload.per_page || extractRows(payload).length || 0),
+    total: Number(payload.total || extractRows(payload).length || 0),
+  }
+}
+
+const appendNullable = (formData, key, value) => {
+  if (value === undefined) return
+  formData.append(key, value ?? '')
+}
+
 export const eventService = {
   normalizeDateForInput: (value) => {
     if (!value) return ''
@@ -61,6 +84,64 @@ export const eventService = {
     }
   },
 
+  toMultipartPayload: (formData, existingEvent = null) => {
+    const payload = eventService.toPayload(formData, existingEvent)
+    const multipart = new FormData()
+
+    appendNullable(multipart, 'nom_evenement', payload.nom_evenement)
+    appendNullable(multipart, 'description_evenement', payload.description_evenement)
+    appendNullable(multipart, 'date_debut_evenement', payload.date_debut_evenement)
+    appendNullable(multipart, 'date_fin_evenement', payload.date_fin_evenement)
+    appendNullable(multipart, 'heure_debut_evenement', payload.heure_debut_evenement)
+    appendNullable(multipart, 'heure_fin_evenement', payload.heure_fin_evenement)
+    appendNullable(multipart, 'lieu_evenement', payload.lieu_evenement)
+    appendNullable(multipart, 'organisateur_evenement', payload.organisateur_evenement)
+    appendNullable(multipart, 'google_maps_url_evenement', payload.google_maps_url_evenement)
+    appendNullable(multipart, 'rayon_localisation_evenement', payload.rayon_localisation_evenement)
+    appendNullable(multipart, 'image_evenement', payload.image_evenement)
+    appendNullable(multipart, 'nombre_benevoles_requis', payload.nombre_benevoles_requis)
+    appendNullable(multipart, 'est_annule_evenement', payload.est_annule_evenement ? '1' : '0')
+    appendNullable(multipart, 'date_annulation_evenement', payload.date_annulation_evenement)
+    appendNullable(multipart, 'raison_annulation_evenement', payload.raison_annulation_evenement)
+    appendNullable(multipart, 'est_publie_evenement', payload.est_publie_evenement ? '1' : '0')
+    appendNullable(multipart, 'cree_par_utilisateur_id', payload.cree_par_utilisateur_id)
+
+    if (formData.imageFile instanceof File) {
+      multipart.append('image_file', formData.imageFile)
+    }
+
+    return multipart
+  },
+
+  validateFormData: (formData) => {
+    const errors = {}
+    const startDate = formData.startDate || formData.date || ''
+    const endDate = formData.endDate || formData.startDate || formData.date || ''
+
+    if (!String(formData.name || '').trim()) errors.name = 'Le nom de l\'événement est obligatoire.'
+    if (!startDate) errors.startDate = 'La date de début est obligatoire.'
+    if (!endDate) errors.endDate = 'La date de fin est obligatoire.'
+    if (startDate && endDate && endDate < startDate) errors.endDate = 'La date de fin doit être après la date de début.'
+    if (!String(formData.location || '').trim()) errors.location = 'Le lieu est obligatoire.'
+    if (!String(formData.description || '').trim()) errors.description = 'La description est obligatoire.'
+    if (!String(formData.organizer || '').trim()) errors.organizer = 'L\'organisateur est obligatoire.'
+    if (!formData.totalVolunteersNeeded || Number(formData.totalVolunteersNeeded) < 1) {
+      errors.totalVolunteersNeeded = 'Le nombre de bénévoles doit être supérieur à 0.'
+    }
+    if (!String(formData.googleMapsUrl || '').trim()) errors.googleMapsUrl = 'Le lien Google Maps est obligatoire.'
+    if (!formData.radiusMeters || Number(formData.radiusMeters) < 1) errors.radiusMeters = 'Le périmètre doit être supérieur à 0.'
+
+    if (formData.imageFile instanceof File) {
+      if (!String(formData.imageFile.type || '').startsWith('image/')) {
+        errors.imageFile = 'Le fichier sélectionné doit être une image.'
+      } else if (formData.imageFile.size > 5 * 1024 * 1024) {
+        errors.imageFile = 'L\'image ne doit pas dépasser 5 Mo.'
+      }
+    }
+
+    return errors
+  },
+
   validatePayload: (payload) => {
     if (!payload.cree_par_utilisateur_id || Number.isNaN(payload.cree_par_utilisateur_id)) {
       throw { message: 'Utilisateur non identifié. Reconnectez-vous pour créer ou modifier un événement.' }
@@ -91,16 +172,21 @@ export const eventService = {
   getAll: async () => {
     try {
       const response = await api.get('/evenements')
-      const payload = response.data
-      const rows = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : Array.isArray(payload?.events)
-            ? payload.events
-            : []
-
+      const rows = extractRows(response.data)
       return rows.map(eventService.mapApiEvent).filter(Boolean)
+    } catch (error) {
+      throw eventService.formatApiError(error, 'Erreur lors du chargement des événements')
+    }
+  },
+
+  getPage: async (params = {}) => {
+    try {
+      const response = await api.get('/evenements', { params })
+      const rows = extractRows(response.data).map(eventService.mapApiEvent).filter(Boolean)
+      return {
+        data: rows,
+        meta: extractMeta(response.data),
+      }
     } catch (error) {
       throw eventService.formatApiError(error, 'Erreur lors du chargement des événements')
     }
@@ -117,9 +203,12 @@ export const eventService = {
 
   create: async (formData) => {
     try {
-      const payload = eventService.toPayload(formData)
-      eventService.validatePayload(payload)
-      const response = await api.post('/evenements', payload)
+      const rawPayload = eventService.toPayload(formData)
+      eventService.validatePayload(rawPayload)
+      const payload = eventService.toMultipartPayload(formData)
+      const response = await api.post('/evenements', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       return response.data
     } catch (error) {
       throw eventService.formatApiError(error, 'Erreur lors de la création de l\'événement')
@@ -128,9 +217,13 @@ export const eventService = {
 
   update: async (id, formData) => {
     try {
-      const payload = eventService.toPayload(formData)
-      eventService.validatePayload(payload)
-      const response = await api.put(`/evenements/${id}`, payload)
+      const rawPayload = eventService.toPayload(formData)
+      eventService.validatePayload(rawPayload)
+      const payload = eventService.toMultipartPayload(formData)
+      payload.append('_method', 'PUT')
+      const response = await api.post(`/evenements/${id}`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       return response.data
     } catch (error) {
       throw eventService.formatApiError(error, 'Erreur lors de la mise à jour de l\'événement')

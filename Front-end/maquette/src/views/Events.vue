@@ -31,7 +31,7 @@
         />
       </div>
 
-      <div class="d-flex gap-2 mb-3">
+      <div class="filter-pills mb-3">
         <button
           class="btn btn-sm"
           :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
@@ -55,9 +55,7 @@
         </button>
       </div>
 
-      <div v-if="isLoading" class="text-center py-4 text-muted">
-        Chargement des événements...
-      </div>
+      <CardListSkeleton v-if="isLoading" :count="3" :image-height="160" />
 
       <div v-else-if="loadError" class="alert alert-danger" role="alert">
         {{ loadError }}
@@ -65,7 +63,7 @@
 
       <!-- Event Cards -->
       <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
-        <div v-for="event in filteredEvents" :key="event.id"
+        <div v-for="event in visibleEvents" :key="event.id"
           class="card border-0 shadow overflow-hidden">
 
           <!-- Image -->
@@ -108,23 +106,36 @@
             </button>
           </div>
         </div>
+
+        <div v-if="hasMoreEvents" ref="sentinelRef" class="text-center py-3 text-muted small">
+          Faites défiler ou chargez plus d'événements.
+        </div>
+        <button v-if="hasMoreEvents" class="btn btn-outline-primary btn-sm w-100" @click="loadMoreEvents">
+          Voir plus d'événements
+        </button>
       </div>
 
       <!-- Empty state -->
-      <div v-if="!isLoading && !loadError && filteredEvents.length === 0" class="text-center py-5 text-muted">
-        Aucun événement trouvé
-      </div>
+      <EmptyState
+        v-if="!isLoading && !loadError && filteredEvents.length === 0"
+        icon="📅"
+        title="Aucun événement trouvé"
+        description="Essayez un autre mot-clé ou changez le filtre temporel."
+      />
 
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, MapPin, Users, Clock } from 'lucide-vue-next'
 import api from '@/services/api'
 import eventService from '@/services/eventService'
+import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 
 const router = useRouter()
 const searchQuery = ref('')
@@ -132,6 +143,8 @@ const timelineFilter = ref('upcoming')
 const events = ref([])
 const isLoading = ref(false)
 const loadError = ref('')
+const PAGE_SIZE = 6
+const visibleCount = ref(PAGE_SIZE)
 
 const loadEvents = async () => {
   isLoading.value = true
@@ -202,6 +215,13 @@ const filteredEvents = computed(() =>
   })
 )
 
+const visibleEvents = computed(() => filteredEvents.value.slice(0, visibleCount.value))
+const hasMoreEvents = computed(() => visibleCount.value < filteredEvents.value.length)
+const loadMoreEvents = () => {
+  if (hasMoreEvents.value) visibleCount.value += PAGE_SIZE
+}
+const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreEvents.value, onLoadMore: loadMoreEvents })
+
 const formatDateLabel = (dateValue) => {
   if (!dateValue) return 'Date à définir'
   return new Date(dateValue).toLocaleDateString('fr-FR', {
@@ -226,4 +246,8 @@ const formatEventPeriod = (event) => {
 }
 
 onMounted(loadEvents)
+
+watch([searchQuery, timelineFilter], () => {
+  visibleCount.value = PAGE_SIZE
+})
 </script>
