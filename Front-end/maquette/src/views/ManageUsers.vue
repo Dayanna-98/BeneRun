@@ -243,13 +243,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, UserX, EyeOff, Mail, Phone, Award, FileText, X, Trash2 } from 'lucide-vue-next'
-import { users } from '@/data/mockData'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import userService from '@/services/userService'
 import badgeService from '@/services/badgeService'
 import certificatService from '@/services/certificatService'
-
-const demoUsers = users.filter(userData => userData.email === 'admin@benerun.ch')
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -288,10 +285,10 @@ const certificateModal = ref({
 onMounted(async () => {
   try {
     const dbUsers = await userService.getAll()
-    usersList.value = userService.mergeUsers(demoUsers, dbUsers)
+    usersList.value = dbUsers
   } catch (error) {
     console.error('Erreur chargement utilisateurs:', error)
-    usersList.value = [...demoUsers]
+    usersList.value = []
   }
 
   try {

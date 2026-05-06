@@ -9,10 +9,15 @@ use App\Http\Controllers\CertificatController;
 use App\Http\Controllers\CompetenceController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EvenementController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MissionController;
 use App\Http\Controllers\MissionEmergencyMessageController;
 use App\Http\Controllers\MissionPositionController;
+use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PostulationController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\TelephoneController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +28,12 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login', [UserController::class, 'login']);
+
+// Réinitialisation de mot de passe (routes publiques)
+Route::post('/password-reset/request', [PasswordResetController::class, 'requestReset']);
+Route::post('/password-reset/verify', [PasswordResetController::class, 'verifyToken']);
+Route::post('/password-reset/reset', [PasswordResetController::class, 'resetPassword']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);
     Route::get('/me', [UserController::class, 'me']);
@@ -48,6 +59,22 @@ Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignRes
 Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
 Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
 Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
+Route::get('/notifications', [NotificationController::class, 'index']);
+Route::middleware('auth:sanctum')->group(function () {
+    // Favoris
+    Route::get('/favorites', [FavoriteController::class, 'index']);
+    Route::post('/favorites/{missionId}', [FavoriteController::class, 'store']);
+    Route::delete('/favorites/{missionId}', [FavoriteController::class, 'destroy']);
+    Route::get('/favorites/{missionId}/check', [FavoriteController::class, 'check']);
+    // Statistiques
+    Route::get('/stats', [StatsController::class, 'index']);
+    Route::get('/stats/me', [StatsController::class, 'me']);
+    // Localisation en temps réel
+    Route::post('/location', [LocationController::class, 'updateLocation']);
+    Route::get('/location', [LocationController::class, 'getLocation']);
+    Route::delete('/location', [LocationController::class, 'deleteLocation']);
+    Route::get('/locations', [LocationController::class, 'getAllLocations']);
+});
 Route::post('/missions/{idMission}/urgences', [MissionEmergencyMessageController::class, 'storeForMission']);
 Route::post('/evenements/{idEvenement}/inscriptions', [PostulationController::class, 'inscrireEvenement']);
 Route::get('/urgences', [MissionEmergencyMessageController::class, 'index']);
