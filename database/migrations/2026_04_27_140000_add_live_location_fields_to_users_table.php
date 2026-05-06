@@ -8,11 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Les champs live location ont été retirés - migration conservée pour l'historique
+        Schema::table('users', function (Blueprint $table) {
+    $table->boolean('partage_localisation_directe_utilisateur')->default(false);
+    $table->decimal('latitude_localisation_directe_utilisateur', 10, 7)->nullable();
+    $table->decimal('longitude_localisation_directe_utilisateur', 10, 7)->nullable();
+    $table->timestamp('date_localisation_directe_utilisateur')->nullable();
+        });
     }
 
     public function down(): void
     {
-        // Les champs live location ont été retirés - aucune action de rollback
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn([
+                'partage_localisation_directe_utilisateur',
+                'latitude_localisation_directe_utilisateur',
+                'longitude_localisation_directe_utilisateur',
+                'date_localisation_directe_utilisateur',
+            ]);
+        });
     }
 };

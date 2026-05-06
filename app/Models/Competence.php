@@ -28,7 +28,6 @@ class Competence extends Model
             'user_competences',
             'id_competence',
             'id_utilisateur'
-        )->withPivot('niveau_competence')
         ->withTimestamps();
     }
 
