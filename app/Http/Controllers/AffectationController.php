@@ -12,7 +12,7 @@ class AffectationController extends Controller
     {
         $affectations = Affectation::with([
             'mission:id_mission,titre_mission',
-            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,partage_localisation_directe_utilisateur,latitude_localisation_directe_utilisateur,longitude_localisation_directe_utilisateur,date_localisation_directe_utilisateur',
         ])->get();
         return response()->json($affectations);
     }
@@ -21,7 +21,7 @@ class AffectationController extends Controller
     {
         $affectation = Affectation::with([
             'mission:id_mission,titre_mission',
-            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,partage_localisation_directe_utilisateur,latitude_localisation_directe_utilisateur,longitude_localisation_directe_utilisateur,date_localisation_directe_utilisateur',
         ])->find($id);
         if (!empty($affectation)){
             return response()->json($affectation);

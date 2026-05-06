@@ -10,6 +10,8 @@ use App\Http\Controllers\CompetenceController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\MissionController;
+use App\Http\Controllers\MissionEmergencyMessageController;
+use App\Http\Controllers\MissionPositionController;
 use App\Http\Controllers\PostulationController;
 use App\Http\Controllers\TelephoneController;
 use Illuminate\Http\Request;
@@ -44,6 +46,13 @@ Route::apiResource('/evenements', EvenementController::class);//->middleware('au
 Route::apiResource('/missions', MissionController::class);//->middleware('auth:sanctum');
 Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignResponsable']);
 Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
+Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
+Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
+Route::post('/missions/{idMission}/urgences', [MissionEmergencyMessageController::class, 'storeForMission']);
+Route::post('/evenements/{idEvenement}/inscriptions', [PostulationController::class, 'inscrireEvenement']);
+Route::get('/urgences', [MissionEmergencyMessageController::class, 'index']);
+Route::post('/urgences/{idUrgence}/consultation', [MissionEmergencyMessageController::class, 'markViewed']);
+Route::post('/urgences/{idUrgence}/prise-en-charge', [MissionEmergencyMessageController::class, 'takeOwnership']);
 Route::apiResource('/postulations', PostulationController::class);//->middleware('auth:sanctum');
 Route::apiResource('/telephones', TelephoneController::class);//->middleware('auth:sanctum');
 

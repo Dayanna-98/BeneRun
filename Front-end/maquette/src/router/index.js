@@ -15,6 +15,7 @@ import EventDetails from '@/views/EventDetails.vue'
 import MyMissions from '@/views/MyMissions.vue'
 import Profile from '@/views/Profile.vue'
 import EditProfile from '@/views/EditProfile.vue'
+import Messaging from '@/views/Messaging.vue'
 import MissionDetails from '@/views/MissionDetails.vue'
 import Favorites from '@/views/Favorites.vue'
 import ManageMissions from '@/views/ManageMissions.vue'
@@ -44,6 +45,7 @@ const routes = [
   { path: '/events-list', component: EventsList, meta: { requiresAuth: true } },
   { path: '/event/:id', component: EventDetails, meta: { requiresAuth: true } },
   { path: '/my-missions', component: MyMissions, meta: { requiresAuth: true } },
+  { path: '/messagerie', component: Messaging, meta: { requiresAuth: true } },
   { path: '/profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/profile/edit', component: EditProfile, meta: { requiresAuth: true } },
   { path: '/mission/:id', component: MissionDetails, meta: { requiresAuth: true } },

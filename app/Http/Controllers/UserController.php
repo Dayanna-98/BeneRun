@@ -322,6 +322,10 @@ public function index(Request $request)
             'est_anonyme_utilisateur' => 'nullable|boolean',
             'est_suspendu_utilisateur' => 'nullable|boolean',
             'raison_suspension_utilisateur' => 'nullable|string|max:255',
+            'partage_localisation_directe_utilisateur' => 'nullable|boolean',
+            'latitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-90,90',
+            'longitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-180,180',
+            'date_localisation_directe_utilisateur' => 'nullable|date',
             'permissions_utilisateur' => 'nullable|string',
             'nombre_missions_utilisateur' => 'nullable|integer|min:0',
         ], [
@@ -348,9 +352,19 @@ public function index(Request $request)
         $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
         $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
         $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
+        $user->partage_localisation_directe_utilisateur = (bool) $request->partage_localisation_directe_utilisateur;
+        $user->latitude_localisation_directe_utilisateur = $request->latitude_localisation_directe_utilisateur;
+        $user->longitude_localisation_directe_utilisateur = $request->longitude_localisation_directe_utilisateur;
+        $user->date_localisation_directe_utilisateur = $request->date_localisation_directe_utilisateur;
         $user->permissions_utilisateur = $this->normalizePermissions($request->permissions_utilisateur)
             ?? $this->defaultPermissionsForRole($role);
         $user->nombre_missions_utilisateur = $request->nombre_missions_utilisateur ?? 0;
+
+        if (!$user->partage_localisation_directe_utilisateur) {
+            $user->latitude_localisation_directe_utilisateur = null;
+            $user->longitude_localisation_directe_utilisateur = null;
+            $user->date_localisation_directe_utilisateur = null;
+        }
 
         $user->save();
 
@@ -385,6 +399,10 @@ public function index(Request $request)
             'est_anonyme_utilisateur' => 'nullable|boolean',
             'est_suspendu_utilisateur' => 'nullable|boolean',
             'raison_suspension_utilisateur' => 'nullable|string|max:255',
+            'partage_localisation_directe_utilisateur' => 'nullable|boolean',
+            'latitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-90,90',
+            'longitude_localisation_directe_utilisateur' => 'nullable|numeric|between:-180,180',
+            'date_localisation_directe_utilisateur' => 'nullable|date',
             'permissions_utilisateur' => 'nullable|string',
             'nombre_missions_utilisateur' => 'nullable|integer|min:0',
         ], [
@@ -449,12 +467,22 @@ public function index(Request $request)
         $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
         $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
         $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
+        $user->partage_localisation_directe_utilisateur = (bool) ($validated['partage_localisation_directe_utilisateur'] ?? false);
+        $user->latitude_localisation_directe_utilisateur = $validated['latitude_localisation_directe_utilisateur'] ?? $user->latitude_localisation_directe_utilisateur;
+        $user->longitude_localisation_directe_utilisateur = $validated['longitude_localisation_directe_utilisateur'] ?? $user->longitude_localisation_directe_utilisateur;
+        $user->date_localisation_directe_utilisateur = $validated['date_localisation_directe_utilisateur'] ?? $user->date_localisation_directe_utilisateur;
         if ($permissionsWereProvided) {
             $user->permissions_utilisateur = $this->normalizePermissions($validated['permissions_utilisateur']);
         } elseif ($roleChanged) {
             $user->permissions_utilisateur = $this->defaultPermissionsForRole($nextRole);
         }
         $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
+
+        if (!$user->partage_localisation_directe_utilisateur) {
+            $user->latitude_localisation_directe_utilisateur = null;
+            $user->longitude_localisation_directe_utilisateur = null;
+            $user->date_localisation_directe_utilisateur = null;
+        }
 
         $user->save();
 

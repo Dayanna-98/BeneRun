@@ -33,6 +33,10 @@ class User extends Authenticatable
         'est_anonyme_utilisateur',
         'est_suspendu_utilisateur',
         'raison_suspension_utilisateur',
+        'partage_localisation_directe_utilisateur',
+        'latitude_localisation_directe_utilisateur',
+        'longitude_localisation_directe_utilisateur',
+        'date_localisation_directe_utilisateur',
         'permissions_utilisateur',
         'nombre_missions_utilisateur',
     ];
@@ -52,6 +56,10 @@ class User extends Authenticatable
             'possede_vehicule_utilisateur' => 'boolean',
             'est_anonyme_utilisateur' => 'boolean',
             'est_suspendu_utilisateur' => 'boolean',
+            'partage_localisation_directe_utilisateur' => 'boolean',
+            'latitude_localisation_directe_utilisateur' => 'decimal:7',
+            'longitude_localisation_directe_utilisateur' => 'decimal:7',
+            'date_localisation_directe_utilisateur' => 'datetime',
             'nombre_missions_utilisateur' => 'integer',
             'date_naissance_utilisateur' => 'date',
         ];

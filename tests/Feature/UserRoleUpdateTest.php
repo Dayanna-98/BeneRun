@@ -197,4 +197,95 @@ class UserRoleUpdateTest extends TestCase
             'taille_tshirt_utilisateur' => 'M',
         ]);
     }
+
+    public function test_user_can_toggle_live_location_sharing_and_coordinates_are_cleared_when_disabled(): void
+    {
+        $user = User::factory()->create([
+            'role_utilisateur' => 'bénévole',
+            'partage_localisation_directe_utilisateur' => false,
+            'latitude_localisation_directe_utilisateur' => null,
+            'longitude_localisation_directe_utilisateur' => null,
+            'date_localisation_directe_utilisateur' => null,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $enableResponse = $this->putJson('/api/users/'.$user->id_utilisateur, [
+            'nom_utilisateur' => $user->nom_utilisateur,
+            'prenom_utilisateur' => $user->prenom_utilisateur,
+            'email' => $user->email,
+            'role_utilisateur' => $user->role_utilisateur,
+            'telephone_utilisateur' => $user->telephone_utilisateur,
+            'adresse_utilisateur' => $user->adresse_utilisateur,
+            'date_naissance_utilisateur' => optional($user->date_naissance_utilisateur)->format('Y-m-d'),
+            'allergies_utilisateur' => $user->allergies_utilisateur,
+            'problemes_sante_utilisateur' => $user->problemes_sante_utilisateur,
+            'possede_permis_utilisateur' => $user->possede_permis_utilisateur,
+            'est_motorise_utilisateur' => $user->est_motorise_utilisateur,
+            'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
+            'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
+            'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
+            'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
+            'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
+            'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
+            'partage_localisation_directe_utilisateur' => true,
+            'latitude_localisation_directe_utilisateur' => 46.2044,
+            'longitude_localisation_directe_utilisateur' => 6.1432,
+            'date_localisation_directe_utilisateur' => '2026-04-27T14:00:00Z',
+        ]);
+
+        $enableResponse
+            ->assertOk()
+            ->assertJsonPath('user.partage_localisation_directe_utilisateur', true)
+            ->assertJsonPath('user.latitude_localisation_directe_utilisateur', '46.2044000')
+            ->assertJsonPath('user.longitude_localisation_directe_utilisateur', '6.1432000');
+
+        $this->assertDatabaseHas('users', [
+            'id_utilisateur' => $user->id_utilisateur,
+            'partage_localisation_directe_utilisateur' => 1,
+            'latitude_localisation_directe_utilisateur' => 46.2044,
+            'longitude_localisation_directe_utilisateur' => 6.1432,
+        ]);
+
+        $disableResponse = $this->putJson('/api/users/'.$user->id_utilisateur, [
+            'nom_utilisateur' => $user->nom_utilisateur,
+            'prenom_utilisateur' => $user->prenom_utilisateur,
+            'email' => $user->email,
+            'role_utilisateur' => $user->role_utilisateur,
+            'telephone_utilisateur' => $user->telephone_utilisateur,
+            'adresse_utilisateur' => $user->adresse_utilisateur,
+            'date_naissance_utilisateur' => optional($user->date_naissance_utilisateur)->format('Y-m-d'),
+            'allergies_utilisateur' => $user->allergies_utilisateur,
+            'problemes_sante_utilisateur' => $user->problemes_sante_utilisateur,
+            'possede_permis_utilisateur' => $user->possede_permis_utilisateur,
+            'est_motorise_utilisateur' => $user->est_motorise_utilisateur,
+            'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
+            'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
+            'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
+            'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
+            'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
+            'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
+            'partage_localisation_directe_utilisateur' => false,
+            'latitude_localisation_directe_utilisateur' => 46.3000,
+            'longitude_localisation_directe_utilisateur' => 6.2000,
+            'date_localisation_directe_utilisateur' => '2026-04-27T15:00:00Z',
+        ]);
+
+        $disableResponse
+            ->assertOk()
+            ->assertJsonPath('user.partage_localisation_directe_utilisateur', false)
+            ->assertJsonPath('user.latitude_localisation_directe_utilisateur', null)
+            ->assertJsonPath('user.longitude_localisation_directe_utilisateur', null)
+            ->assertJsonPath('user.date_localisation_directe_utilisateur', null);
+
+        $this->assertDatabaseHas('users', [
+            'id_utilisateur' => $user->id_utilisateur,
+            'partage_localisation_directe_utilisateur' => 0,
+        ]);
+
+        $this->assertDatabaseMissing('users', [
+            'id_utilisateur' => $user->id_utilisateur,
+            'latitude_localisation_directe_utilisateur' => 46.3000,
+        ]);
+    }
 }

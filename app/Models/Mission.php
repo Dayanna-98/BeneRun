@@ -22,6 +22,7 @@ class Mission extends Model
         'heure_debut_mission',
         'heure_fin_mission',
         'lieu_mission',
+        'google_maps_url_mission',
         'latitude_mission',
         'longitude_mission',
         'nombre_benevoles_max',

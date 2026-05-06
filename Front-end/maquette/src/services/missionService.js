@@ -41,8 +41,7 @@ export const missionService = {
       startTime: apiMission.heure_debut_mission ? String(apiMission.heure_debut_mission).slice(0, 5) : '',
       endTime: apiMission.heure_fin_mission ? String(apiMission.heure_fin_mission).slice(0, 5) : '',
       location: apiMission.lieu_mission || '',
-      latitude: apiMission.latitude_mission == null ? '' : String(apiMission.latitude_mission),
-      longitude: apiMission.longitude_mission == null ? '' : String(apiMission.longitude_mission),
+      googleMapsUrl: apiMission.google_maps_url_mission || '',
       maxVolunteers: Number(apiMission.nombre_benevoles_max || 0),
       backupVolunteers: Number(apiMission.nombre_benevoles_backup || 0),
       currentVolunteers: Number(apiMission.current_volunteers_count || 0),
@@ -64,6 +63,8 @@ export const missionService = {
       competenceIds: Array.isArray(apiMission.competences)
         ? apiMission.competences.map((c) => Number(c.id_competence)).filter((id) => !Number.isNaN(id))
         : [],
+      eventGoogleMapsUrl: apiMission.evenement?.google_maps_url_evenement || '',
+      eventRadiusMeters: Number(apiMission.evenement?.rayon_localisation_evenement || 0),
     }
   },
 
@@ -81,8 +82,7 @@ export const missionService = {
       heure_debut_mission: formData.startTime,
       heure_fin_mission: formData.endTime,
       lieu_mission: formData.location,
-      latitude_mission: formData.latitude ? Number(formData.latitude) : null,
-      longitude_mission: formData.longitude ? Number(formData.longitude) : null,
+      google_maps_url_mission: formData.googleMapsUrl || null,
       nombre_benevoles_max: Number(formData.maxVolunteers || 0),
       nombre_benevoles_backup: Number(formData.backupVolunteers || 0),
       statut_mission: formData.status || 'À venir',
@@ -103,6 +103,10 @@ export const missionService = {
 
     if (!payload.responsable_utilisateur_id || Number.isNaN(payload.responsable_utilisateur_id)) {
       throw { message: 'Utilisateur non identifié. Reconnectez-vous pour gérer les missions.' }
+    }
+
+    if (!payload.google_maps_url_mission) {
+      throw { message: 'Veuillez renseigner un lien Google Maps pour la mission.' }
     }
   },
 

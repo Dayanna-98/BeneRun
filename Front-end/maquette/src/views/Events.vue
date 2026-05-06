@@ -14,7 +14,7 @@
             <div class="fs-5 fw-bold">Événements</div>
           </div>
         </div>
-        <p class="text-white-50 small mb-0">Découvrez les missions disponibles</p>
+        <p class="text-white-50 small mb-0">Découvrez les événements à venir</p>
       </div>
     </header>
 
@@ -27,100 +27,92 @@
           v-model="searchQuery"
           type="text"
           class="form-control ps-5 shadow-sm"
-          placeholder="Rechercher une mission..."
+          placeholder="Rechercher un événement..."
         />
       </div>
 
+      <div class="d-flex gap-2 mb-3">
+        <button
+          class="btn btn-sm"
+          :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="timelineFilter = 'upcoming'"
+        >
+          À venir
+        </button>
+        <button
+          class="btn btn-sm"
+          :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="timelineFilter = 'past'"
+        >
+          Passés
+        </button>
+        <button
+          class="btn btn-sm"
+          :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="timelineFilter = 'all'"
+        >
+          Tous
+        </button>
+      </div>
+
       <div v-if="isLoading" class="text-center py-4 text-muted">
-        Chargement des missions...
+        Chargement des événements...
       </div>
 
       <div v-else-if="loadError" class="alert alert-danger" role="alert">
         {{ loadError }}
       </div>
 
-      <!-- Mission Cards -->
+      <!-- Event Cards -->
       <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
-        <div v-for="mission in filteredMissions" :key="mission.id"
-          class="card border-0 shadow overflow-hidden"
-          style="cursor:pointer"
-          @click="router.push(`/mission/${mission.id}`)">
+        <div v-for="event in filteredEvents" :key="event.id"
+          class="card border-0 shadow overflow-hidden">
 
           <!-- Image -->
           <div class="position-relative" style="height:160px">
             <img
-              :src="mission.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'"
-              :alt="mission.name"
+              :src="event.imageUrl || 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&h=400&fit=crop'"
+              :alt="event.name"
               class="w-100 h-100 object-fit-cover"
             />
-            <div class="position-absolute d-flex gap-2" style="top:8px;right:8px">
-              <button
-                class="btn rounded-circle p-2 shadow"
-                :class="favorites.includes(mission.id) ? 'btn-danger' : 'btn-light'"
-                style="opacity:.9"
-                @click.stop="toggleFavorite(mission.id)">
-                <Star :style="favorites.includes(mission.id) ? 'fill:white' : ''" style="width:20px;height:20px" />
-              </button>
-              <button class="btn btn-light rounded-circle p-2 shadow" style="opacity:.9"
-                @click.stop="alert('Partager la mission')">
-                <Share2 style="width:20px;height:20px" />
-              </button>
-            </div>
-            <div v-if="!canApply(mission)"
-              class="position-absolute inset-0 w-100 h-100 d-flex align-items-center justify-content-center"
-              style="background:rgba(0,0,0,.6)">
-              <span class="badge bg-danger fs-6">Compétences requises manquantes</span>
-            </div>
           </div>
 
           <!-- Content -->
           <div class="card-body d-flex flex-column gap-3">
             <div>
-              <h5 class="fw-bold mb-1">{{ mission.name }}</h5>
-              <p class="small text-muted mb-0">{{ mission.eventName }}</p>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2">
-              <span v-for="skill in mission.requiredSkills" :key="skill"
-                :class="['badge', userSkillNames.includes(skill) ? 'text-dark fw-semibold' : 'bg-secondary']"
-                :style="userSkillNames.includes(skill) ? 'background:#d4e645' : ''">
-                {{ skill }}
-              </span>
+              <h5 class="fw-bold mb-1">{{ event.name }}</h5>
+              <p class="small text-muted mb-0">{{ event.description }}</p>
             </div>
 
             <div class="d-flex flex-column gap-2 small text-muted">
               <div class="d-flex align-items-center gap-2">
                 <MapPin style="width:16px;height:16px" />
-                <span>{{ mission.location }}</span>
+                <span>{{ event.location }}</span>
               </div>
               <div class="d-flex align-items-center gap-2">
                 <Clock style="width:16px;height:16px" />
-                <span>{{ new Date(mission.date).toLocaleDateString('fr-FR') }} • {{ mission.startTime }}</span>
+                <span>{{ formatEventPeriod(event) }}</span>
               </div>
               <div class="d-flex align-items-center gap-2">
                 <Users style="width:16px;height:16px" />
                 <span>
-                  {{ mission.currentVolunteers }}/{{ mission.maxVolunteers }} bénévoles
-                  <span v-if="spotsLeft(mission) > 0 && spotsLeft(mission) <= 3" class="text-warning fw-semibold ms-1">
-                    • {{ spotsLeft(mission) }} places restantes
-                  </span>
+                  {{ event.currentVolunteers }}/{{ event.totalVolunteersNeeded }} bénévoles affectés
                 </span>
               </div>
             </div>
 
             <button
               class="btn btn-primary w-100"
-              :disabled="!canApply(mission)"
-              @click.stop="router.push(`/mission/${mission.id}`)">
-              {{ canApply(mission) ? "S'inscrire" : 'Voir les détails' }}
+              @click="router.push(`/event/${event.id}`)">
+              Détails
             </button>
           </div>
         </div>
       </div>
 
       <!-- Empty state -->
-      <div v-if="!isLoading && !loadError && filteredMissions.length === 0" class="text-center py-5 text-muted">
-        Aucune mission trouvée
+      <div v-if="!isLoading && !loadError && filteredEvents.length === 0" class="text-center py-5 text-muted">
+        Aucun événement trouvé
       </div>
 
     </div>
@@ -130,89 +122,108 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, MapPin, Users, Star, Share2, Clock } from 'lucide-vue-next'
-import { skills } from '@/data/mockData'
+import { Search, MapPin, Users, Clock } from 'lucide-vue-next'
 import api from '@/services/api'
+import eventService from '@/services/eventService'
 
 const router = useRouter()
 const searchQuery = ref('')
-const missions = ref([])
-const favorites = ref([])
+const timelineFilter = ref('upcoming')
+const events = ref([])
 const isLoading = ref(false)
 const loadError = ref('')
-const userSkillNames = skills.map(s => s.name)
 
-const toTime = (value) => {
-  if (!value || typeof value !== 'string') return ''
-  return value.slice(0, 5)
-}
-
-const buildEventMap = (apiEvents) => {
-  const map = new Map()
-  for (const event of apiEvents) {
-    map.set(event.id_evenement, event.nom_evenement)
-  }
-  return map
-}
-
-const mapMissionFromApi = (mission, eventNames) => ({
-  id: String(mission.id_mission),
-  name: mission.titre_mission,
-  eventName: mission.evenement?.nom_evenement || eventNames.get(mission.id_evenement) || `Événement #${mission.id_evenement}`,
-  location: mission.lieu_mission,
-  date: mission.date_mission,
-  startTime: toTime(mission.heure_debut_mission),
-  currentVolunteers: Number(mission.current_volunteers_count || 0),
-  maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
-  requiredSkills: [],
-  imageUrl: null,
-  isFavorite: false,
-})
-
-const loadMissions = async () => {
+const loadEvents = async () => {
   isLoading.value = true
   loadError.value = ''
 
   try {
-    const [missionsResponse, eventsResponse] = await Promise.all([
-      api.get('/missions'),
+    const [eventsResponse, missionsResponse, affectationsResponse] = await Promise.all([
       api.get('/evenements'),
+      api.get('/missions'),
+      api.get('/affectations'),
     ])
 
-    const eventNames = buildEventMap(eventsResponse.data ?? [])
+    const rawEvents = eventsResponse.data ?? []
+    const rawMissions = missionsResponse.data ?? []
+    const rawAffectations = affectationsResponse.data ?? []
 
-    missions.value = (missionsResponse.data ?? [])
-      .filter(mission => mission.visibilite_mission === 'publique')
-      .map(mission => mapMissionFromApi(mission, eventNames))
+    const assignmentByMission = new Map()
+    for (const affectation of rawAffectations) {
+      if (!['assigne', 'confirme', 'present'].includes(affectation.statut_affectation)) continue
+      const missionId = String(affectation.id_mission)
+      assignmentByMission.set(missionId, (assignmentByMission.get(missionId) || 0) + 1)
+    }
 
-    favorites.value = missions.value
-      .filter(mission => mission.isFavorite)
-      .map(mission => mission.id)
+    const assignmentsByEvent = new Map()
+    for (const mission of rawMissions) {
+      const missionId = String(mission.id_mission)
+      const eventId = String(mission.id_evenement)
+      const volunteersCount = Number(mission.current_volunteers_count ?? assignmentByMission.get(missionId) ?? 0)
+      assignmentsByEvent.set(eventId, (assignmentsByEvent.get(eventId) || 0) + volunteersCount)
+    }
+
+    events.value = rawEvents.map((rawEvent) => {
+      const mappedEvent = eventService.mapApiEvent(rawEvent)
+      return {
+        ...mappedEvent,
+        currentVolunteers: assignmentsByEvent.get(mappedEvent.id) || 0,
+      }
+    })
   } catch (error) {
-    console.error('Erreur lors du chargement des missions:', error)
-    loadError.value = "Impossible de charger les missions depuis le backend."
+    console.error('Erreur lors du chargement des événements:', error)
+    loadError.value = "Impossible de charger les événements depuis le backend."
   } finally {
     isLoading.value = false
   }
 }
 
-const filteredMissions = computed(() =>
-  missions.value.filter(m =>
-    [m.name, m.eventName, m.location].some(f =>
-      f.toLowerCase().includes(searchQuery.value.toLowerCase())
-    )
-  )
-)
-
-const spotsLeft = (m) => m.maxVolunteers - m.currentVolunteers
-
-const canApply = (m) =>
-  m.requiredSkills.every(s => userSkillNames.includes(s)) && spotsLeft(m) > 0
-
-const toggleFavorite = (id) => {
-  const i = favorites.value.indexOf(id)
-  i === -1 ? favorites.value.push(id) : favorites.value.splice(i, 1)
+const getEventEndDate = (event) => {
+  const endDate = event.endDate || event.startDate || event.date
+  const endTime = event.endTime || '23:59'
+  return new Date(`${endDate}T${endTime}:00`)
 }
 
-onMounted(loadMissions)
+const isPastEvent = (event) => getEventEndDate(event).getTime() < Date.now()
+
+const filteredEvents = computed(() =>
+  events.value.filter((event) => {
+    const matchesSearch = [event.name, event.description, event.location, event.organizer].some((field) =>
+      String(field || '').toLowerCase().includes(searchQuery.value.toLowerCase())
+    )
+
+    const matchesTimeline = timelineFilter.value === 'all'
+      ? true
+      : timelineFilter.value === 'past'
+        ? isPastEvent(event)
+        : !isPastEvent(event)
+
+    return matchesSearch && matchesTimeline
+  })
+)
+
+const formatDateLabel = (dateValue) => {
+  if (!dateValue) return 'Date à définir'
+  return new Date(dateValue).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+const formatEventPeriod = (event) => {
+  const startLabel = formatDateLabel(event.startDate || event.date)
+  const endLabel = formatDateLabel(event.endDate || event.startDate || event.date)
+  const startTime = event.startTime || '00:00'
+  const endTime = event.endTime || '23:59'
+
+  if ((event.startDate || event.date) === (event.endDate || event.startDate || event.date)) {
+    return `${startLabel} • ${startTime} - ${endTime}`
+  }
+
+  return `${startLabel} au ${endLabel} • ${startTime} - ${endTime}`
+}
+
+onMounted(loadEvents)
 </script>
