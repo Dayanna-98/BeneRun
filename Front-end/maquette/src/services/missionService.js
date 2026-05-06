@@ -1,6 +1,28 @@
 import api from './api'
 import { getCurrentUser } from '@/utils/auth'
 
+const extractRows = (payload) => {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.data)) return payload.data
+  return []
+}
+
+const extractMeta = (payload) => {
+  if (!payload || Array.isArray(payload)) return null
+
+  return {
+    currentPage: Number(payload.current_page || 1),
+    lastPage: Number(payload.last_page || 1),
+    perPage: Number(payload.per_page || extractRows(payload).length || 0),
+    total: Number(payload.total || extractRows(payload).length || 0),
+  }
+}
+
+const appendNullable = (formData, key, value) => {
+  if (value === undefined) return
+  formData.append(key, value ?? '')
+}
+
 const toLabelType = (value) => {
   const map = {
     secours: 'Secours',
@@ -96,6 +118,84 @@ export const missionService = {
     }
   },
 
+  toMultipartPayload: (formData, existingMission = null) => {
+    const payload = missionService.toPayload(formData, existingMission)
+    const multipart = new FormData()
+
+    appendNullable(multipart, 'id_evenement', payload.id_evenement)
+    appendNullable(multipart, 'responsable_utilisateur_id', payload.responsable_utilisateur_id)
+    appendNullable(multipart, 'titre_mission', payload.titre_mission)
+    appendNullable(multipart, 'type_mission', payload.type_mission)
+    appendNullable(multipart, 'description_mission', payload.description_mission)
+    appendNullable(multipart, 'date_mission', payload.date_mission)
+    appendNullable(multipart, 'heure_debut_mission', payload.heure_debut_mission)
+    appendNullable(multipart, 'heure_fin_mission', payload.heure_fin_mission)
+    appendNullable(multipart, 'lieu_mission', payload.lieu_mission)
+    appendNullable(multipart, 'google_maps_url_mission', payload.google_maps_url_mission)
+    appendNullable(multipart, 'nombre_benevoles_max', payload.nombre_benevoles_max)
+    appendNullable(multipart, 'nombre_benevoles_backup', payload.nombre_benevoles_backup)
+    appendNullable(multipart, 'statut_mission', payload.statut_mission)
+    appendNullable(multipart, 'inscription_requise', payload.inscription_requise ? '1' : '0')
+    appendNullable(multipart, 'visibilite_mission', payload.visibilite_mission)
+    appendNullable(multipart, 'consignes_securite', payload.consignes_securite)
+    appendNullable(multipart, 'image_mission', payload.image_mission)
+
+    for (const competenceId of payload.competence_ids || []) {
+      multipart.append('competence_ids[]', competenceId)
+    }
+
+    if (formData.imageFile instanceof File) {
+      multipart.append('image_file', formData.imageFile)
+    }
+
+    for (const file of Array.isArray(formData.photoFiles) ? formData.photoFiles : []) {
+      if (file instanceof File) {
+        multipart.append('media_files[]', file)
+      }
+    }
+
+    return multipart
+  },
+
+  validateFormData: (formData) => {
+    const errors = {}
+
+    if (!String(formData.name || '').trim()) errors.name = 'Le titre de la mission est obligatoire.'
+    if (!String(formData.eventId || '').trim()) errors.eventId = 'Sélectionnez un événement.'
+    if (!String(formData.type || '').trim()) errors.type = 'Le type de mission est obligatoire.'
+    if (!String(formData.date || '').trim()) errors.date = 'La date est obligatoire.'
+    if (!String(formData.startTime || '').trim()) errors.startTime = 'L\'heure de début est obligatoire.'
+    if (!String(formData.endTime || '').trim()) errors.endTime = 'L\'heure de fin est obligatoire.'
+    if (formData.startTime && formData.endTime && formData.endTime <= formData.startTime) {
+      errors.endTime = 'L\'heure de fin doit être après l\'heure de début.'
+    }
+    if (!String(formData.location || '').trim()) errors.location = 'La localisation est obligatoire.'
+    if (!String(formData.description || '').trim()) errors.description = 'La description est obligatoire.'
+    if (!formData.maxVolunteers || Number(formData.maxVolunteers) < 1) errors.maxVolunteers = 'Le nombre de places doit être supérieur à 0.'
+    if (formData.backupVolunteers && Number(formData.backupVolunteers) < 0) errors.backupVolunteers = 'Le quota de backup doit être positif.'
+    if (!String(formData.responsibleUserId || '').trim()) errors.responsibleUserId = 'Sélectionnez un responsable.'
+    if (!String(formData.googleMapsUrl || '').trim()) errors.googleMapsUrl = 'Le lien Google Maps est obligatoire.'
+
+    if (formData.imageFile instanceof File) {
+      if (!String(formData.imageFile.type || '').startsWith('image/')) {
+        errors.imageFile = 'Le visuel principal doit être une image.'
+      } else if (formData.imageFile.size > 5 * 1024 * 1024) {
+        errors.imageFile = 'Le visuel principal ne doit pas dépasser 5 Mo.'
+      }
+    }
+
+    const invalidPhoto = (Array.isArray(formData.photoFiles) ? formData.photoFiles : []).find((file) => {
+      if (!(file instanceof File)) return false
+      return !String(file.type || '').startsWith('image/') || file.size > 5 * 1024 * 1024
+    })
+
+    if (invalidPhoto) {
+      errors.photoFiles = 'Chaque photo doit être une image de moins de 5 Mo.'
+    }
+
+    return errors
+  },
+
   validatePayload: (payload) => {
     if (!payload.id_evenement || Number.isNaN(payload.id_evenement)) {
       throw { message: 'Veuillez sélectionner un événement.' }
@@ -127,14 +227,20 @@ export const missionService = {
   getAll: async (filters = {}) => {
     try {
       const response = await api.get('/missions', { params: filters })
-      const payload = response.data
-      const rows = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : []
-
+      const rows = extractRows(response.data)
       return rows.map(missionService.mapApiMission).filter(Boolean)
+    } catch (error) {
+      throw missionService.formatApiError(error, 'Erreur lors du chargement des missions')
+    }
+  },
+
+  getPage: async (filters = {}) => {
+    try {
+      const response = await api.get('/missions', { params: filters })
+      return {
+        data: extractRows(response.data).map(missionService.mapApiMission).filter(Boolean),
+        meta: extractMeta(response.data),
+      }
     } catch (error) {
       throw missionService.formatApiError(error, 'Erreur lors du chargement des missions')
     }
@@ -151,9 +257,12 @@ export const missionService = {
 
   create: async (formData) => {
     try {
-      const payload = missionService.toPayload(formData)
-      missionService.validatePayload(payload)
-      const response = await api.post('/missions', payload)
+      const rawPayload = missionService.toPayload(formData)
+      missionService.validatePayload(rawPayload)
+      const payload = missionService.toMultipartPayload(formData)
+      const response = await api.post('/missions', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       return response.data
     } catch (error) {
       throw missionService.formatApiError(error, 'Erreur lors de la création de la mission')
@@ -162,9 +271,13 @@ export const missionService = {
 
   update: async (id, formData) => {
     try {
-      const payload = missionService.toPayload(formData)
-      missionService.validatePayload(payload)
-      const response = await api.put(`/missions/${id}`, payload)
+      const rawPayload = missionService.toPayload(formData)
+      missionService.validatePayload(rawPayload)
+      const payload = missionService.toMultipartPayload(formData)
+      payload.append('_method', 'PUT')
+      const response = await api.post(`/missions/${id}`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       return response.data
     } catch (error) {
       throw missionService.formatApiError(error, 'Erreur lors de la mise à jour de la mission')

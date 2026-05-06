@@ -40,7 +40,7 @@
               </select>
             </div>
           </div>
-          <div class="d-flex gap-2 mt-3">
+          <div class="filter-pills mt-3">
             <button
               class="btn btn-sm"
               :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
@@ -106,9 +106,9 @@
       <div class="card">
         <div class="card-header"><h5 class="mb-0">Toutes les missions</h5></div>
         <div class="card-body d-flex flex-column gap-3">
-          <div v-if="isLoading" class="text-muted small">Chargement des missions...</div>
+          <CardListSkeleton v-if="isLoading" :count="3" :image-height="72" />
           <div v-else-if="errorMessage" class="alert alert-danger small mb-0">{{ errorMessage }}</div>
-          <div v-for="mission in filteredMissions" :key="mission.id"
+          <div v-for="mission in visibleMissions" :key="mission.id"
             class="border rounded p-3">
 
             <div class="d-flex align-items-start justify-content-between mb-3">
@@ -162,9 +162,18 @@
             </div>
 
           </div>
-          <div v-if="!isLoading && !errorMessage && filteredMissions.length === 0" class="text-muted small">
-            Aucune mission trouvée.
+          <div v-if="hasMoreMissions" ref="sentinelRef" class="text-center py-2 text-muted small">
+            Faites défiler ou chargez plus de missions.
           </div>
+          <button v-if="hasMoreMissions" class="btn btn-outline-primary btn-sm w-100" @click="loadMoreMissions">
+            Voir plus de missions
+          </button>
+          <EmptyState
+            v-if="!isLoading && !errorMessage && filteredMissions.length === 0"
+            icon="📌"
+            title="Aucune mission trouvée"
+            description="Ajustez la recherche ou le filtre d'événement pour voir plus de résultats."
+          />
         </div>
       </div>
 
@@ -173,12 +182,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, MapPin, Clock } from 'lucide-vue-next'
 import missionService from '@/services/missionService'
 import eventService from '@/services/eventService'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
+import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -191,6 +203,8 @@ const errorMessage = ref('')
 const searchQuery = ref('')
 const selectedEventId = ref('')
 const timelineFilter = ref('upcoming')
+const PAGE_SIZE = 8
+const visibleCount = ref(PAGE_SIZE)
 
 const normalizedMissionSearch = computed(() => searchQuery.value.trim().toLowerCase())
 
@@ -210,6 +224,13 @@ const filteredMissions = computed(() => {
     return matchEvent && matchSearch && matchTimeline
   })
 })
+
+const visibleMissions = computed(() => filteredMissions.value.slice(0, visibleCount.value))
+const hasMoreMissions = computed(() => visibleCount.value < filteredMissions.value.length)
+const loadMoreMissions = () => {
+  if (hasMoreMissions.value) visibleCount.value += PAGE_SIZE
+}
+const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreMissions.value, onLoadMore: loadMoreMissions })
 
 const getMissionStartDate = (mission) => new Date(`${mission.date}T${mission.startTime || '00:00'}:00`)
 const canDeleteMission = (mission) => getMissionStartDate(mission).getTime() > Date.now()
@@ -253,4 +274,7 @@ const handleDeleteMission = async (id) => {
 }
 
 onMounted(loadData)
+watch([searchQuery, selectedEventId, timelineFilter], () => {
+  visibleCount.value = PAGE_SIZE
+})
 </script>

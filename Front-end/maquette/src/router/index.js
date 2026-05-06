@@ -31,6 +31,7 @@ import Statistics from '@/views/Statistics.vue'
 import ManageCompetences from '@/views/ManageCompetences.vue'
 import ManageBadges from '@/views/ManageBadges.vue'
 import ManageCertificates from '@/views/ManageCertificates.vue'
+import UserMap from '@/views/UserMap.vue'
 
 const routes = [
   // Routes publiques
@@ -63,6 +64,7 @@ const routes = [
   { path: '/manage-competences', component: ManageCompetences, meta: { requiresAuth: true } },
   { path: '/manage-badges', component: ManageBadges, meta: { requiresAuth: true } },
   { path: '/manage-certificates', component: ManageCertificates, meta: { requiresAuth: true } },
+  { path: '/map', component: UserMap, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

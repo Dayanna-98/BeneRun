@@ -55,7 +55,7 @@
         </div>
       </div>
 
-      <div class="d-flex gap-2">
+      <div class="filter-pills">
         <button
           class="btn btn-sm"
           :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
@@ -83,9 +83,9 @@
       <div class="card">
         <div class="card-header"><h5 class="mb-0">Tous les événements</h5></div>
         <div class="card-body d-flex flex-column gap-3">
-          <div v-if="isLoading" class="text-muted small">Chargement des événements...</div>
+          <CardListSkeleton v-if="isLoading" :count="3" :image-height="128" />
           <div v-else-if="errorMessage" class="alert alert-danger small mb-0">{{ errorMessage }}</div>
-          <div v-for="event in displayedEvents" :key="event.id"
+          <div v-for="event in visibleEvents" :key="event.id"
             class="border rounded overflow-hidden">
 
             <img :src="event.imageUrl" :alt="event.name" class="w-100 object-fit-cover" style="height:128px" />
@@ -167,9 +167,18 @@
               </div>
             </div>
           </div>
-          <div v-if="!isLoading && !errorMessage && displayedEvents.length === 0" class="text-muted small">
-            Aucun événement trouvé en base de données.
+          <div v-if="hasMoreEvents" ref="sentinelRef" class="text-center py-2 text-muted small">
+            Faites défiler ou chargez plus d'événements.
           </div>
+          <button v-if="hasMoreEvents" class="btn btn-outline-primary btn-sm w-100" @click="loadMoreEvents">
+            Voir plus d'événements
+          </button>
+          <EmptyState
+            v-if="!isLoading && !errorMessage && displayedEvents.length === 0"
+            icon="🗂"
+            title="Aucun événement à afficher"
+            description="Créez un nouvel événement ou changez de filtre temporel."
+          />
         </div>
       </div>
 
@@ -269,7 +278,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Calendar, MapPin, Users, Briefcase } from 'lucide-vue-next'
 import eventService from '@/services/eventService'
@@ -277,6 +286,9 @@ import missionService from '@/services/missionService'
 import api from '@/services/api'
 import chatService from '@/services/chatService'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
+import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -296,6 +308,8 @@ const waitingListError = ref('')
 const waitingListSuccess = ref('')
 const queueSearchQuery = ref('')
 const assigningPostulationId = ref('')
+const PAGE_SIZE = 6
+const visibleCount = ref(PAGE_SIZE)
 
 const totalMissions   = computed(() => eventsList.value.reduce((s, e) => s + e.missionsCount, 0))
 const totalVolunteers = computed(() => eventsList.value.reduce((s, e) => s + e.currentVolunteers, 0))
@@ -322,6 +336,13 @@ const displayedEvents = computed(() => {
   if (timelineFilter.value === 'past') return eventsList.value.filter(isPastEvent)
   return eventsList.value.filter((event) => !isPastEvent(event))
 })
+
+const visibleEvents = computed(() => displayedEvents.value.slice(0, visibleCount.value))
+const hasMoreEvents = computed(() => visibleCount.value < displayedEvents.value.length)
+const loadMoreEvents = () => {
+  if (hasMoreEvents.value) visibleCount.value += PAGE_SIZE
+}
+const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreEvents.value, onLoadMore: loadMoreEvents })
 
 const selectedMissionForQueue = computed(() =>
   eventMissions.value.find((mission) => mission.id === selectedMissionIdForQueue.value) || null
@@ -531,4 +552,7 @@ const assignVolunteerToSelectedMission = async (entry) => {
 }
 
 onMounted(loadEvents)
+watch(timelineFilter, () => {
+  visibleCount.value = PAGE_SIZE
+})
 </script>
