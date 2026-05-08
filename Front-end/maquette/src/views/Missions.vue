@@ -1,56 +1,98 @@
 <template>
-  <div class="min-vh-100 bg-light pb-5">
+  <div class="missions-view min-vh-100 bg-light pb-5">
 
     <!-- Header -->
-    <header class="text-white p-4 pb-4 position-relative overflow-hidden"
+    <header class="missions-hero text-white p-4 pb-4 position-relative overflow-hidden"
       style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
       <div class="position-relative" style="z-index:1">
-        <div class="d-flex align-items-center gap-3 mb-2">
+        <div class="d-flex align-items-center gap-3 mb-3">
           <div class="bg-white rounded-3 p-2 shadow">
-            <img src="@/assets/logo.png" alt="Running Geneva" style="height:40px;width:auto" />
+            <img src="@/assets/logo.png" alt="Béné'Run" style="height:40px;width:auto" />
           </div>
           <div>
-            <div class="small text-white-50">Running Geneva</div>
-            <div class="fs-5 fw-bold">Missions</div>
+            <div class="small text-white-50">Béné'Run</div>
+            <div class="fs-4 fw-bold">Missions</div>
           </div>
         </div>
-        <p class="text-white-50 small mb-0">Trouvez votre prochaine mission à Genève</p>
+
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+          <div class="missions-hero__copy">
+            <p class="text-white-50 small text-uppercase fw-semibold mb-2">Trouver, comparer, rejoindre</p>
+            <p class="missions-hero__lead mb-0">Repérez rapidement les missions qui ont besoin de monde et passez à l'action sans vous perdre dans les filtres.</p>
+          </div>
+
+          <div class="missions-hero__summary">
+            <div class="missions-hero__metric">
+              <strong>{{ filteredMissions.length }}</strong>
+              <span>résultats</span>
+            </div>
+            <div class="missions-hero__metric">
+              <strong>{{ upcomingMissionCount }}</strong>
+              <span>à venir</span>
+            </div>
+            <div class="missions-hero__metric">
+              <strong>{{ urgentMissionCount }}</strong>
+              <span>urgentes</span>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="px-3 pt-3 mx-auto" style="max-width:576px">
 
-      <!-- Recherche -->
-      <div class="mb-3 position-relative">
-        <Search class="position-absolute text-muted"
-          style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
-        <input v-model="searchQuery" type="text" class="form-control ps-5 shadow-sm"
-          placeholder="Rechercher une mission..." />
-      </div>
+      <section class="missions-toolbar card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="mb-3 position-relative">
+            <Search class="position-absolute text-muted"
+              style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
+            <input v-model="searchQuery" type="text" class="form-control ps-5 shadow-sm"
+              placeholder="Rechercher une mission, un lieu, un événement..." />
+          </div>
 
-      <div class="filter-pills mb-3">
-        <button
-          class="btn btn-sm"
-          :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
-          @click="timelineFilter = 'upcoming'"
-        >
-          À venir
-        </button>
-        <button
-          class="btn btn-sm"
-          :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
-          @click="timelineFilter = 'past'"
-        >
-          Passées
-        </button>
-        <button
-          class="btn btn-sm"
-          :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
-          @click="timelineFilter = 'all'"
-        >
-          Toutes
-        </button>
-      </div>
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+            <div class="filter-pills mb-0">
+              <button
+                class="btn btn-sm"
+                :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="timelineFilter = 'upcoming'"
+              >
+                À venir
+              </button>
+              <button
+                class="btn btn-sm"
+                :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="timelineFilter = 'past'"
+              >
+                Passées
+              </button>
+              <button
+                class="btn btn-sm"
+                :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="timelineFilter = 'all'"
+              >
+                Toutes
+              </button>
+            </div>
+
+            <button class="btn btn-light d-flex align-items-center justify-content-between gap-2 shadow-sm missions-toolbar__filters"
+              @click="showFilters = true">
+              <div class="d-flex align-items-center gap-2">
+                <Filter style="width:18px;height:18px" />
+                <span>Filtres</span>
+              </div>
+              <span v-if="activeFiltersCount > 0" class="badge bg-primary rounded-pill">
+                {{ activeFiltersCount }}
+              </span>
+            </button>
+          </div>
+
+          <div class="missions-toolbar__caption small text-muted">
+            <span>{{ filteredMissions.length }} missions visibles</span>
+            <span v-if="activeFiltersCount > 0">• {{ activeFiltersCount }} filtre{{ activeFiltersCount > 1 ? 's' : '' }} actif{{ activeFiltersCount > 1 ? 's' : '' }}</span>
+          </div>
+        </div>
+      </section>
 
       <div v-if="eventFilterId" class="alert alert-info d-flex align-items-center justify-content-between py-2">
         <div class="small">
@@ -58,20 +100,6 @@
         </div>
         <button class="btn btn-sm btn-outline-primary" @click="clearFilters">
           Retirer
-        </button>
-      </div>
-
-      <!-- Filtres -->
-      <div class="mb-3">
-        <button class="btn btn-light w-100 d-flex align-items-center justify-content-between shadow-sm"
-          @click="showFilters = true">
-          <div class="d-flex align-items-center gap-2">
-            <Filter style="width:20px;height:20px" />
-            <span>Filtres</span>
-          </div>
-          <span v-if="activeFiltersCount > 0" class="badge bg-primary rounded-pill">
-            {{ activeFiltersCount }}
-          </span>
         </button>
       </div>
 
@@ -84,20 +112,27 @@
       <!-- Mission Cards -->
       <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
         <div v-for="mission in visibleMissions" :key="mission.id"
-          class="card border-0 shadow overflow-hidden"
+          class="mission-card card border-0 shadow overflow-hidden"
           style="cursor:pointer"
           @click="router.push(`/mission/${mission.id}`)">
 
-          <div class="position-relative" style="height:160px">
+          <div class="position-relative mission-card__media" style="height:180px">
             <img
               :src="mission.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'"
               :alt="mission.name" class="w-100 h-100 object-fit-cover" />
+            <div class="mission-card__gradient"></div>
+            <div class="mission-card__chips">
+              <span class="badge text-bg-light border border-0">{{ mission.type }}</span>
+              <span class="badge" :class="spotsLeft(mission) <= 3 ? 'text-bg-warning' : 'text-bg-dark'">
+                {{ spotsLeft(mission) > 0 ? `${spotsLeft(mission)} place${spotsLeft(mission) > 1 ? 's' : ''}` : 'Complet' }}
+              </span>
+            </div>
             <div class="position-absolute d-flex gap-2" style="top:8px;right:8px">
               <button class="btn rounded-circle p-2 shadow"
                 :class="favorites.includes(mission.id) ? 'btn-danger' : 'btn-light'"
                 style="opacity:.9"
                 @click.stop="toggleFavorite(mission.id)">
-                <Star :style="favorites.includes(mission.id) ? 'fill:white' : ''"
+                <Heart :style="favorites.includes(mission.id) ? 'fill:white' : ''"
                   style="width:20px;height:20px" />
               </button>
               <button class="btn btn-light rounded-circle p-2 shadow" style="opacity:.9"
@@ -114,8 +149,16 @@
 
           <div class="card-body d-flex flex-column gap-3">
             <div>
-              <h5 class="fw-bold mb-1">{{ mission.name }}</h5>
-              <div class="d-flex align-items-center gap-2">
+              <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
+                <div>
+                  <h5 class="fw-bold mb-1">{{ mission.name }}</h5>
+                  <div class="small text-muted">{{ mission.description || 'Mission terrain pour accompagner l’événement dans les meilleures conditions.' }}</div>
+                </div>
+                <span class="mission-card__date-badge">
+                  {{ formatMissionDay(mission.date) }}
+                </span>
+              </div>
+              <div class="d-flex align-items-center gap-2 mission-card__event-link">
                 <Calendar style="width:16px;height:16px;color:#6b7280" />
                 <button class="btn btn-link btn-sm p-0 text-decoration-none small"
                   @click.stop="router.push(`/event/${mission.eventId}`)">
@@ -130,9 +173,10 @@
                 :style="userSkillNames.includes(skill) ? 'background:#d4e645' : ''">
                 {{ skill }}
               </span>
+              <span v-if="mission.requiredSkills.length === 0" class="badge text-bg-light border">Aucune compétence bloquante</span>
             </div>
 
-            <div class="d-flex flex-column gap-2 small text-muted">
+            <div class="mission-card__facts d-flex flex-column gap-2 small text-muted">
               <div class="d-flex align-items-center gap-2">
                 <MapPin style="width:16px;height:16px" />
                 <span>{{ mission.location }}</span>
@@ -153,10 +197,16 @@
               </div>
             </div>
 
-            <button class="btn btn-primary w-100"
-              @click.stop="router.push(`/mission/${mission.id}`)">
-              Détails
-            </button>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary flex-fill"
+                @click.stop="router.push(`/mission/${mission.id}`)">
+                Voir la mission
+              </button>
+              <button class="btn btn-outline-primary"
+                @click.stop="router.push(`/event/${mission.eventId}`)">
+                Événement
+              </button>
+            </div>
           </div>
         </div>
 
@@ -242,7 +292,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Search, MapPin, Users, Star, Share2, Clock, Calendar, Filter, X } from 'lucide-vue-next'
+import { Search, MapPin, Users, Heart, Share2, Clock, Calendar, Filter, X } from 'lucide-vue-next'
 import { skills } from '@/data/mockData'
 import api from '@/services/api'
 import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
@@ -324,7 +374,18 @@ const mapMissionFromApi = (mission, eventMap, affectationCountMap) => {
     imageUrl: null,
     isFavorite: false,
     visibility: mission.visibilite_mission === 'publique' ? 'public' : 'private',
+    status: String(mission.statut_mission || '').toLowerCase(),
   }
+}
+
+const isMissionPast = (mission) => {
+  const status = String(mission.status || '').toLowerCase()
+  if (status.includes('termine') || status.includes('clotur') || status.includes('pass')) {
+    return true
+  }
+
+  const missionEndDate = new Date(`${mission.date}T${mission.endTime || '23:59'}:00`)
+  return missionEndDate.getTime() < Date.now()
 }
 
 const loadMissions = async () => {
@@ -332,10 +393,11 @@ const loadMissions = async () => {
   loadError.value = ''
 
   try {
-    const [missionsResponse, eventsResponse, affectationsResponse] = await Promise.all([
+    const [missionsResponse, eventsResponse, affectationsResponse, favoritesResponse] = await Promise.all([
       api.get('/missions'),
       api.get('/evenements'),
       api.get('/affectations'),
+      api.get('/favorites').catch(() => ({ data: [] })),
     ])
 
     const apiEvents = eventsResponse.data ?? []
@@ -348,13 +410,31 @@ const loadMissions = async () => {
       category: 'Non défini',
     }))
 
-    missions.value = (missionsResponse.data ?? []).map(mission =>
-      mapMissionFromApi(mission, eventMap, affectationCountMap)
+    const favoriteRows = Array.isArray(favoritesResponse.data)
+      ? favoritesResponse.data
+      : (favoritesResponse.data?.data ?? [])
+
+    const favoriteIds = new Set(
+      favoriteRows
+        .map((row) => String(
+          row?.id_mission
+          ?? row?.id
+          ?? row?.mission?.id_mission
+          ?? row?.mission?.id
+          ?? ''
+        ))
+        .filter((value) => value !== '')
     )
 
-    favorites.value = missions.value
-      .filter(mission => mission.isFavorite)
-      .map(mission => mission.id)
+    missions.value = (missionsResponse.data ?? []).map((mission) => {
+      const mappedMission = mapMissionFromApi(mission, eventMap, affectationCountMap)
+      return {
+        ...mappedMission,
+        isFavorite: favoriteIds.has(mappedMission.id),
+      }
+    })
+
+    favorites.value = [...favoriteIds]
   } catch (error) {
     console.error('Erreur lors du chargement des missions:', error)
     loadError.value = 'Impossible de charger les missions depuis le backend.'
@@ -372,12 +452,19 @@ const eventFilterName = computed(() =>
   events.value.find((event) => event.id === eventFilterId.value)?.name || `Événement #${eventFilterId.value}`
 )
 
+const upcomingMissionCount = computed(() => missions.value.filter((mission) => !isMissionPast(mission)).length)
+
+const urgentMissionCount = computed(() =>
+  missions.value.filter((mission) => {
+    const remainingSpots = spotsLeft(mission)
+    return remainingSpots > 0 && remainingSpots <= 3
+  }).length
+)
+
 const filteredMissions = computed(() => {
   const today     = new Date()
   const nextWeek  = new Date(today); nextWeek.setDate(today.getDate() + 7)
   const nextMonth = new Date(today); nextMonth.setMonth(today.getMonth() + 1)
-  const nowTs = Date.now()
-
   return missions.value.filter(m => {
     const q = searchQuery.value.toLowerCase()
     const matchSearch = [m.name, m.eventName, m.location].some(f => f.toLowerCase().includes(q))
@@ -390,8 +477,7 @@ const filteredMissions = computed(() => {
     if (filterDate.value === 'week')   matchDate = d >= today && d <= nextWeek
     if (filterDate.value === 'month')  matchDate = d >= today && d <= nextMonth
 
-    const missionEndDate = new Date(`${m.date}T${m.endTime || '23:59'}:00`)
-    const isPast = missionEndDate.getTime() < nowTs
+    const isPast = isMissionPast(m)
     const matchTimeline = timelineFilter.value === 'all'
       ? true
       : timelineFilter.value === 'past'
@@ -413,9 +499,37 @@ const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreMissions.v
 
 const spotsLeft  = (m) => m.maxVolunteers - m.currentVolunteers
 const canApply   = (m) => m.requiredSkills.every(s => userSkillNames.includes(s)) && spotsLeft(m) > 0
-const toggleFavorite = (id) => {
-  const i = favorites.value.indexOf(id)
-  i === -1 ? favorites.value.push(id) : favorites.value.splice(i, 1)
+const formatMissionDay = (dateValue) => {
+  if (!dateValue) return 'À définir'
+
+  const date = new Date(dateValue)
+  const day = date.toLocaleDateString('fr-FR', { day: '2-digit' })
+  const month = date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
+  return `${day} ${month}`
+}
+
+const toggleFavorite = async (id) => {
+  const missionId = String(id)
+  const alreadyFavorite = favorites.value.includes(missionId)
+
+  try {
+    if (alreadyFavorite) {
+      await api.delete(`/favorites/${missionId}`)
+      favorites.value = favorites.value.filter((value) => value !== missionId)
+    } else {
+      await api.post(`/favorites/${missionId}`)
+      favorites.value = [...favorites.value, missionId]
+    }
+
+    missions.value = missions.value.map((mission) => (
+      mission.id === missionId
+        ? { ...mission, isFavorite: !alreadyFavorite }
+        : mission
+    ))
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des favoris:', error)
+    alert('Impossible de mettre à jour les favoris pour le moment.')
+  }
 }
 const clearFilters = () => {
   filterType.value = filterCategory.value = filterDate.value = filterVisibility.value = 'all'
@@ -439,3 +553,125 @@ watch([searchQuery, filterType, filterCategory, filterDate, filterVisibility, ti
 onMounted(applyEventFilterFromRoute)
 onMounted(loadMissions)
 </script>
+
+<style scoped>
+.missions-hero__copy {
+  max-width: 28rem;
+}
+
+.missions-hero__lead {
+  color: rgba(255, 255, 255, 0.86);
+  line-height: 1.5;
+  max-width: 32rem;
+}
+
+.missions-hero__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: min(100%, 260px);
+}
+
+.missions-hero__metric {
+  padding: 0.9rem 0.8rem;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+}
+
+.missions-hero__metric strong {
+  display: block;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.missions-hero__metric span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.72);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.missions-toolbar {
+  margin-top: 0.35rem;
+  position: relative;
+  z-index: 2;
+}
+
+.missions-toolbar__filters {
+  min-width: 120px;
+}
+
+.missions-toolbar__caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.mission-card {
+  transition: transform var(--t-normal), box-shadow var(--t-normal);
+}
+
+.mission-card:hover {
+  transform: translateY(-3px);
+}
+
+.mission-card__media {
+  overflow: hidden;
+}
+
+.mission-card__gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(26,34,48,0.05) 0%, rgba(26,34,48,0.48) 100%);
+}
+
+.mission-card__chips {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mission-card__date-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 14px;
+  background: rgba(44,53,73,0.08);
+  color: var(--primary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.mission-card__event-link .btn-link {
+  font-weight: 600;
+}
+
+.mission-card__facts {
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: rgba(44,53,73,0.035);
+}
+
+@media (max-width: 576px) {
+  .missions-hero__summary {
+    width: 100%;
+  }
+
+  .missions-toolbar {
+    margin-top: 0.25rem;
+  }
+}
+</style>

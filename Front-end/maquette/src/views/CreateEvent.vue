@@ -42,10 +42,12 @@
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de début</label>
                 <input v-model="formData.startTime" type="time" class="form-control" />
+                <div class="form-text x-small text-muted">Heure à laquelle débute la date de début</div>
               </div>
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de fin</label>
                 <input v-model="formData.endTime" type="time" class="form-control" />
+                <div class="form-text x-small text-muted">Heure à laquelle se termine la date de fin</div>
               </div>
             </div>
 

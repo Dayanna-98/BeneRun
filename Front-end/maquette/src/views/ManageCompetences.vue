@@ -1,43 +1,70 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
-    <!-- Header -->
-    <header class="bg-white border-bottom sticky-top">
+    <!-- Hero Header -->
+    <header class="text-white sticky-top overflow-hidden"
+      style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
       <div class="p-3 d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-link p-0 text-dark" @click="router.go(-1)">
+          <button class="btn btn-link p-0 text-white" @click="router.go(-1)">
             <ArrowLeft style="width:24px;height:24px" />
           </button>
-          <h1 class="fs-5 fw-semibold mb-0">Gestion des Compétences</h1>
+          <div class="d-flex align-items-center gap-3">
+            <div class="rounded-3 p-2 d-flex align-items-center justify-content-center"
+              style="background:rgba(255,255,255,.15);width:40px;height:40px">
+              <Award style="width:22px;height:22px;color:#c084fc" />
+            </div>
+            <div>
+              <div class="x-small" style="color:rgba(255,255,255,.5)">Administration</div>
+              <div class="fs-5 fw-bold">Compétences</div>
+            </div>
+          </div>
         </div>
-        <button v-if="canEdit" class="btn btn-primary btn-sm d-flex align-items-center gap-2" @click="openCreateModal">
+        <button v-if="canEdit"
+          class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill"
+          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+          @click="openCreateModal">
           <Plus style="width:16px;height:16px" /> Ajouter
         </button>
+      </div>
+      <div class="px-3 pb-3">
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+          style="background:rgba(192,132,252,.2);border:1px solid rgba(192,132,252,.3)">
+          <Award style="width:14px;height:14px;color:#c084fc" />
+          <span class="small fw-semibold" style="color:#e9d5ff">{{ competences.length }} compétence{{ competences.length !== 1 ? 's' : '' }}</span>
+        </div>
       </div>
     </header>
 
     <div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:768px">
 
       <!-- Alerte permission -->
-      <div v-if="!canEdit" class="alert alert-info d-flex align-items-center gap-2 mb-0">
-        <Info style="width:18px;height:18px;flex-shrink:0" />
-        <span class="small">Vous pouvez consulter les compétences. Seul un super-administrateur peut les créer, modifier ou supprimer.</span>
+      <div v-if="!canEdit" class="rounded-3 p-3 d-flex align-items-center gap-3 small"
+        style="background:#faf5ff;border-left:4px solid #a855f7">
+        <Info style="width:18px;height:18px;flex-shrink:0;color:#a855f7" />
+        <span class="text-muted">Vous pouvez consulter les compétences. Seul un super-administrateur peut les créer, modifier ou supprimer.</span>
       </div>
 
       <!-- Stats -->
-      <div class="card">
-        <div class="card-body p-3 text-center">
-          <div class="fs-3 fw-bold text-primary">{{ competences.length }}</div>
-          <div class="small text-muted">Compétence{{ competences.length !== 1 ? 's' : '' }} disponible{{ competences.length !== 1 ? 's' : '' }}</div>
+      <div class="card border-0 text-white shadow-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7)">
+        <div class="card-body p-3 d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center"
+            style="width:48px;height:48px;background:rgba(255,255,255,.2)">
+            <Award style="width:24px;height:24px" />
+          </div>
+          <div>
+            <div class="fs-3 fw-bold">{{ competences.length }}</div>
+            <div class="x-small opacity-90">Compétence{{ competences.length !== 1 ? 's' : '' }} disponible{{ competences.length !== 1 ? 's' : '' }}</div>
+          </div>
         </div>
       </div>
 
       <!-- Barre de recherche -->
-      <div class="input-group">
-        <span class="input-group-text bg-white">
-          <Search style="width:16px;height:16px;color:#6c757d" />
+      <div class="input-group shadow-sm rounded-3 overflow-hidden">
+        <span class="input-group-text bg-white border-0 ps-3">
+          <Search style="width:16px;height:16px;color:#9ca3af" />
         </span>
-        <input v-model="search" type="text" class="form-control border-start-0" placeholder="Rechercher une compétence..." />
+        <input v-model="search" type="text" class="form-control border-0 bg-white" placeholder="Rechercher une compétence..." />
       </div>
 
       <!-- États de chargement / erreur -->
@@ -50,54 +77,73 @@
       </div>
 
       <!-- Liste des compétences -->
-      <div v-else class="card">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <h5 class="mb-0">Toutes les compétences</h5>
-          <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ filtered.length }}</span>
+      <div v-else class="card border-0 shadow-sm overflow-hidden">
+        <div class="d-flex align-items-center justify-content-between px-3 py-3"
+          style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+          <span class="fw-semibold text-white d-flex align-items-center gap-2">
+            <Award style="width:16px;height:16px;color:#c084fc" /> Toutes les compétences
+          </span>
+          <span class="badge rounded-pill"
+            style="background:rgba(192,132,252,.2);color:#c084fc;border:1px solid rgba(192,132,252,.3)">
+            {{ filtered.length }}
+          </span>
         </div>
 
-        <div v-if="filtered.length === 0" class="card-body text-center text-muted py-5">
-          <Award style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
-          <p class="mb-0">Aucune compétence trouvée</p>
+        <div v-if="filtered.length === 0" class="text-center py-5 text-muted">
+          <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+            style="width:64px;height:64px;background:#f3f4f6">
+            <Award style="width:32px;height:32px;color:#d1d5db" />
+          </div>
+          <p class="small mb-0">Aucune compétence trouvée</p>
         </div>
 
         <ul v-else class="list-group list-group-flush">
           <li v-for="c in filtered" :key="c.id_competence"
-            class="list-group-item d-flex align-items-center justify-content-between gap-3 py-3">
+            class="list-group-item d-flex align-items-center justify-content-between gap-3 py-3 px-3">
 
             <!-- Nom ou champ d'édition inline -->
-            <div class="flex-fill">
-              <template v-if="editingId === c.id_competence">
-                <div class="d-flex align-items-center gap-2">
-                  <input
-                    v-model="editName"
-                    class="form-control form-control-sm"
-                    :class="editError ? 'is-invalid' : ''"
-                    @keyup.enter="confirmEdit(c.id_competence)"
-                    @keyup.escape="cancelEdit"
-                    ref="editInput"
-                  />
-                  <button class="btn btn-success btn-sm" @click="confirmEdit(c.id_competence)" :disabled="editLoading">
-                    <Check style="width:14px;height:14px" />
-                  </button>
-                  <button class="btn btn-outline-secondary btn-sm" @click="cancelEdit">
-                    <X style="width:14px;height:14px" />
-                  </button>
-                </div>
-                <div v-if="editError" class="text-danger x-small mt-1">{{ editError }}</div>
-              </template>
-              <template v-else>
-                <span class="fw-medium">{{ c.nom_competence }}</span>
-              </template>
+            <div class="d-flex align-items-center gap-3 flex-fill">
+              <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                style="width:36px;height:36px;background:linear-gradient(135deg,#f3e8ff,#e9d5ff)">
+                <Award style="width:16px;height:16px;color:#9333ea" />
+              </div>
+              <div class="flex-fill">
+                <template v-if="editingId === c.id_competence">
+                  <div class="d-flex align-items-center gap-2">
+                    <input
+                      v-model="editName"
+                      class="form-control form-control-sm"
+                      :class="editError ? 'is-invalid' : ''"
+                      @keyup.enter="confirmEdit(c.id_competence)"
+                      @keyup.escape="cancelEdit"
+                      ref="editInput"
+                    />
+                    <button class="btn btn-success btn-sm rounded-pill px-3" @click="confirmEdit(c.id_competence)" :disabled="editLoading">
+                      <Check style="width:14px;height:14px" />
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" @click="cancelEdit">
+                      <X style="width:14px;height:14px" />
+                    </button>
+                  </div>
+                  <div v-if="editError" class="text-danger x-small mt-1">{{ editError }}</div>
+                </template>
+                <template v-else>
+                  <span class="fw-medium">{{ c.nom_competence }}</span>
+                </template>
+              </div>
             </div>
 
             <!-- Actions (superadmin seulement) -->
             <div v-if="canEdit" class="d-flex gap-2 flex-shrink-0">
-              <button class="btn btn-outline-primary btn-sm" @click="startEdit(c)" title="Modifier">
-                <Pencil style="width:14px;height:14px" />
+              <button class="btn btn-sm rounded-pill px-3"
+                style="background:#eff6ff;color:#3b82f6;border:none"
+                @click="startEdit(c)" title="Modifier">
+                <Pencil style="width:13px;height:13px" />
               </button>
-              <button class="btn btn-outline-danger btn-sm" @click="askDelete(c)" title="Supprimer">
-                <Trash2 style="width:14px;height:14px" />
+              <button class="btn btn-sm rounded-pill px-3"
+                style="background:#fff1f2;color:#ef4444;border:none"
+                @click="askDelete(c)" title="Supprimer">
+                <Trash2 style="width:13px;height:13px" />
               </button>
             </div>
           </li>
@@ -107,12 +153,16 @@
 
     <!-- Modal : Créer une compétence -->
     <div v-if="showCreateModal" class="modal-backdrop-custom" @click.self="closeCreateModal">
-      <div class="modal-dialog-custom card shadow-lg">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <h5 class="mb-0 d-flex align-items-center gap-2">
-            <Plus style="width:18px;height:18px" /> Nouvelle compétence
+      <div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+        <div class="d-flex align-items-center justify-content-between px-4 py-3"
+          style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+          <h5 class="mb-0 text-white d-flex align-items-center gap-2">
+            <div class="rounded-2 p-1" style="background:rgba(255,255,255,.15)">
+              <Plus style="width:15px;height:15px;color:#d4e645" />
+            </div>
+            Nouvelle compétence
           </h5>
-          <button class="btn btn-link p-0 text-secondary" @click="closeCreateModal">
+          <button class="btn btn-link p-0" style="color:rgba(255,255,255,.6)" @click="closeCreateModal">
             <X style="width:20px;height:20px" />
           </button>
         </div>
@@ -131,9 +181,11 @@
             <div v-if="createError" class="invalid-feedback d-block">{{ createError }}</div>
           </div>
         </div>
-        <div class="card-footer d-flex gap-2 justify-content-end">
-          <button class="btn btn-outline-secondary" @click="closeCreateModal">Annuler</button>
-          <button class="btn btn-primary d-flex align-items-center gap-2" @click="submitCreate" :disabled="createLoading">
+        <div class="d-flex gap-2 justify-content-end px-4 py-3 border-top">
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-4" @click="closeCreateModal">Annuler</button>
+          <button class="btn btn-sm rounded-pill px-4 fw-semibold d-flex align-items-center gap-2"
+            style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+            @click="submitCreate" :disabled="createLoading">
             <span v-if="createLoading" class="spinner-border spinner-border-sm" role="status"></span>
             Ajouter
           </button>
@@ -143,10 +195,11 @@
 
     <!-- Modal : Confirmer suppression -->
     <div v-if="deleteTarget" class="modal-backdrop-custom" @click.self="deleteTarget = null">
-      <div class="modal-dialog-custom card shadow-lg">
-        <div class="card-header d-flex align-items-center gap-2">
-          <Trash2 style="width:18px;height:18px;color:#dc3545" />
-          <h5 class="mb-0 text-danger">Supprimer la compétence</h5>
+      <div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+        <div class="px-4 py-3 d-flex align-items-center gap-2"
+          style="background:linear-gradient(135deg,#450a0a,#7f1d1d)">
+          <Trash2 style="width:18px;height:18px;color:#fca5a5" />
+          <h5 class="mb-0 text-white">Supprimer la compétence</h5>
         </div>
         <div class="card-body">
           <p class="mb-0">
@@ -155,9 +208,9 @@
             Cette action est irréversible.
           </p>
         </div>
-        <div class="card-footer d-flex gap-2 justify-content-end">
-          <button class="btn btn-outline-secondary" @click="deleteTarget = null">Annuler</button>
-          <button class="btn btn-danger d-flex align-items-center gap-2" @click="confirmDelete" :disabled="deleteLoading">
+        <div class="d-flex gap-2 justify-content-end px-4 py-3 border-top">
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-4" @click="deleteTarget = null">Annuler</button>
+          <button class="btn btn-danger btn-sm rounded-pill px-4 d-flex align-items-center gap-2" @click="confirmDelete" :disabled="deleteLoading">
             <span v-if="deleteLoading" class="spinner-border spinner-border-sm" role="status"></span>
             Supprimer
           </button>

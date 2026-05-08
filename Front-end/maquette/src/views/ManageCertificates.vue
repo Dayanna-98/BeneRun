@@ -1,16 +1,44 @@
 <template>
-  <div class="min-vh-100 bg-light pb-5">
-    <header class="bg-white border-bottom sticky-top">
+  <div class="min-vh-100 pb-5" style="background:#f0f4f8">
+    <!-- Hero Header -->
+    <header class="text-white sticky-top overflow-hidden"
+      style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
       <div class="p-3 d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-link p-0 text-dark" @click="router.go(-1)">
+          <button class="btn btn-link p-0 text-white" @click="router.go(-1)">
             <ArrowLeft style="width:24px;height:24px" />
           </button>
-          <h1 class="fs-5 fw-semibold mb-0">Gestion des certificats</h1>
+          <div class="d-flex align-items-center gap-3">
+            <div class="rounded-3 p-2 d-flex align-items-center justify-content-center"
+              style="background:rgba(255,255,255,.15);width:40px;height:40px">
+              <FileText style="width:22px;height:22px;color:#a3c200" />
+            </div>
+            <div>
+              <div class="x-small" style="color:rgba(255,255,255,.5)">Administration</div>
+              <div class="fs-5 fw-bold">Certificats</div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm d-flex align-items-center gap-2" @click="openCreateModal">
+        <button class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill"
+          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+          @click="openCreateModal">
           <Plus style="width:16px;height:16px" /> Créer
         </button>
+      </div>
+      <!-- Stat strip -->
+      <div class="px-3 pb-3 d-flex gap-2">
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+          style="background:rgba(234,179,8,.2);border:1px solid rgba(234,179,8,.3)">
+          <span class="small fw-semibold" style="color:#fde68a">{{ pendingCount }} en attente</span>
+        </div>
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+          style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">
+          <span class="small fw-semibold" style="color:#86efac">{{ approvedCount }} approuvés</span>
+        </div>
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+          style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3)">
+          <span class="small fw-semibold" style="color:#fca5a5">{{ rejectedCount }} rejetés</span>
+        </div>
       </div>
     </header>
 
@@ -19,26 +47,44 @@
 
       <div class="row g-3">
         <div class="col-12 col-md-4">
-          <div class="card text-center">
-            <div class="card-body p-3">
-              <div class="fs-3 fw-bold text-warning">{{ pendingCount }}</div>
-              <div class="x-small text-muted">En attente</div>
+          <div class="card border-0 text-white h-100" style="background:linear-gradient(135deg,#b45309,#d97706)">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center"
+                style="width:44px;height:44px;background:rgba(255,255,255,.2)">
+                <FileText style="width:22px;height:22px" />
+              </div>
+              <div>
+                <div class="fs-3 fw-bold">{{ pendingCount }}</div>
+                <div class="x-small opacity-90">En attente</div>
+              </div>
             </div>
           </div>
         </div>
         <div class="col-12 col-md-4">
-          <div class="card text-center">
-            <div class="card-body p-3">
-              <div class="fs-3 fw-bold text-success">{{ approvedCount }}</div>
-              <div class="x-small text-muted">Approuvés</div>
+          <div class="card border-0 text-white h-100" style="background:linear-gradient(135deg,#15803d,#16a34a)">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center"
+                style="width:44px;height:44px;background:rgba(255,255,255,.2)">
+                <FileText style="width:22px;height:22px" />
+              </div>
+              <div>
+                <div class="fs-3 fw-bold">{{ approvedCount }}</div>
+                <div class="x-small opacity-90">Approuvés</div>
+              </div>
             </div>
           </div>
         </div>
         <div class="col-12 col-md-4">
-          <div class="card text-center">
-            <div class="card-body p-3">
-              <div class="fs-3 fw-bold text-danger">{{ rejectedCount }}</div>
-              <div class="x-small text-muted">Rejetés</div>
+          <div class="card border-0 text-white h-100" style="background:linear-gradient(135deg,#991b1b,#dc2626)">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+              <div class="rounded-circle d-flex align-items-center justify-content-center"
+                style="width:44px;height:44px;background:rgba(255,255,255,.2)">
+                <FileText style="width:22px;height:22px" />
+              </div>
+              <div>
+                <div class="fs-3 fw-bold">{{ rejectedCount }}</div>
+                <div class="x-small opacity-90">Rejetés</div>
+              </div>
             </div>
           </div>
         </div>
@@ -68,14 +114,23 @@
 
       <div v-else>
         <!-- Section En attente -->
-        <div class="card mb-3">
-          <div class="card-header d-flex align-items-center justify-content-between bg-warning-subtle">
-            <h5 class="mb-0 text-warning">⏳ En attente de validation</h5>
-            <span class="badge bg-warning text-dark">{{ pendingCertificates.length }}</span>
+        <div class="card mb-3 border-0 shadow-sm overflow-hidden">
+          <div class="d-flex align-items-center justify-content-between px-3 py-3"
+            style="background:linear-gradient(135deg,#b45309,#d97706)">
+            <span class="fw-semibold text-white d-flex align-items-center gap-2">
+              <FileText style="width:16px;height:16px" /> En attente de validation
+            </span>
+            <span class="badge rounded-pill"
+              style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
+              {{ pendingCertificates.length }}
+            </span>
           </div>
-          <div v-if="pendingCertificates.length === 0" class="card-body text-center text-muted py-5">
-            <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
-            <p class="mb-0">Aucun certificat en attente</p>
+          <div v-if="pendingCertificates.length === 0" class="text-center py-5 text-muted">
+            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+              style="width:56px;height:56px;background:#f3f4f6">
+              <FileText style="width:28px;height:28px;color:#d1d5db" />
+            </div>
+            <p class="small mb-0">Aucun certificat en attente</p>
           </div>
           <ul v-else class="list-group list-group-flush">
             <li v-for="cert in pendingCertificates" :key="cert.id" class="list-group-item py-3">
@@ -130,14 +185,23 @@
         </div>
 
         <!-- Section Approuvés -->
-        <div class="card mb-3">
-          <div class="card-header d-flex align-items-center justify-content-between bg-success-subtle">
-            <h5 class="mb-0 text-success">✓ Certificats approuvés</h5>
-            <span class="badge bg-success">{{ approvedCertificates.length }}</span>
+        <div class="card mb-3 border-0 shadow-sm overflow-hidden">
+          <div class="d-flex align-items-center justify-content-between px-3 py-3"
+            style="background:linear-gradient(135deg,#15803d,#16a34a)">
+            <span class="fw-semibold text-white d-flex align-items-center gap-2">
+              <FileText style="width:16px;height:16px" /> Certificats approuvés
+            </span>
+            <span class="badge rounded-pill"
+              style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
+              {{ approvedCertificates.length }}
+            </span>
           </div>
-          <div v-if="approvedCertificates.length === 0" class="card-body text-center text-muted py-5">
-            <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
-            <p class="mb-0">Aucun certificat approuvé</p>
+          <div v-if="approvedCertificates.length === 0" class="text-center py-5 text-muted">
+            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+              style="width:56px;height:56px;background:#f3f4f6">
+              <FileText style="width:28px;height:28px;color:#d1d5db" />
+            </div>
+            <p class="small mb-0">Aucun certificat approuvé</p>
           </div>
           <ul v-else class="list-group list-group-flush">
             <li v-for="cert in approvedCertificates" :key="cert.id" class="list-group-item py-3">
@@ -173,14 +237,23 @@
         </div>
 
         <!-- Section Rejetés -->
-        <div class="card">
-          <div class="card-header d-flex align-items-center justify-content-between bg-danger-subtle">
-            <h5 class="mb-0 text-danger">✕ Certificats rejetés</h5>
-            <span class="badge bg-danger">{{ rejectedCertificates.length }}</span>
+        <div class="card border-0 shadow-sm overflow-hidden">
+          <div class="d-flex align-items-center justify-content-between px-3 py-3"
+            style="background:linear-gradient(135deg,#991b1b,#dc2626)">
+            <span class="fw-semibold text-white d-flex align-items-center gap-2">
+              <FileText style="width:16px;height:16px" /> Certificats rejetés
+            </span>
+            <span class="badge rounded-pill"
+              style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
+              {{ rejectedCertificates.length }}
+            </span>
           </div>
-          <div v-if="rejectedCertificates.length === 0" class="card-body text-center text-muted py-5">
-            <FileText style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
-            <p class="mb-0">Aucun certificat rejeté</p>
+          <div v-if="rejectedCertificates.length === 0" class="text-center py-5 text-muted">
+            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+              style="width:56px;height:56px;background:#f3f4f6">
+              <FileText style="width:28px;height:28px;color:#d1d5db" />
+            </div>
+            <p class="small mb-0">Aucun certificat rejeté</p>
           </div>
           <ul v-else class="list-group list-group-flush">
             <li v-for="cert in rejectedCertificates" :key="cert.id" class="list-group-item py-3">
@@ -218,14 +291,17 @@
     </div>
 
     <div v-if="showFormModal" class="modal-backdrop-custom" @click.self="closeFormModal">
-      <div class="modal-dialog-custom card shadow-lg">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <h5 class="mb-0 d-flex align-items-center gap-2">
-            <Pencil v-if="editingId" style="width:18px;height:18px" />
-            <Plus v-else style="width:18px;height:18px" />
+      <div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+        <div class="d-flex align-items-center justify-content-between px-4 py-3"
+          style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+          <h5 class="mb-0 text-white d-flex align-items-center gap-2">
+            <div class="rounded-2 p-1" style="background:rgba(255,255,255,.15)">
+              <Pencil v-if="editingId" style="width:15px;height:15px;color:#d4e645" />
+              <Plus v-else style="width:15px;height:15px;color:#d4e645" />
+            </div>
             {{ editingId ? 'Modifier le certificat' : 'Nouveau certificat' }}
           </h5>
-          <button class="btn btn-link p-0 text-secondary" @click="closeFormModal">
+          <button class="btn btn-link p-0" style="color:rgba(255,255,255,.6)" @click="closeFormModal">
             <X style="width:20px;height:20px" />
           </button>
         </div>

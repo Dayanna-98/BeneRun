@@ -1,16 +1,27 @@
 <template>
   <div class="min-vh-100 bg-light pb-5">
 
-    <!-- Header -->
-    <header class="bg-white border-bottom sticky-top">
+    <!-- Hero Header -->
+    <header class="text-white sticky-top overflow-hidden"
+      style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
       <div class="p-3 d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-link p-0 text-dark" @click="router.go(-1)">
+          <button class="btn btn-link p-0 text-white" @click="router.go(-1)">
             <ArrowLeft style="width:24px;height:24px" />
           </button>
-          <h1 class="fs-5 fw-semibold mb-0">Statistiques</h1>
+          <div class="d-flex align-items-center gap-3">
+            <div class="rounded-3 p-2 d-flex align-items-center justify-content-center"
+              style="background:rgba(255,255,255,.15);width:40px;height:40px">
+              <BarChart3 style="width:22px;height:22px;color:#d4e645" />
+            </div>
+            <div>
+              <div class="x-small" style="color:rgba(255,255,255,.5)">Administration</div>
+              <div class="fs-5 fw-bold">Statistiques</div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm d-flex align-items-center gap-2"
+        <button class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill"
+          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
           @click="showExportDialog = true">
           <Download style="width:16px;height:16px" /> Exporter
         </button>
@@ -38,10 +49,11 @@
       </div>
 
       <!-- Répartition par rôle -->
-      <div class="card">
-        <div class="card-header d-flex align-items-center gap-2">
-          <BarChart3 style="width:20px;height:20px" />
-          <h5 class="mb-0">Répartition des utilisateurs par rôle</h5>
+      <div class="card border-0 shadow-sm overflow-hidden">
+        <div class="d-flex align-items-center gap-2 px-3 py-3"
+          style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+          <BarChart3 style="width:18px;height:18px;color:#d4e645" />
+          <span class="fw-semibold text-white">Répartition des utilisateurs par rôle</span>
         </div>
         <div class="card-body d-flex flex-column gap-3">
           <div v-for="r in roleStats" :key="r.role">
@@ -57,18 +69,21 @@
       </div>
 
       <!-- Missions par événement -->
-      <div class="card">
-        <div class="card-header"><h5 class="mb-0">Missions par événement</h5></div>
+      <div class="card border-0 shadow-sm overflow-hidden">
+        <div class="px-3 py-3" style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+          <span class="fw-semibold text-white">Missions par événement</span>
+        </div>
         <div class="card-body d-flex flex-column gap-2">
           <div v-if="statsLoading" class="text-muted small py-2">Chargement...</div>
           <div v-for="event in missionsByEvent" :key="event.id"
-            class="d-flex align-items-center justify-content-between p-3 bg-light rounded">
+            class="d-flex align-items-center justify-content-between p-3 rounded-3"
+            style="background:#f8fafc;border:1px solid #e2e8f0">
             <div class="flex-fill">
               <div class="small fw-medium">{{ event.name }}</div>
               <div class="x-small text-muted">{{ event.currentVolunteers }}/{{ event.totalNeeded }} bénévoles</div>
             </div>
             <div class="text-end">
-              <div class="fs-5 fw-bold text-primary">{{ event.missionsCount }}</div>
+              <div class="fs-5 fw-bold" style="color:#1a2230">{{ event.missionsCount }}</div>
               <div class="x-small text-muted">missions</div>
             </div>
           </div>
@@ -76,36 +91,43 @@
       </div>
 
       <!-- Actions rapides -->
-      <div class="card">
-        <div class="card-header"><h5 class="mb-0">Actions rapides</h5></div>
+      <div class="card border-0 shadow-sm overflow-hidden">
+        <div class="d-flex align-items-center justify-content-between px-3 py-3"
+          style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+          <span class="fw-semibold text-white">Actions rapides</span>
+        </div>
         <div class="card-body">
           <div class="row g-3">
             <div class="col-6">
-              <button class="btn btn-outline-secondary w-100 py-3 d-flex flex-column align-items-center gap-2"
+              <button class="btn w-100 py-3 d-flex flex-column align-items-center gap-2 border-0 rounded-3"
+                style="background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1d4ed8"
                 @click="showExportDialog = true">
                 <Download style="width:24px;height:24px" />
-                <span class="small">Exporter personnalisé</span>
+                <span class="small fw-medium">Exporter</span>
               </button>
             </div>
             <div class="col-6">
-              <button class="btn btn-outline-secondary w-100 py-3 d-flex flex-column align-items-center gap-2"
+              <button class="btn w-100 py-3 d-flex flex-column align-items-center gap-2 border-0 rounded-3"
+                style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534"
                 @click="router.push('/manage-users')">
                 <Users style="width:24px;height:24px" />
-                <span class="small">Gérer les utilisateurs</span>
+                <span class="small fw-medium">Utilisateurs</span>
               </button>
             </div>
             <div class="col-6">
-              <button class="btn btn-outline-secondary w-100 py-3 d-flex flex-column align-items-center gap-2"
+              <button class="btn w-100 py-3 d-flex flex-column align-items-center gap-2 border-0 rounded-3"
+                style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);color:#7c3aed"
                 @click="router.push('/manage-events')">
                 <Calendar style="width:24px;height:24px" />
-                <span class="small">Gérer les événements</span>
+                <span class="small fw-medium">Evénements</span>
               </button>
             </div>
             <div class="col-6">
-              <button class="btn btn-outline-secondary w-100 py-3 d-flex flex-column align-items-center gap-2"
+              <button class="btn w-100 py-3 d-flex flex-column align-items-center gap-2 border-0 rounded-3"
+                style="background:linear-gradient(135deg,#fff7ed,#ffedd5);color:#c2410c"
                 @click="router.push('/manage-missions')">
                 <Briefcase style="width:24px;height:24px" />
-                <span class="small">Gérer les missions</span>
+                <span class="small fw-medium">Missions</span>
               </button>
             </div>
           </div>

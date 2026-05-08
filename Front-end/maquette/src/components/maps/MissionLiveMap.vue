@@ -39,6 +39,20 @@
       style="height:300px;width:100%"
     ></div>
     <div
+      v-else-if="fallbackEmbedUrl"
+      class="rounded overflow-hidden border"
+      style="height:300px;width:100%"
+    >
+      <iframe
+        :src="fallbackEmbedUrl"
+        width="100%"
+        height="100%"
+        frameborder="0"
+        style="border:0"
+        allowfullscreen
+      />
+    </div>
+    <div
       v-else
       class="rounded border bg-light d-flex align-items-center justify-content-center text-muted small"
       style="height:110px"
@@ -77,6 +91,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import 'leaflet/dist/leaflet.css'
 import api from '@/services/api'
+import { buildGoogleMapsEmbedUrl } from '@/utils/googleMaps'
 
 const props = defineProps({
   missionId:       { type: [String, Number], default: null },
@@ -101,6 +116,7 @@ const participantMarkers = new Map()
 
 const center = computed(() => props.missionPoint || props.eventCenter)
 const hasCoords = computed(() => !!center.value)
+const fallbackEmbedUrl = computed(() => buildGoogleMapsEmbedUrl(props.googleMapsUrl))
 
 const externalLink = computed(() => {
   if (props.googleMapsUrl) return props.googleMapsUrl

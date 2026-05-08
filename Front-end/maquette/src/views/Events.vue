@@ -1,59 +1,87 @@
 <template>
-  <div class="min-vh-100 bg-light pb-5">
+  <div class="events-view min-vh-100 bg-light pb-5">
 
     <!-- Header -->
-    <header class="text-white p-4 pb-4 position-relative overflow-hidden"
+    <header class="events-hero text-white p-4 pb-4 position-relative overflow-hidden"
       style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
       <div class="position-relative" style="z-index:1">
-        <div class="d-flex align-items-center gap-3 mb-2">
+        <div class="d-flex align-items-center gap-3 mb-3">
           <div class="bg-white rounded-3 p-2 shadow">
-            <img src="@/assets/logo.png" alt="Running Geneva" style="height:40px;width:auto" />
+            <img src="@/assets/logo.png" alt="Béné'Run" style="height:40px;width:auto" />
           </div>
           <div>
-            <div class="small text-white-50">Running Geneva</div>
-            <div class="fs-5 fw-bold">Événements</div>
+            <div class="small text-white-50">Béné'Run</div>
+            <div class="fs-4 fw-bold">Événements</div>
           </div>
         </div>
-        <p class="text-white-50 small mb-0">Découvrez les événements à venir</p>
+
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+          <div class="events-hero__copy">
+            <p class="text-white-50 small text-uppercase fw-semibold mb-2">Vue d'ensemble</p>
+            <p class="events-hero__lead mb-0">Explorez les temps forts à venir, repérez ceux qui ont besoin de renfort et plongez rapidement dans les missions liées.</p>
+          </div>
+
+          <div class="events-hero__summary">
+            <div class="events-hero__metric">
+              <strong>{{ filteredEvents.length }}</strong>
+              <span>résultats</span>
+            </div>
+            <div class="events-hero__metric">
+              <strong>{{ upcomingEventsCount }}</strong>
+              <span>à venir</span>
+            </div>
+            <div class="events-hero__metric">
+              <strong>{{ totalAssignedVolunteers }}</strong>
+              <span>bénévoles</span>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="px-3 pt-3 mx-auto" style="max-width:576px">
 
-      <!-- Recherche -->
-      <div class="mb-3 position-relative">
-        <Search class="position-absolute text-muted" style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
-        <input
-          v-model="searchQuery"
-          type="text"
-          class="form-control ps-5 shadow-sm"
-          placeholder="Rechercher un événement..."
-        />
-      </div>
+      <section class="events-toolbar card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="mb-3 position-relative">
+            <Search class="position-absolute text-muted" style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="form-control ps-5 shadow-sm"
+              placeholder="Rechercher un événement, un lieu, un organisateur..."
+            />
+          </div>
 
-      <div class="filter-pills mb-3">
-        <button
-          class="btn btn-sm"
-          :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
-          @click="timelineFilter = 'upcoming'"
-        >
-          À venir
-        </button>
-        <button
-          class="btn btn-sm"
-          :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
-          @click="timelineFilter = 'past'"
-        >
-          Passés
-        </button>
-        <button
-          class="btn btn-sm"
-          :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
-          @click="timelineFilter = 'all'"
-        >
-          Tous
-        </button>
-      </div>
+          <div class="filter-pills mb-2">
+            <button
+              class="btn btn-sm"
+              :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="timelineFilter = 'upcoming'"
+            >
+              À venir
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="timelineFilter = 'past'"
+            >
+              Passés
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="timelineFilter = 'all'"
+            >
+              Tous
+            </button>
+          </div>
+
+          <div class="events-toolbar__caption small text-muted">
+            {{ filteredEvents.length }} événement{{ filteredEvents.length > 1 ? 's' : '' }} visible{{ filteredEvents.length > 1 ? 's' : '' }}
+          </div>
+        </div>
+      </section>
 
       <CardListSkeleton v-if="isLoading" :count="3" :image-height="160" />
 
@@ -64,25 +92,37 @@
       <!-- Event Cards -->
       <div v-if="!isLoading && !loadError" class="d-flex flex-column gap-4">
         <div v-for="event in visibleEvents" :key="event.id"
-          class="card border-0 shadow overflow-hidden">
+          class="event-card card border-0 shadow overflow-hidden">
 
           <!-- Image -->
-          <div class="position-relative" style="height:160px">
+          <div class="position-relative event-card__media" style="height:180px">
             <img
               :src="event.imageUrl || 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&h=400&fit=crop'"
               :alt="event.name"
               class="w-100 h-100 object-fit-cover"
             />
+            <div class="event-card__gradient"></div>
+            <div class="event-card__chips">
+              <span class="badge text-bg-light border-0">{{ isPastEvent(event) ? 'Terminé' : 'Ouvert' }}</span>
+              <span class="badge" :class="eventFillRate(event) >= 80 ? 'text-bg-warning' : 'text-bg-dark'">
+                {{ eventFillRate(event) }}% pourvu
+              </span>
+            </div>
           </div>
 
           <!-- Content -->
           <div class="card-body d-flex flex-column gap-3">
             <div>
-              <h5 class="fw-bold mb-1">{{ event.name }}</h5>
-              <p class="small text-muted mb-0">{{ event.description }}</p>
+              <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
+                <div>
+                  <h5 class="fw-bold mb-1">{{ event.name }}</h5>
+                  <p class="small text-muted mb-0">{{ event.description }}</p>
+                </div>
+                <span class="event-card__date-badge">{{ formatEventBadge(event) }}</span>
+              </div>
             </div>
 
-            <div class="d-flex flex-column gap-2 small text-muted">
+            <div class="event-card__facts d-flex flex-column gap-2 small text-muted">
               <div class="d-flex align-items-center gap-2">
                 <MapPin style="width:16px;height:16px" />
                 <span>{{ event.location }}</span>
@@ -99,11 +139,18 @@
               </div>
             </div>
 
-            <button
-              class="btn btn-primary w-100"
-              @click="router.push(`/event/${event.id}`)">
-              Détails
-            </button>
+            <div class="d-flex gap-2">
+              <button
+                class="btn btn-primary flex-fill"
+                @click="router.push(`/event/${event.id}`)">
+                Voir l'événement
+              </button>
+              <button
+                class="btn btn-outline-primary"
+                @click="router.push(`/missions?eventId=${event.id}`)">
+                Missions
+              </button>
+            </div>
           </div>
         </div>
 
@@ -199,6 +246,11 @@ const getEventEndDate = (event) => {
 
 const isPastEvent = (event) => getEventEndDate(event).getTime() < Date.now()
 
+const upcomingEventsCount = computed(() => events.value.filter((event) => !isPastEvent(event)).length)
+const totalAssignedVolunteers = computed(() =>
+  events.value.reduce((sum, event) => sum + Number(event.currentVolunteers || 0), 0)
+)
+
 const filteredEvents = computed(() =>
   events.value.filter((event) => {
     const matchesSearch = [event.name, event.description, event.location, event.organizer].some((field) =>
@@ -245,9 +297,139 @@ const formatEventPeriod = (event) => {
   return `${startLabel} au ${endLabel} • ${startTime} - ${endTime}`
 }
 
+const formatEventBadge = (event) => {
+  const dateValue = event.startDate || event.date
+  if (!dateValue) return 'À définir'
+
+  const date = new Date(dateValue)
+  const day = date.toLocaleDateString('fr-FR', { day: '2-digit' })
+  const month = date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
+  return `${day} ${month}`
+}
+
+const eventFillRate = (event) => {
+  const totalNeeded = Number(event.totalVolunteersNeeded || 0)
+  if (!totalNeeded) return 0
+  return Math.min(100, Math.round((Number(event.currentVolunteers || 0) / totalNeeded) * 100))
+}
+
 onMounted(loadEvents)
 
 watch([searchQuery, timelineFilter], () => {
   visibleCount.value = PAGE_SIZE
 })
 </script>
+
+<style scoped>
+.events-hero__copy {
+  max-width: 28rem;
+}
+
+.events-hero__lead {
+  color: rgba(255,255,255,0.86);
+  line-height: 1.5;
+  max-width: 32rem;
+}
+
+.events-hero__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: min(100%, 260px);
+}
+
+.events-hero__metric {
+  padding: 0.9rem 0.8rem;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+}
+
+.events-hero__metric strong {
+  display: block;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.events-hero__metric span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.72);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.events-toolbar {
+  margin-top: 0.35rem;
+  position: relative;
+  z-index: 2;
+}
+
+.events-toolbar__caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.event-card {
+  transition: transform var(--t-normal), box-shadow var(--t-normal);
+}
+
+.event-card:hover {
+  transform: translateY(-3px);
+}
+
+.event-card__media {
+  overflow: hidden;
+}
+
+.event-card__gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(26,34,48,0.05) 0%, rgba(26,34,48,0.45) 100%);
+}
+
+.event-card__chips {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.event-card__date-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 14px;
+  background: rgba(44,53,73,0.08);
+  color: var(--primary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.event-card__facts {
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: rgba(44,53,73,0.035);
+}
+
+@media (max-width: 576px) {
+  .events-hero__summary {
+    width: 100%;
+  }
+
+  .events-toolbar {
+    margin-top: 0.25rem;
+  }
+}
+</style>

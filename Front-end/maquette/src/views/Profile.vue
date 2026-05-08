@@ -220,10 +220,6 @@
               @click="handleChangePassword">
               <Lock style="width:16px;height:16px" /> Changer le mot de passe
             </button>
-            <button class="btn btn-danger d-flex align-items-center gap-2"
-              @click="handleSuspendOwnAccount">
-              <UserX style="width:16px;height:16px" /> Suspendre mon compte
-            </button>
           </div>
         </div>
       </div>
@@ -391,7 +387,7 @@ import { useRouter } from 'vue-router'
 import {
   User, Award, FileText, Briefcase, MapPin, MessageSquare,
   Edit, Download, Star, Calendar, Plus, Trash2, Lock,
-  UserX, LogOut
+  LogOut
 } from 'lucide-vue-next'
 import { getCurrentUser, logout as authLogout, setCurrentUser } from '@/utils/auth'
 import competenceService from '@/services/competenceService'
@@ -763,37 +759,6 @@ const handleToggleLiveLocationSharing = async (event) => {
       liveLocationSharingEnabled: previousValue,
     }
     alert(error.message || 'Impossible de modifier le partage de localisation.')
-  }
-}
-
-const handleSuspendOwnAccount = async () => {
-  if (!confirm('Voulez-vous vraiment suspendre votre compte ?')) return
-
-  const reason = prompt('Raison de suspension (optionnel)', 'Suspension demandée par l\'utilisateur') || 'Suspension demandée par l\'utilisateur'
-  const userId = user.value.id
-  if (!userId) {
-    alert('Impossible de suspendre ce compte (ID utilisateur manquant).')
-    return
-  }
-
-  try {
-    await userService.update(userId, {
-      ...buildUserUpdatePayload({
-      isSuspended: true,
-      suspensionReason: reason,
-      }),
-    })
-
-    try {
-      await userService.logout()
-    } catch {
-      // Keep suspension flow usable if logout request fails.
-    }
-    authLogout()
-    alert('Votre compte est maintenant suspendu.')
-    router.push('/login')
-  } catch (error) {
-    alert(error.message || 'Erreur lors de la suspension du compte')
   }
 }
 

@@ -335,11 +335,6 @@ class MissionController extends Controller
             || $event->longitude_evenement === null
             || empty($event->rayon_localisation_evenement)
         ) {
-            $validator->errors()->add(
-                'id_evenement',
-                'L\'événement sélectionné ne possède pas de périmètre Google Maps valide.'
-            );
-
             return;
         }
 

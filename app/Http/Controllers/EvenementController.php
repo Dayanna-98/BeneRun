@@ -172,20 +172,9 @@ class EvenementController extends Controller
         $mapsUrl = $validated['google_maps_url_evenement'] ?? $event?->google_maps_url_evenement;
         $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
 
-        if ($coordinates === null) {
-            abort(response()->json([
-                'message' => 'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
-                'errors' => [
-                    'google_maps_url_evenement' => [
-                        'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
-                    ],
-                ],
-            ], 422));
-        }
-
         $validated['google_maps_url_evenement'] = $mapsUrl;
-        $validated['latitude_evenement'] = $coordinates['latitude'];
-        $validated['longitude_evenement'] = $coordinates['longitude'];
+        $validated['latitude_evenement'] = $coordinates['latitude'] ?? null;
+        $validated['longitude_evenement'] = $coordinates['longitude'] ?? null;
 
         return $validated;
     }

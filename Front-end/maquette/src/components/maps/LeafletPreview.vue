@@ -17,6 +17,33 @@
     </div>
   </div>
 
+  <div v-else-if="embedUrl" class="d-flex flex-column gap-2">
+    <a
+      :href="mapsLink"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="small text-primary d-inline-flex align-items-center gap-1 text-decoration-none"
+    >
+      <MapPinned style="width:14px;height:14px" />
+      {{ linkLabel }}
+    </a>
+
+    <div class="rounded overflow-hidden border" :style="{ height: `${height}px`, width: '100%' }">
+      <iframe
+        :src="embedUrl"
+        width="100%"
+        height="100%"
+        frameborder="0"
+        style="border:0"
+        allowfullscreen
+      />
+    </div>
+
+    <div v-if="formattedRadius" class="small text-muted">
+      Périmètre configuré : {{ formattedRadius }}
+    </div>
+  </div>
+
   <div v-else class="small text-muted">
     Collez un lien Google Maps contenant un point précis pour afficher l'aperçu.
   </div>
@@ -26,7 +53,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { MapPinned } from 'lucide-vue-next'
 import 'leaflet/dist/leaflet.css'
-import { extractGoogleMapsCoordinates, formatRadius, getMapZoomForRadius, buildGoogleMapsLink } from '@/utils/googleMaps'
+import { extractGoogleMapsCoordinates, formatRadius, getMapZoomForRadius, buildGoogleMapsLink, buildGoogleMapsEmbedUrl } from '@/utils/googleMaps'
 
 const props = defineProps({
   mapsUrl: { type: String, default: '' },
@@ -46,6 +73,7 @@ const coords = computed(() => extractGoogleMapsCoordinates(props.mapsUrl))
 const hasCoords = computed(() => !!coords.value)
 const formattedRadius = computed(() => formatRadius(props.radiusMeters))
 const mapsLink = computed(() => buildGoogleMapsLink(props.mapsUrl) || (coords.value ? `https://www.google.com/maps?q=${coords.value.latitude},${coords.value.longitude}` : ''))
+const embedUrl = computed(() => buildGoogleMapsEmbedUrl(props.mapsUrl, { radiusMeters: props.radiusMeters }))
 
 const initMap = async () => {
   if (!mapEl.value || !coords.value) return

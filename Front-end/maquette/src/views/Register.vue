@@ -54,28 +54,6 @@
               </div>
             </div>
 
-            <!-- Téléphone -->
-            <div>
-              <label class="form-label small fw-medium">Téléphone</label>
-              <div class="position-relative">
-                <Phone class="position-absolute text-muted"
-                  style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
-                <input v-model="form.phone" type="tel" class="form-control form-control-sm ps-4"
-                  placeholder="+41 22 123 45 67" required />
-              </div>
-            </div>
-
-            <!-- Adresse -->
-            <div>
-              <label class="form-label small fw-medium">Adresse</label>
-              <div class="position-relative">
-                <MapPin class="position-absolute text-muted"
-                  style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
-                <input v-model="form.address" type="text" class="form-control form-control-sm ps-4"
-                  placeholder="123 Rue des Volontaires, Genève" required />
-              </div>
-            </div>
-
             <!-- Mot de passe -->
             <div>
               <label class="form-label small fw-medium">Mot de passe</label>
@@ -148,7 +126,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin } from 'lucide-vue-next'
+import { Eye, EyeOff, Mail, Lock, User } from 'lucide-vue-next'
 import userService from '@/services/userService'
 import { persistAuthSession } from '@/utils/auth'
 
@@ -160,7 +138,7 @@ const errorMessage        = ref('')
 
 const form = ref({
   firstName: '', lastName: '', email: '',
-  phone: '', address: '', password: '', confirmPassword: ''
+  password: '', confirmPassword: ''
 })
 
 const handleRegister = async () => {
@@ -194,8 +172,6 @@ const handleRegister = async () => {
       firstName: form.value.firstName,
       lastName: form.value.lastName,
       email: form.value.email,
-      phone: form.value.phone,
-      address: form.value.address,
       password: form.value.password,
       role: 'volunteer',
     })
