@@ -6,6 +6,7 @@ use App\Models\Competence;
 
 class CompetenceController extends Controller
 {
+    private const MISSION_TYPES = ['secours', 'logistique', 'accueil', 'technique', 'animation', 'autre'];
 
 
     public function index(Request $request)
@@ -32,10 +33,20 @@ class CompetenceController extends Controller
     {
         $request->validate([
             'nom_competence' => 'required|string|max:255|unique:competences,nom_competence',
+            'types_mission_suggeres' => 'nullable|array',
+            'types_mission_suggeres.*' => 'string|in:secours,logistique,accueil,technique,animation,autre',
         ]);
+
+        $typesMissionSuggeres = collect($request->input('types_mission_suggeres', []))
+            ->map(fn ($type) => strtolower(trim((string) $type)))
+            ->filter(fn ($type) => in_array($type, self::MISSION_TYPES, true))
+            ->unique()
+            ->values()
+            ->all();
 
         $competence = new Competence;
         $competence->nom_competence = $request->nom_competence;
+        $competence->types_mission_suggeres = $typesMissionSuggeres;
         $competence->save();
 
         return response()->json([
@@ -56,9 +67,19 @@ class CompetenceController extends Controller
 
         $request->validate([
             'nom_competence' => 'required|string|max:255|unique:competences,nom_competence,' . $id . ',id_competence',
+            'types_mission_suggeres' => 'nullable|array',
+            'types_mission_suggeres.*' => 'string|in:secours,logistique,accueil,technique,animation,autre',
         ]);
 
+        $typesMissionSuggeres = collect($request->input('types_mission_suggeres', []))
+            ->map(fn ($type) => strtolower(trim((string) $type)))
+            ->filter(fn ($type) => in_array($type, self::MISSION_TYPES, true))
+            ->unique()
+            ->values()
+            ->all();
+
         $competence->nom_competence = $request->nom_competence;
+        $competence->types_mission_suggeres = $typesMissionSuggeres;
         $competence->save();
 
         return response()->json([

@@ -17,7 +17,7 @@ class ChatConversationChanged implements ShouldBroadcastNow
     {
         $this->conversation->loadMissing([
             'participants.utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,role_utilisateur',
-            'lastMessage:id_chat_message,id_chat_conversation,id_sender_utilisateur,contenu_message,created_at',
+            'lastMessage',
         ]);
     }
 

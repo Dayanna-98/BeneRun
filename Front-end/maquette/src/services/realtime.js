@@ -45,12 +45,28 @@ export const getEcho = () => {
 
 export const leaveEchoChannel = (channelName) => {
   if (!echoInstance || !channelName) return
-  echoInstance.leave(channelName)
+
+  try {
+    const state = echoInstance.connector?.pusher?.connection?.state
+    if (state === 'closing' || state === 'closed' || state === 'failed' || !state) {
+      return
+    }
+
+    echoInstance.leave(channelName)
+  } catch {
+    // Ignore leave errors during disconnect races on navigation/unmount.
+  }
 }
 
 export const destroyEcho = () => {
   if (!echoInstance) return
-  echoInstance.disconnect()
+
+  try {
+    echoInstance.disconnect()
+  } catch {
+    // Ignore disconnect errors when socket already closed.
+  }
+
   echoInstance = null
 }
 

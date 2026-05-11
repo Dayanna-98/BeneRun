@@ -128,9 +128,31 @@
                     </button>
                   </div>
                   <div v-if="editError" class="text-danger x-small mt-1">{{ editError }}</div>
+                  <div class="mt-2">
+                    <div class="x-small text-muted mb-1">Types de mission suggeres</div>
+                    <div class="d-flex flex-wrap gap-2">
+                      <button
+                        v-for="type in missionTypeOptions"
+                        :key="`edit-type-${c.id_competence}-${type.value}`"
+                        type="button"
+                        class="btn btn-sm rounded-pill"
+                        :class="editMissionTypes.includes(type.value) ? 'btn-primary' : 'btn-outline-secondary'"
+                        @click="toggleTypeSelection(editMissionTypes, type.value)">
+                        {{ type.label }}
+                      </button>
+                    </div>
+                  </div>
                 </template>
                 <template v-else>
                   <span class="fw-medium">{{ c.nom_competence }}</span>
+                  <div v-if="Array.isArray(c.types_mission_suggeres) && c.types_mission_suggeres.length" class="d-flex flex-wrap gap-1 mt-1">
+                    <span
+                      v-for="missionType in c.types_mission_suggeres"
+                      :key="`tag-${c.id_competence}-${missionType}`"
+                      class="badge rounded-pill text-bg-light border">
+                      {{ missionType }}
+                    </span>
+                  </div>
                 </template>
               </div>
             </div>
@@ -181,6 +203,21 @@
               ref="createInput"
             />
             <div v-if="createError" class="invalid-feedback d-block">{{ createError }}</div>
+          </div>
+          <div>
+            <label class="form-label fw-medium">Types de mission suggérés</label>
+            <div class="d-flex flex-wrap gap-2">
+              <button
+                v-for="type in missionTypeOptions"
+                :key="`create-type-${type.value}`"
+                type="button"
+                class="btn btn-sm rounded-pill"
+                :class="newMissionTypes.includes(type.value) ? 'btn-primary' : 'btn-outline-secondary'"
+                @click="toggleTypeSelection(newMissionTypes, type.value)">
+                {{ type.label }}
+              </button>
+            </div>
+            <div class="form-text">Ces types serviront de suggestions automatiques dans le formulaire mission.</div>
           </div>
         </div>
         <div class="d-flex gap-2 justify-content-end px-4 py-3 border-top">
@@ -256,6 +293,7 @@ const newName = ref('')
 const createError = ref('')
 const createLoading = ref(false)
 const createInput = ref(null)
+const newMissionTypes = ref([])
 
 // Édition inline
 const editingId = ref(null)
@@ -263,6 +301,7 @@ const editName = ref('')
 const editError = ref('')
 const editLoading = ref(false)
 const editInput = ref(null)
+const editMissionTypes = ref([])
 
 // Suppression
 const deleteTarget = ref(null)
@@ -270,6 +309,15 @@ const deleteLoading = ref(false)
 
 // Toast
 const toast = ref({ show: false, message: '', type: 'success' })
+
+const missionTypeOptions = [
+  { value: 'secours', label: 'Secours' },
+  { value: 'logistique', label: 'Logistique' },
+  { value: 'accueil', label: 'Accueil' },
+  { value: 'technique', label: 'Technique' },
+  { value: 'animation', label: 'Animation' },
+  { value: 'autre', label: 'Autre' },
+]
 
 // ─── Chargement ─────────────────────────────────────────
 onMounted(async () => {
@@ -300,6 +348,7 @@ const filtered = computed(() => {
 // ─── Création ────────────────────────────────────────────
 function openCreateModal() {
   newName.value = ''
+  newMissionTypes.value = []
   createError.value = ''
   showCreateModal.value = true
   nextTick(() => createInput.value?.focus())
@@ -318,7 +367,10 @@ async function submitCreate() {
   createLoading.value = true
   createError.value = ''
   try {
-    const created = await competenceService.create(name)
+    const created = await competenceService.create({
+      nom_competence: name,
+      types_mission_suggeres: newMissionTypes.value,
+    })
     competences.value.push(created.competence)
     closeCreateModal()
     showToast('Compétence ajoutée avec succès.', 'success')
@@ -338,8 +390,14 @@ async function submitCreate() {
 function startEdit(c) {
   editingId.value = c.id_competence
   editName.value = c.nom_competence
+  editMissionTypes.value = Array.isArray(c.types_mission_suggeres) ? [...c.types_mission_suggeres] : []
   editError.value = ''
-  nextTick(() => editInput.value?.focus())
+  nextTick(() => {
+    const input = Array.isArray(editInput.value) ? editInput.value[0] : editInput.value
+    if (input && typeof input.focus === 'function') {
+      input.focus()
+    }
+  })
 }
 
 function cancelEdit() {
@@ -356,7 +414,10 @@ async function confirmEdit(id) {
   editLoading.value = true
   editError.value = ''
   try {
-    const updated = await competenceService.update(id, name)
+    const updated = await competenceService.update(id, {
+      nom_competence: name,
+      types_mission_suggeres: editMissionTypes.value,
+    })
     const idx = competences.value.findIndex(c => c.id_competence === id)
     if (idx !== -1) competences.value[idx] = updated.competence
     editingId.value = null
@@ -400,6 +461,17 @@ async function confirmDelete() {
 function showToast(message, type = 'success') {
   toast.value = { show: true, message, type }
   setTimeout(() => { toast.value.show = false }, 3000)
+}
+
+function toggleTypeSelection(list, missionType) {
+  if (!Array.isArray(list)) return
+
+  const idx = list.indexOf(missionType)
+  if (idx === -1) {
+    list.push(missionType)
+  } else {
+    list.splice(idx, 1)
+  }
 }
 </script>
 

@@ -9,7 +9,14 @@ class Competence extends Model
     protected $table = 'competences';
     protected $primaryKey = 'id_competence';
 
-    protected $fillable = ['nom_competence',];
+    protected $fillable = [
+        'nom_competence',
+        'types_mission_suggeres',
+    ];
+
+    protected $casts = [
+        'types_mission_suggeres' => 'array',
+    ];
 
     public function missions()
     {

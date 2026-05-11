@@ -21,6 +21,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PostulationController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\TelephoneController;
+use App\Http\Controllers\MapsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,9 @@ Route::post('/login', [UserController::class, 'login']);
 Route::post('/password-reset/request', [PasswordResetController::class, 'requestReset']);
 Route::post('/password-reset/verify', [PasswordResetController::class, 'verifyToken']);
 Route::post('/password-reset/reset', [PasswordResetController::class, 'resetPassword']);
+
+// Google Maps URL resolution (public route)
+Route::post('/maps/resolve', [MapsController::class, 'resolve']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);

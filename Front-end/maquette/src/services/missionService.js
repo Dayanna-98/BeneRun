@@ -211,6 +211,30 @@ export const missionService = {
     }
   },
 
+  resolveMapsUrl: async (mapsUrl) => {
+    try {
+      const trimmedUrl = String(mapsUrl || '').trim()
+      if (!trimmedUrl) return null
+
+      // Check if it's a short Google Maps link
+      if (!trimmedUrl.includes('maps.app.goo.gl')) {
+        // Not a short link, return as-is
+        return trimmedUrl
+      }
+
+      // Resolve the short link via backend endpoint
+      const response = await api.post('/maps/resolve', { url: trimmedUrl })
+      return response.data?.resolved_url || trimmedUrl
+    } catch (error) {
+      // Resolution is a best-effort enhancement; keep original URL silently.
+      if (!error?.response || error.response.status >= 500) {
+        console.warn('Failed to resolve maps URL, keeping original:', error.message)
+      }
+      // Return original URL if resolution fails
+      return mapsUrl
+    }
+  },
+
   formatApiError: (error, fallbackMessage) => {
     if (error?.message && !error?.response) {
       return { message: error.message }

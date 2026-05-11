@@ -30,10 +30,6 @@
               <strong>{{ upcomingEventsCount }}</strong>
               <span>à venir</span>
             </div>
-            <div class="events-hero__metric">
-              <strong>{{ totalAssignedVolunteers }}</strong>
-              <span>bénévoles</span>
-            </div>
           </div>
         </div>
       </div>
@@ -77,8 +73,77 @@
             </button>
           </div>
 
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <button class="btn btn-sm rounded-pill" :class="quickNeedsVolunteers ? 'btn-success' : 'btn-outline-success'" @click="quickNeedsVolunteers = !quickNeedsVolunteers">
+              Besoin de renfort
+            </button>
+            <button class="btn btn-sm rounded-pill" :class="quickThisWeek ? 'btn-info' : 'btn-outline-info'" @click="quickThisWeek = !quickThisWeek">
+              Cette semaine
+            </button>
+            <button class="btn btn-sm rounded-pill" :class="quickLargeEvents ? 'btn-warning' : 'btn-outline-warning'" @click="quickLargeEvents = !quickLargeEvents">
+              Capacité 20+
+            </button>
+
+            <button class="btn btn-light btn-sm d-flex align-items-center gap-2 ms-auto" @click="showFilters = !showFilters">
+              <Filter style="width:16px;height:16px" />
+              Filtres avancés
+            </button>
+          </div>
+
+          <div v-if="showFilters" class="events-advanced-filters border rounded-3 p-3 mb-2">
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label x-small text-muted mb-1">Organisateur</label>
+                <select v-model="filterOrganizer" class="form-select form-select-sm">
+                  <option value="all">Tous</option>
+                  <option v-for="organizer in organizerOptions" :key="organizer" :value="organizer">{{ organizer }}</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label x-small text-muted mb-1">Période</label>
+                <select v-model="filterDate" class="form-select form-select-sm">
+                  <option value="all">Toutes les dates</option>
+                  <option value="today">Aujourd'hui</option>
+                  <option value="week">Cette semaine</option>
+                  <option value="month">Ce mois</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label x-small text-muted mb-1">Besoin bénévoles</label>
+                <select v-model="filterNeed" class="form-select form-select-sm">
+                  <option value="all">Tous</option>
+                  <option value="needs_volunteers">Besoin de renfort</option>
+                  <option value="almost_full">Presque complet</option>
+                  <option value="full">Complet</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label x-small text-muted mb-1">Trier par</label>
+                <select v-model="sortBy" class="form-select form-select-sm">
+                  <option value="date_asc">Date la plus proche</option>
+                  <option value="fill_rate_asc">Priorité renfort</option>
+                  <option value="volunteers_desc">Plus de bénévoles</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="activeFilterChips.length > 0" class="active-filters mb-2">
+            <button
+              v-for="chip in activeFilterChips"
+              :key="chip.key"
+              class="active-filter-chip"
+              @click="clearSingleFilter(chip.key)">
+              {{ chip.label }} ×
+            </button>
+            <button class="btn btn-link btn-sm text-decoration-none px-1" @click="clearAllFilters">
+              Réinitialiser tout
+            </button>
+          </div>
+
           <div class="events-toolbar__caption small text-muted">
             {{ filteredEvents.length }} événement{{ filteredEvents.length > 1 ? 's' : '' }} visible{{ filteredEvents.length > 1 ? 's' : '' }}
+            <span v-if="activeFilterChips.length > 0">• {{ activeFilterChips.length }} filtre{{ activeFilterChips.length > 1 ? 's' : '' }} actif{{ activeFilterChips.length > 1 ? 's' : '' }}</span>
           </div>
         </div>
       </section>
@@ -177,7 +242,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, MapPin, Users, Clock } from 'lucide-vue-next'
+import { Search, MapPin, Users, Clock, Filter } from 'lucide-vue-next'
 import api from '@/services/api'
 import eventService from '@/services/eventService'
 import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
@@ -187,6 +252,14 @@ import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 const router = useRouter()
 const searchQuery = ref('')
 const timelineFilter = ref('upcoming')
+const showFilters = ref(false)
+const filterDate = ref('all')
+const filterNeed = ref('all')
+const filterOrganizer = ref('all')
+const sortBy = ref('date_asc')
+const quickNeedsVolunteers = ref(false)
+const quickThisWeek = ref(false)
+const quickLargeEvents = ref(false)
 const events = ref([])
 const isLoading = ref(false)
 const loadError = ref('')
@@ -247,9 +320,41 @@ const getEventEndDate = (event) => {
 const isPastEvent = (event) => getEventEndDate(event).getTime() < Date.now()
 
 const upcomingEventsCount = computed(() => events.value.filter((event) => !isPastEvent(event)).length)
-const totalAssignedVolunteers = computed(() =>
-  events.value.reduce((sum, event) => sum + Number(event.currentVolunteers || 0), 0)
+const organizerOptions = computed(() =>
+  [...new Set(events.value.map((event) => String(event.organizer || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'))
 )
+
+const activeFilterChips = computed(() => {
+  const chips = []
+  if (searchQuery.value.trim()) chips.push({ key: 'search', label: `Recherche: ${searchQuery.value.trim()}` })
+  if (timelineFilter.value !== 'upcoming') chips.push({ key: 'timeline', label: timelineFilter.value === 'past' ? 'Passés' : 'Toutes périodes' })
+  if (quickNeedsVolunteers.value) chips.push({ key: 'quickNeeds', label: 'Besoin de renfort' })
+  if (quickThisWeek.value) chips.push({ key: 'quickWeek', label: 'Cette semaine' })
+  if (quickLargeEvents.value) chips.push({ key: 'quickLarge', label: 'Capacité >= 20 bénévoles' })
+  if (filterDate.value !== 'all') chips.push({ key: 'date', label: `Date: ${filterDate.value}` })
+  if (filterNeed.value !== 'all') chips.push({ key: 'need', label: `Besoin: ${filterNeed.value}` })
+  if (filterOrganizer.value !== 'all') chips.push({ key: 'organizer', label: `Organisateur: ${filterOrganizer.value}` })
+  if (sortBy.value !== 'date_asc') chips.push({ key: 'sort', label: 'Tri personnalisé' })
+  return chips
+})
+
+const eventStartDate = (event) => new Date(`${event.startDate || event.date}T${event.startTime || '00:00'}:00`)
+
+const isWithinCurrentWeek = (event) => {
+  const now = new Date()
+  const start = new Date(now)
+  const day = start.getDay()
+  const offset = day === 0 ? 6 : day - 1
+  start.setDate(start.getDate() - offset)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(end.getDate() + 7)
+  end.setHours(23, 59, 59, 999)
+
+  const eventDate = eventStartDate(event)
+  return eventDate >= start && eventDate <= end
+}
 
 const filteredEvents = computed(() =>
   events.value.filter((event) => {
@@ -263,16 +368,81 @@ const filteredEvents = computed(() =>
         ? isPastEvent(event)
         : !isPastEvent(event)
 
-    return matchesSearch && matchesTimeline
+    const today = new Date()
+    const thisMonthEnd = new Date(today)
+    thisMonthEnd.setMonth(today.getMonth() + 1)
+
+    const startDate = eventStartDate(event)
+    const matchesDate = filterDate.value === 'all'
+      ? true
+      : filterDate.value === 'today'
+        ? startDate.toDateString() === today.toDateString()
+        : filterDate.value === 'week'
+          ? isWithinCurrentWeek(event)
+          : startDate >= today && startDate <= thisMonthEnd
+
+    const fill = eventFillRate(event)
+    const spotsOpen = Number(event.currentVolunteers || 0) < Number(event.totalVolunteersNeeded || 0)
+    const matchesNeed = filterNeed.value === 'all'
+      ? true
+      : filterNeed.value === 'needs_volunteers'
+        ? spotsOpen
+        : filterNeed.value === 'almost_full'
+          ? spotsOpen && fill >= 80
+          : !spotsOpen
+
+    const matchesOrganizer = filterOrganizer.value === 'all' || event.organizer === filterOrganizer.value
+
+    const matchesQuickNeeds = !quickNeedsVolunteers.value || spotsOpen
+    const matchesQuickWeek = !quickThisWeek.value || isWithinCurrentWeek(event)
+    const matchesQuickLarge = !quickLargeEvents.value || Number(event.totalVolunteersNeeded || 0) >= 20
+
+    return matchesSearch && matchesTimeline && matchesDate && matchesNeed && matchesOrganizer && matchesQuickNeeds && matchesQuickWeek && matchesQuickLarge
   })
 )
 
-const visibleEvents = computed(() => filteredEvents.value.slice(0, visibleCount.value))
-const hasMoreEvents = computed(() => visibleCount.value < filteredEvents.value.length)
+const sortedEvents = computed(() => {
+  const rows = [...filteredEvents.value]
+  if (sortBy.value === 'fill_rate_asc') {
+    return rows.sort((a, b) => eventFillRate(a) - eventFillRate(b))
+  }
+  if (sortBy.value === 'volunteers_desc') {
+    return rows.sort((a, b) => Number(b.currentVolunteers || 0) - Number(a.currentVolunteers || 0))
+  }
+  return rows.sort((a, b) => eventStartDate(a).getTime() - eventStartDate(b).getTime())
+})
+
+const visibleEvents = computed(() => sortedEvents.value.slice(0, visibleCount.value))
+const hasMoreEvents = computed(() => visibleCount.value < sortedEvents.value.length)
 const loadMoreEvents = () => {
   if (hasMoreEvents.value) visibleCount.value += PAGE_SIZE
 }
 const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreEvents.value, onLoadMore: loadMoreEvents })
+
+const clearSingleFilter = (key) => {
+  if (key === 'search') searchQuery.value = ''
+  if (key === 'timeline') timelineFilter.value = 'upcoming'
+  if (key === 'quickNeeds') quickNeedsVolunteers.value = false
+  if (key === 'quickWeek') quickThisWeek.value = false
+  if (key === 'quickLarge') quickLargeEvents.value = false
+  if (key === 'date') filterDate.value = 'all'
+  if (key === 'need') filterNeed.value = 'all'
+  if (key === 'organizer') filterOrganizer.value = 'all'
+  if (key === 'sort') sortBy.value = 'date_asc'
+}
+
+const clearAllFilters = () => {
+  searchQuery.value = ''
+  timelineFilter.value = 'upcoming'
+  showFilters.value = false
+  filterDate.value = 'all'
+  filterNeed.value = 'all'
+  filterOrganizer.value = 'all'
+  sortBy.value = 'date_asc'
+  quickNeedsVolunteers.value = false
+  quickThisWeek.value = false
+  quickLargeEvents.value = false
+}
 
 const formatDateLabel = (dateValue) => {
   if (!dateValue) return 'Date à définir'
@@ -315,7 +485,7 @@ const eventFillRate = (event) => {
 
 onMounted(loadEvents)
 
-watch([searchQuery, timelineFilter], () => {
+watch([searchQuery, timelineFilter, filterDate, filterNeed, filterOrganizer, sortBy, quickNeedsVolunteers, quickThisWeek, quickLargeEvents], () => {
   visibleCount.value = PAGE_SIZE
 })
 </script>
@@ -333,9 +503,9 @@ watch([searchQuery, timelineFilter], () => {
 
 .events-hero__summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
-  min-width: min(100%, 260px);
+  min-width: min(100%, 190px);
 }
 
 .events-hero__metric {
@@ -371,6 +541,26 @@ watch([searchQuery, timelineFilter], () => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.events-advanced-filters {
+  background: #fafcff;
+  border-color: #dbe7f4 !important;
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.active-filter-chip {
+  border: 1px solid #cfdcf0;
+  background: #f1f6ff;
+  color: #274472;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
 }
 
 .event-card {

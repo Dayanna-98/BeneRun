@@ -44,8 +44,14 @@
     </div>
   </div>
 
+  <div v-else-if="props.mapsUrl && props.mapsUrl.trim()" class="alert alert-info small mb-0">
+    <strong>ℹ️ Lien sans aperçu</strong>
+    <br/>
+    L'aperçu de la carte n'est pas disponible pour ce lien, mais la mission s'affichera correctement avec la carte.
+  </div>
+
   <div v-else class="small text-muted">
-    Collez un lien Google Maps contenant un point précis pour afficher l'aperçu.
+    Collez un lien Google Maps pour afficher l'aperçu.
   </div>
 </template>
 
