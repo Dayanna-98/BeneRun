@@ -282,7 +282,7 @@ import eventService from '@/services/eventService'
 import missionService from '@/services/missionService'
 import competenceService from '@/services/competenceService'
 import userService from '@/services/userService'
-import chatService from '@/services/chatService'
+import chatApiService from '@/services/chatApiService'
 import { distanceInMeters, extractGoogleMapsCoordinates, formatRadius } from '@/utils/googleMaps'
 import { useToast } from '@/composables/useToast'
 
@@ -519,7 +519,16 @@ const handleSubmit = async () => {
 
   try {
     const createdMissionPayload = await missionService.create(formData)
-    chatService.ensureMissionGroupConversation(createdMissionPayload, user?.id)
+
+    const missionId = createdMissionPayload?.id_mission ?? createdMissionPayload?.id
+    if (missionId) {
+      await chatApiService.ensureMissionConversation({
+        missionId,
+        name: `${formData.name} • ${selectedEvent.value?.name || 'Événement'}`,
+        participantIds: [user?.id].filter(Boolean),
+      })
+    }
+
     toast.success('Mission créée avec succès.')
     router.push('/manage-missions')
   } catch (error) {

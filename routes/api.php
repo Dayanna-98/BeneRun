@@ -6,6 +6,8 @@ use App\Http\Controllers\AffectationController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\BenevoleController;
 use App\Http\Controllers\CertificatController;
+use App\Http\Controllers\ChatConversationController;
+use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\CompetenceController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EvenementController;
@@ -37,6 +39,15 @@ Route::post('/password-reset/reset', [PasswordResetController::class, 'resetPass
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);
     Route::get('/me', [UserController::class, 'me']);
+
+    // Messagerie persistante
+    Route::get('/conversations', [ChatConversationController::class, 'index']);
+    Route::post('/conversations/direct', [ChatConversationController::class, 'storeDirect']);
+    Route::post('/conversations/mission', [ChatConversationController::class, 'storeOrGetMissionGroup']);
+    Route::post('/conversations/{conversationId}/participants', [ChatConversationController::class, 'addParticipant']);
+    Route::get('/conversations/{conversationId}/messages', [ChatMessageController::class, 'index']);
+    Route::post('/conversations/{conversationId}/messages', [ChatMessageController::class, 'store']);
+    Route::post('/messages/{messageId}/read', [ChatMessageController::class, 'markRead']);
 });
 Route::get('/users/{id}/competences', [UserController::class, 'competences']);
 Route::post('/users/{id}/competences', [UserController::class, 'addCompetence']);

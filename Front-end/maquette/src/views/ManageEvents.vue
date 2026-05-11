@@ -454,7 +454,7 @@
       import eventService from '@/services/eventService'
       import missionService from '@/services/missionService'
       import api from '@/services/api'
-      import chatService from '@/services/chatService'
+      import chatApiService from '@/services/chatApiService'
       import { getCurrentUser, hasMinRole } from '@/utils/auth'
       import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
       import EmptyState from '@/components/ui/EmptyState.vue'
@@ -1102,13 +1102,17 @@
             remarque: `Assigné à la mission ${selectedMissionForQueue.value.name} depuis la gestion des événements.`,
           })
 
-          chatService.addUserToMissionGroup({
+          const conversationResponse = await chatApiService.ensureMissionConversation({
             missionId: selectedMissionForQueue.value.id,
-            eventId: selectedEventForQueue.value?.id || null,
-            missionName: selectedMissionForQueue.value.name,
-            eventName: selectedEventForQueue.value?.name || null,
-            userId: entry.userId,
+            name: `${selectedMissionForQueue.value.name} • ${selectedEventForQueue.value?.name || 'Événement'}`,
           })
+
+          if (conversationResponse?.conversation?.id) {
+            await chatApiService.addParticipant({
+              conversationId: conversationResponse.conversation.id,
+              userId: entry.userId,
+            })
+          }
 
           waitingList.value = waitingList.value.filter((postulation) => postulation.id !== entry.id)
           selectedWaitingIds.value = selectedWaitingIds.value.filter((id) => id !== entry.id)
@@ -1158,13 +1162,17 @@
               remarque: `Assigné à la mission ${selectedMissionForQueue.value.name} depuis la gestion des événements.`,
             })
 
-            chatService.addUserToMissionGroup({
+            const conversationResponse = await chatApiService.ensureMissionConversation({
               missionId: selectedMissionForQueue.value.id,
-              eventId: selectedEventForQueue.value?.id || null,
-              missionName: selectedMissionForQueue.value.name,
-              eventName: selectedEventForQueue.value?.name || null,
-              userId: entry.userId,
+              name: `${selectedMissionForQueue.value.name} • ${selectedEventForQueue.value?.name || 'Événement'}`,
             })
+
+            if (conversationResponse?.conversation?.id) {
+              await chatApiService.addParticipant({
+                conversationId: conversationResponse.conversation.id,
+                userId: entry.userId,
+              })
+            }
 
             waitingList.value = waitingList.value.filter((postulation) => postulation.id !== entry.id)
             selectedWaitingIds.value = selectedWaitingIds.value.filter((id) => id !== entry.id)

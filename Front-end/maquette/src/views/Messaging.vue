@@ -5,11 +5,14 @@
         <div>
           <h2 class="h4 mb-1">Messagerie</h2>
           <p class="text-muted mb-0 small">Discussions 1:1 et groupes mission automatiques</p>
+          <p class="text-muted mb-0 x-small" v-if="isAutoSyncing">Synchronisation en direct...</p>
         </div>
         <button class="btn btn-primary btn-sm" @click="openDirectModal = true">
           Nouvelle discussion
         </button>
       </div>
+
+      <div v-if="loadError" class="alert alert-danger py-2 small">{{ loadError }}</div>
 
       <div class="row g-3 messaging-layout">
         <div class="col-12 col-lg-4">
@@ -44,6 +47,9 @@
                     <span class="badge rounded-pill" :class="conversation.type === 'group' ? 'text-bg-warning' : 'text-bg-info'">
                       {{ conversation.type === 'group' ? 'Groupe' : 'Privé' }}
                     </span>
+                  </div>
+                  <div v-if="Number(conversation.unreadCount || 0) > 0" class="mt-1 text-end">
+                    <span class="badge rounded-pill text-bg-danger">{{ Number(conversation.unreadCount) }}</span>
                   </div>
                 </button>
               </div>
@@ -152,17 +158,18 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import api from '@/services/api'
-import missionService from '@/services/missionService'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import userService from '@/services/userService'
-import chatService from '@/services/chatService'
+import chatApiService from '@/services/chatApiService'
+import getEcho, { leaveEchoChannel, destroyEcho } from '@/services/realtime'
 import { getCurrentUser } from '@/utils/auth'
 
 const currentUser = getCurrentUser()
 const currentUserId = String(currentUser?.id || '')
 
 const isLoading = ref(true)
+const loadError = ref('')
+const isAutoSyncing = ref(false)
 const openDirectModal = ref(false)
 const activeFilter = ref('all')
 const draftMessage = ref('')
@@ -173,6 +180,14 @@ const usersById = ref({})
 const conversations = ref([])
 const selectedConversationId = ref(null)
 const messages = ref([])
+const conversationPollHandle = ref(null)
+const messagePollHandle = ref(null)
+const userChannelName = ref('')
+const activeConversationChannelName = ref('')
+const echo = ref(null)
+
+const CONVERSATION_POLL_MS = 30000
+const MESSAGES_POLL_MS = 15000
 
 const selectedConversation = computed(() =>
   conversations.value.find((conversation) => conversation.id === selectedConversationId.value) || null
@@ -180,6 +195,16 @@ const selectedConversation = computed(() =>
 
 const selectedGroupMembers = computed(() => {
   if (!selectedConversation.value || selectedConversation.value.type !== 'group') return []
+
+  if (Array.isArray(selectedConversation.value.members) && selectedConversation.value.members.length > 0) {
+    return selectedConversation.value.members.map((member) => {
+      const fullName = `${member.firstName || ''} ${member.lastName || ''}`.trim()
+      return {
+        id: String(member.id || ''),
+        name: fullName || member.email || `Utilisateur #${member.id}`,
+      }
+    })
+  }
 
   return (selectedConversation.value.memberIds || [])
     .map((memberId) => String(memberId))
@@ -222,11 +247,149 @@ const getConversationName = (conversation) => {
   if (!conversation) return ''
   if (conversation.type === 'group') return conversation.name || 'Groupe mission'
 
+  const member = (conversation.members || []).find((entry) => String(entry.id) !== currentUserId)
+  if (member) {
+    const fullName = `${member.firstName || ''} ${member.lastName || ''}`.trim()
+    return fullName || member.email || 'Utilisateur'
+  }
+
   const otherId = (conversation.memberIds || []).map(String).find((memberId) => memberId !== currentUserId)
   return getUserDisplayName(otherId)
 }
 
 const isOwnMessage = (message) => String(message.senderId) === currentUserId
+
+const markConversationMessagesAsRead = async (conversationId, rows) => {
+  const unreadMessages = rows.filter((message) => {
+    const isOwn = String(message.senderId) === currentUserId
+    const alreadyRead = (message.readByUserIds || []).map(String).includes(currentUserId)
+    return !isOwn && !alreadyRead
+  })
+
+  if (!unreadMessages.length) return
+
+  await Promise.all(unreadMessages.map((message) =>
+    chatApiService.markMessageRead(message.id).catch(() => null)
+  ))
+
+  conversations.value = conversations.value.map((conversation) =>
+    conversation.id === conversationId
+      ? { ...conversation, unreadCount: 0 }
+      : conversation
+  )
+}
+
+const mergeConversation = (nextConversation) => {
+  if (!nextConversation?.id) return
+
+  const index = conversations.value.findIndex((conversation) => conversation.id === nextConversation.id)
+  if (index === -1) {
+    conversations.value = [nextConversation, ...conversations.value]
+    return
+  }
+
+  const merged = {
+    ...conversations.value[index],
+    ...nextConversation,
+  }
+
+  conversations.value = [
+    ...conversations.value.slice(0, index),
+    merged,
+    ...conversations.value.slice(index + 1),
+  ]
+}
+
+const mergeConversationList = (nextConversations) => {
+  const selectedId = selectedConversationId.value
+  conversations.value = Array.isArray(nextConversations) ? nextConversations : []
+
+  if (!conversations.value.length) {
+    selectedConversationId.value = null
+    messages.value = []
+    return
+  }
+
+  const hasSelection = selectedId && conversations.value.some((conversation) => conversation.id === selectedId)
+  if (!hasSelection) {
+    selectedConversationId.value = conversations.value[0].id
+  }
+}
+
+const upsertMessage = (nextMessage) => {
+  if (!nextMessage?.id || !selectedConversation.value || String(nextMessage.conversationId) !== String(selectedConversation.value.id)) {
+    return
+  }
+
+  if (messages.value.some((message) => message.id === nextMessage.id)) {
+    return
+  }
+
+  messages.value = [...messages.value, nextMessage].sort(
+    (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+  )
+}
+
+const refreshConversationFromRealtime = async () => {
+  try {
+    const rows = await chatApiService.listConversations()
+    mergeConversationList(rows)
+  } catch {
+    // fallback only
+  }
+}
+
+const refreshSelectedConversationMessages = async () => {
+  if (!selectedConversation.value) return
+
+  try {
+    const rows = await chatApiService.listMessages(selectedConversation.value.id)
+    messages.value = rows
+    await markConversationMessagesAsRead(selectedConversation.value.id, rows)
+  } catch {
+    // fallback only
+  }
+}
+
+const bindConversationChannel = (conversationId) => {
+  const instance = echo.value || getEcho()
+  if (!instance || !conversationId) return
+
+  const nextName = `chat.conversation.${conversationId}`
+  if (activeConversationChannelName.value === nextName) return
+
+  if (activeConversationChannelName.value) {
+    leaveEchoChannel(activeConversationChannelName.value)
+  }
+
+  activeConversationChannelName.value = nextName
+  instance.private(nextName)
+    .listen('.chat.message.sent', (event) => {
+      upsertMessage(event?.message)
+      refreshConversationFromRealtime()
+      if (selectedConversation.value && String(selectedConversation.value.id) === String(conversationId) && !isOwnMessage(event?.message || {})) {
+        markConversationMessagesAsRead(conversationId, [event.message]).catch(() => null)
+      }
+    })
+}
+
+const bindUserChannel = () => {
+  const instance = echo.value || getEcho()
+  if (!instance || !currentUserId) return
+
+  const nextName = `chat.user.${currentUserId}`
+  if (userChannelName.value === nextName) return
+
+  if (userChannelName.value) {
+    leaveEchoChannel(userChannelName.value)
+  }
+
+  userChannelName.value = nextName
+  instance.private(nextName)
+    .listen('.chat.conversation.changed', () => {
+      refreshConversationFromRealtime()
+    })
+}
 
 const loadMessages = async () => {
   if (!selectedConversation.value) {
@@ -234,25 +397,78 @@ const loadMessages = async () => {
     return
   }
 
-  messages.value = chatService.getMessagesForConversation(selectedConversation.value.id)
+  const rows = await chatApiService.listMessages(selectedConversation.value.id)
+  messages.value = rows
+  await markConversationMessagesAsRead(selectedConversation.value.id, rows)
+
   await nextTick()
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
+
+  bindConversationChannel(selectedConversation.value.id)
 }
 
-const refreshConversations = () => {
-  conversations.value = chatService.getConversationsForUser(currentUserId)
-  if (!conversations.value.length) {
-    selectedConversationId.value = null
-    messages.value = []
-    return
+const refreshConversations = async () => {
+  const rows = await chatApiService.listConversations()
+  mergeConversationList(rows)
+}
+
+const runAutoRefreshConversations = async () => {
+  if (document.hidden) return
+
+  try {
+    isAutoSyncing.value = true
+    const rows = await chatApiService.listConversations()
+    mergeConversationList(rows)
+  } catch {
+    // Keep existing data if silent sync fails.
+  } finally {
+    isAutoSyncing.value = false
+  }
+}
+
+const runAutoRefreshMessages = async () => {
+  if (document.hidden || !selectedConversationId.value) return
+
+  try {
+    const rows = await chatApiService.listMessages(selectedConversationId.value)
+    messages.value = rows
+    await markConversationMessagesAsRead(selectedConversationId.value, rows)
+  } catch {
+    // Keep existing data if silent sync fails.
+  }
+}
+
+const stopPolling = () => {
+  if (conversationPollHandle.value) {
+    clearInterval(conversationPollHandle.value)
+    conversationPollHandle.value = null
   }
 
-  const stillExists = conversations.value.some((conversation) => conversation.id === selectedConversationId.value)
-  if (!stillExists) {
-    selectedConversationId.value = conversations.value[0].id
+  if (messagePollHandle.value) {
+    clearInterval(messagePollHandle.value)
+    messagePollHandle.value = null
   }
+}
+
+const startPolling = () => {
+  stopPolling()
+
+  conversationPollHandle.value = setInterval(() => {
+    runAutoRefreshConversations()
+  }, CONVERSATION_POLL_MS)
+
+  messagePollHandle.value = setInterval(() => {
+    runAutoRefreshMessages()
+  }, MESSAGES_POLL_MS)
+}
+
+const handleVisibilityChange = () => {
+  if (document.hidden) return
+
+  runAutoRefreshConversations()
+  runAutoRefreshMessages()
 }
 
 const selectConversation = async (conversationId) => {
@@ -261,37 +477,47 @@ const selectConversation = async (conversationId) => {
 }
 
 const startDirectConversation = async (otherUserId) => {
-  const conversation = chatService.ensureDirectConversation(currentUserId, String(otherUserId))
-  if (!conversation) return
+  loadError.value = ''
 
-  openDirectModal.value = false
-  refreshConversations()
-  await selectConversation(conversation.id)
+  try {
+    const response = await chatApiService.startDirectConversation(otherUserId)
+    const conversation = response.conversation
+    if (!conversation?.id) return
+
+    openDirectModal.value = false
+    await refreshConversations()
+    await selectConversation(conversation.id)
+  } catch (error) {
+    loadError.value = error.message || 'Impossible de démarrer la discussion privée.'
+  }
 }
 
 const handleSendMessage = async () => {
   if (!selectedConversation.value || !draftMessage.value.trim()) return
 
-  chatService.sendMessage({
-    conversationId: selectedConversation.value.id,
-    senderId: currentUserId,
-    text: draftMessage.value,
-  })
+  loadError.value = ''
 
-  draftMessage.value = ''
-  refreshConversations()
-  await loadMessages()
+  try {
+    await chatApiService.sendMessage({
+      conversationId: selectedConversation.value.id,
+      text: draftMessage.value,
+    })
+
+    draftMessage.value = ''
+    await refreshConversations()
+    await loadMessages()
+  } catch (error) {
+    loadError.value = error.message || 'Impossible d\'envoyer le message.'
+  }
 }
 
 const loadMessagingContext = async () => {
   isLoading.value = true
+  loadError.value = ''
 
   try {
-    const [usersList, missionsList, affectationsResponse, postulationsResponse] = await Promise.all([
+    const [usersList] = await Promise.all([
       userService.getAll(),
-      missionService.getAll(),
-      api.get('/affectations').then((response) => response.data).catch(() => []),
-      api.get('/postulations').then((response) => response.data).catch(() => []),
     ])
 
     users.value = Array.isArray(usersList) ? usersList : []
@@ -300,15 +526,15 @@ const loadMessagingContext = async () => {
       return acc
     }, {})
 
-    const missions = Array.isArray(missionsList) ? missionsList : []
-    const affectations = Array.isArray(affectationsResponse) ? affectationsResponse : []
-    const postulations = Array.isArray(postulationsResponse) ? postulationsResponse : []
-
-    chatService.syncMissionGroups(missions, affectations, postulations, currentUserId)
-
-    refreshConversations()
+    await refreshConversations()
     await loadMessages()
-  } catch {
+    echo.value = getEcho()
+    bindUserChannel()
+    if (selectedConversation.value) {
+      bindConversationChannel(selectedConversation.value.id)
+    }
+  } catch (error) {
+    loadError.value = error.message || 'Impossible de charger la messagerie.'
     conversations.value = []
     messages.value = []
   } finally {
@@ -323,6 +549,20 @@ watch(selectedConversationId, async () => {
 onMounted(async () => {
   if (!currentUserId) return
   await loadMessagingContext()
+  startPolling()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  stopPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (userChannelName.value) {
+    leaveEchoChannel(userChannelName.value)
+  }
+  if (activeConversationChannelName.value) {
+    leaveEchoChannel(activeConversationChannelName.value)
+  }
+  destroyEcho()
 })
 </script>
 

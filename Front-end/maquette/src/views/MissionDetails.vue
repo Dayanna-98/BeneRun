@@ -325,7 +325,7 @@ import {
   MessageCircle, AlertCircle, Send, UserMinus, UserPlus
 } from 'lucide-vue-next'
 import api from '@/services/api'
-import chatService from '@/services/chatService'
+import chatApiService from '@/services/chatApiService'
 import { getCurrentUser, setCurrentUser } from '@/utils/auth'
 import MissionLiveMap from '@/components/maps/MissionLiveMap.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
@@ -596,13 +596,17 @@ const registerUserToMission = async (userId, successMessage) => {
     })
 
     const postulation = response?.data?.postulation || null
-    chatService.addUserToMissionGroup({
+    const conversationResponse = await chatApiService.ensureMissionConversation({
       missionId: mission.value.id,
-      eventId: mission.value.eventId || null,
-      missionName: mission.value.name,
-      eventName: mission.value.eventName,
-      userId,
+      name: `${mission.value.name} • ${mission.value.eventName || 'Événement'}`,
     })
+
+    if (conversationResponse?.conversation?.id) {
+      await chatApiService.addParticipant({
+        conversationId: conversationResponse.conversation.id,
+        userId,
+      })
+    }
 
     if (String(userId) === String(currentUser.value?.id || '')) {
       mission.value.registrationStatus = postulation?.statut_postulation || 'en_attente'
