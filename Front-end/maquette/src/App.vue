@@ -40,7 +40,11 @@ onMounted(() => {
 // Affiche BottomNav seulement sur les routes protégées ET si connecté
 const isProtectedRoute = computed(() => route.meta.requiresAuth === true)
 const showLayout = computed(() => isLoggedIn.value && isProtectedRoute.value)
-const showProfileQuickAccess = computed(() => showLayout.value && route.path !== '/profile' && route.path !== '/profile/edit')
+const showProfileQuickAccess = computed(() =>
+  showLayout.value
+  && route.path !== '/profile'
+  && route.path !== '/profile/edit'
+)
 const showFavoritesQuickAccess = computed(() => showLayout.value && route.path !== '/favorites')
 const isDashboardRoute = computed(() => route.path === '/')
 </script>

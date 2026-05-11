@@ -20,19 +20,20 @@
             </div>
           </div>
         </div>
-        <button v-if="canEdit"
-          class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill"
-          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
-          @click="openCreateModal">
-          <Plus style="width:16px;height:16px" /> Ajouter
-        </button>
+
       </div>
-      <div class="px-3 pb-3">
+      <div class="px-3 pb-3 d-flex align-items-center justify-content-between gap-2">
         <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
           style="background:rgba(192,132,252,.2);border:1px solid rgba(192,132,252,.3)">
           <Award style="width:14px;height:14px;color:#c084fc" />
           <span class="small fw-semibold" style="color:#e9d5ff">{{ competences.length }} compétence{{ competences.length !== 1 ? 's' : '' }}</span>
         </div>
+        <button v-if="canEdit"
+          class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill flex-shrink-0"
+          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+          @click="openCreateModal">
+          <Plus style="width:14px;height:14px" /> Ajouter
+        </button>
       </div>
     </header>
 
@@ -77,10 +78,11 @@
       </div>
 
       <!-- Liste des compétences -->
-      <div v-else class="card border-0 shadow-sm overflow-hidden">
+      <div v-else class="card border-0 shadow-sm" style="border-radius:0.5rem;overflow:hidden">
         <div class="d-flex align-items-center justify-content-between px-3 py-3"
           style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
-          <span class="fw-semibold text-white d-flex align-items-center gap-2">
+          <span class="fw-semibold text-white d-flex align-items-center gap-2"
+            style="margin-top:0">
             <Award style="width:16px;height:16px;color:#c084fc" /> Toutes les compétences
           </span>
           <span class="badge rounded-pill"
@@ -133,8 +135,8 @@
               </div>
             </div>
 
-            <!-- Actions (superadmin seulement) -->
-            <div v-if="canEdit" class="d-flex gap-2 flex-shrink-0">
+            <!-- Actions (superadmin seulement) - masquées pendant l'édition inline -->
+            <div v-if="canEdit && editingId !== c.id_competence" class="d-flex gap-2 flex-shrink-0">
               <button class="btn btn-sm rounded-pill px-3"
                 style="background:#eff6ff;color:#3b82f6;border:none"
                 @click="startEdit(c)" title="Modifier">
@@ -153,7 +155,7 @@
 
     <!-- Modal : Créer une compétence -->
     <div v-if="showCreateModal" class="modal-backdrop-custom" @click.self="closeCreateModal">
-      <div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+      <div class="modal-dialog-custom card border-0 shadow-lg">
         <div class="d-flex align-items-center justify-content-between px-4 py-3"
           style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
           <h5 class="mb-0 text-white d-flex align-items-center gap-2">
@@ -195,7 +197,7 @@
 
     <!-- Modal : Confirmer suppression -->
     <div v-if="deleteTarget" class="modal-backdrop-custom" @click.self="deleteTarget = null">
-      <div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+      <div class="modal-dialog-custom card border-0 shadow-lg">
         <div class="px-4 py-3 d-flex align-items-center gap-2"
           style="background:linear-gradient(135deg,#450a0a,#7f1d1d)">
           <Trash2 style="width:18px;height:18px;color:#fca5a5" />
@@ -407,17 +409,26 @@ function showToast(message, type = 'success') {
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1050;
-  padding: 1rem;
+  overflow-y: auto;
+  padding: max(0.75rem, env(safe-area-inset-top, 0px)) 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 .modal-dialog-custom {
   width: 100%;
   max-width: 460px;
+  max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
   border-radius: 0.75rem;
   overflow: hidden;
+}
+
+.modal-dialog-custom .card-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .toast-custom {

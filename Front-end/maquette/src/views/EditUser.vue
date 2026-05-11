@@ -97,11 +97,6 @@
                 <input v-model="editForm.address" class="form-control" />
               </div>
             </div>
-
-            <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2" @click="handleSaveInfo">
-              <Save style="width:16px;height:16px" />
-              Enregistrer les informations
-            </button>
           </div>
         </div>
 
@@ -139,7 +134,7 @@
                 <button type="button" class="btn btn-outline-secondary flex-fill" @click="router.go(-1)">Annuler</button>
                 <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2">
                   <Save style="width:16px;height:16px" />
-                  Enregistrer
+                  Appliquer le rôle
                 </button>
               </div>
             </form>
@@ -341,6 +336,16 @@
                 {{ targetUser.anonymous ? "Retirer l'anonymat" : 'Rendre anonyme' }}
               </button>
             </template>
+          </div>
+        </div>
+
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Actions de sauvegarde</h5></div>
+          <div class="card-body">
+            <button class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2" @click="handleSaveInfo">
+              <Save style="width:16px;height:16px" />
+              Enregistrer les informations
+            </button>
           </div>
         </div>
 

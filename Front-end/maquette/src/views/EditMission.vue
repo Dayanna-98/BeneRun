@@ -306,7 +306,6 @@ const formData = reactive({
   responsiblePhone: '',
   responsibleEmail: '',
   postable: true,
-  inscription: true,
   public: true,
   googleMapsUrl: '',
   status: 'À venir',
@@ -319,7 +318,6 @@ const formData = reactive({
 
 const switchOptions = [
   { key: 'postable',    label: 'Postable',           desc: 'Les bénévoles peuvent postuler' },
-  { key: 'inscription', label: 'Inscription requise', desc: 'Inscription obligatoire pour participer' },
   { key: 'public',      label: 'Mission publique',    desc: 'Visible par tous les bénévoles' },
 ]
 
@@ -523,7 +521,7 @@ const loadMission = async () => {
     formData.responsiblePhone = loadedMission.responsiblePhone || ''
     formData.responsibleEmail = loadedMission.responsibleEmail || ''
     formData.googleMapsUrl = loadedMission.googleMapsUrl || ''
-    formData.inscription = loadedMission.inscription
+    formData.postable = loadedMission.postable !== false
     formData.public = loadedMission.public
     formData.status = loadedMission.status || 'À venir'
     formData.imageUrl = loadedMission.imageUrl || ''

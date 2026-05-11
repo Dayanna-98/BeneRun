@@ -1,5 +1,5 @@
 <template>
-  <nav class="bottom-nav">
+  <nav v-show="!hideForOverlay" class="bottom-nav">
     <div class="bottom-nav-inner">
       <button
         v-for="item in navItems"
@@ -19,11 +19,14 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Home, Calendar, Briefcase, MessageCircle, ListCheck } from 'lucide-vue-next'
 
 const router = useRouter()
 const route  = useRoute()
+const hideForOverlay = ref(false)
+let observer = null
 
 const navItems = [
   { path: '/',           icon: Home,         label: 'Accueil'    },
@@ -37,6 +40,35 @@ const isActive = (path) => {
   if (path === '/') return route.path === '/'
   return route.path === path || route.path.startsWith(`${path}/`)
 }
+
+function refreshOverlayState() {
+  // Hide bottom nav while any modal/backdrop overlay is visible.
+  hideForOverlay.value = !!document.querySelector(
+    '.modal-backdrop-custom, .modal-backdrop.show, .modal.show, [data-hide-bottom-nav="true"]'
+  )
+}
+
+onMounted(() => {
+  refreshOverlayState()
+
+  observer = new MutationObserver(() => {
+    refreshOverlayState()
+  })
+
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'data-hide-bottom-nav'],
+  })
+})
+
+onBeforeUnmount(() => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+})
 </script>
 
 <style scoped>

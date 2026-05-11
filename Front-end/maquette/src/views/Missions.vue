@@ -143,7 +143,7 @@
             <div v-if="!canApply(mission)"
               class="position-absolute w-100 h-100 d-flex align-items-center justify-content-center"
               style="top:0;left:0;background:rgba(0,0,0,.6)">
-              <span class="badge bg-danger fs-6">Compétences requises manquantes</span>
+              <span class="badge bg-danger fs-6">{{ getUnavailableReason(mission) }}</span>
             </div>
           </div>
 
@@ -306,7 +306,7 @@ const timelineFilter   = ref('upcoming')
 const filterType       = ref('all')
 const filterCategory   = ref('all')
 const filterDate       = ref('all')
-const filterVisibility = ref('all')
+const filterVisibility = ref('public')
 const showFilters      = ref(false)
 const favorites        = ref([])
 const missions         = ref([])
@@ -371,6 +371,7 @@ const mapMissionFromApi = (mission, eventMap, affectationCountMap) => {
     requiredSkills: [],
     currentVolunteers: Number(mission.current_volunteers_count ?? affectationCountMap.get(missionId) ?? 0),
     maxVolunteers: Number(mission.nombre_benevoles_max) || 0,
+    postable: !!mission.inscription_requise,
     imageUrl: null,
     isFavorite: false,
     visibility: mission.visibilite_mission === 'publique' ? 'public' : 'private',
@@ -498,7 +499,12 @@ const loadMoreMissions = () => {
 const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreMissions.value, onLoadMore: loadMoreMissions })
 
 const spotsLeft  = (m) => m.maxVolunteers - m.currentVolunteers
-const canApply   = (m) => m.requiredSkills.every(s => userSkillNames.includes(s)) && spotsLeft(m) > 0
+const canApply   = (m) => m.postable !== false && m.requiredSkills.every(s => userSkillNames.includes(s)) && spotsLeft(m) > 0
+const getUnavailableReason = (m) => {
+  if (m.postable === false) return 'Inscriptions fermées'
+  if (spotsLeft(m) <= 0) return 'Mission complète'
+  return 'Compétences requises manquantes'
+}
 const formatMissionDay = (dateValue) => {
   if (!dateValue) return 'À définir'
 
@@ -532,7 +538,8 @@ const toggleFavorite = async (id) => {
   }
 }
 const clearFilters = () => {
-  filterType.value = filterCategory.value = filterDate.value = filterVisibility.value = 'all'
+  filterType.value = filterCategory.value = filterDate.value = 'all'
+  filterVisibility.value = 'public'
   eventFilterId.value = ''
   if (route.query.eventId) {
     router.replace({ path: '/missions', query: {} })

@@ -308,7 +308,7 @@ const formData = reactive({
   location: '', description: '', type: '', maxVolunteers: '',
   backupVolunteers: '', responsibleUserId: '', responsiblePhone: '',
   responsibleEmail: '', googleMapsUrl: '',
-  postable: true, inscription: true, public: true,
+  postable: true, public: true,
   imageUrl: '', imageFile: null, photoFiles: [],
   competenceIds: [],
 })
@@ -320,7 +320,6 @@ const mainImagePreviewUrl = ref('')
 
 const switchOptions = [
   { key: 'postable',    label: 'Postable',           desc: 'Les bénévoles peuvent postuler' },
-  { key: 'inscription', label: 'Inscription requise', desc: 'Inscription obligatoire pour participer' },
   { key: 'public',      label: 'Mission publique',    desc: 'Visible par tous les bénévoles' },
 ]
 

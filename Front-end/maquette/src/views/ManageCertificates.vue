@@ -19,76 +19,34 @@
             </div>
           </div>
         </div>
-        <button class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill"
-          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
-          @click="openCreateModal">
-          <Plus style="width:16px;height:16px" /> Créer
-        </button>
+
       </div>
       <!-- Stat strip -->
-      <div class="px-3 pb-3 d-flex gap-2">
-        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
-          style="background:rgba(234,179,8,.2);border:1px solid rgba(234,179,8,.3)">
-          <span class="small fw-semibold" style="color:#fde68a">{{ pendingCount }} en attente</span>
+      <div class="px-3 pb-3 d-flex align-items-center justify-content-between gap-2">
+        <div class="d-flex gap-2">
+          <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+            style="background:rgba(234,179,8,.2);border:1px solid rgba(234,179,8,.3)">
+            <span class="small fw-semibold" style="color:#fde68a">{{ pendingCount }} en attente</span>
+          </div>
+          <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+            style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">
+            <span class="small fw-semibold" style="color:#86efac">{{ approvedCount }} approuvés</span>
+          </div>
+          <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+            style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3)">
+            <span class="small fw-semibold" style="color:#fca5a5">{{ rejectedCount }} rejetés</span>
+          </div>
         </div>
-        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
-          style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3)">
-          <span class="small fw-semibold" style="color:#86efac">{{ approvedCount }} approuvés</span>
-        </div>
-        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
-          style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3)">
-          <span class="small fw-semibold" style="color:#fca5a5">{{ rejectedCount }} rejetés</span>
-        </div>
+        <button class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill flex-shrink-0"
+          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+          @click="openCreateModal">
+          <Plus style="width:14px;height:14px" /> Créer
+        </button>
       </div>
     </header>
 
     <div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:1024px">
       <div v-if="loadError" class="alert alert-danger mb-0">{{ loadError }}</div>
-
-      <div class="row g-3">
-        <div class="col-12 col-md-4">
-          <div class="card border-0 text-white h-100" style="background:linear-gradient(135deg,#b45309,#d97706)">
-            <div class="card-body p-3 d-flex align-items-center gap-3">
-              <div class="rounded-circle d-flex align-items-center justify-content-center"
-                style="width:44px;height:44px;background:rgba(255,255,255,.2)">
-                <FileText style="width:22px;height:22px" />
-              </div>
-              <div>
-                <div class="fs-3 fw-bold">{{ pendingCount }}</div>
-                <div class="x-small opacity-90">En attente</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-12 col-md-4">
-          <div class="card border-0 text-white h-100" style="background:linear-gradient(135deg,#15803d,#16a34a)">
-            <div class="card-body p-3 d-flex align-items-center gap-3">
-              <div class="rounded-circle d-flex align-items-center justify-content-center"
-                style="width:44px;height:44px;background:rgba(255,255,255,.2)">
-                <FileText style="width:22px;height:22px" />
-              </div>
-              <div>
-                <div class="fs-3 fw-bold">{{ approvedCount }}</div>
-                <div class="x-small opacity-90">Approuvés</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-12 col-md-4">
-          <div class="card border-0 text-white h-100" style="background:linear-gradient(135deg,#991b1b,#dc2626)">
-            <div class="card-body p-3 d-flex align-items-center gap-3">
-              <div class="rounded-circle d-flex align-items-center justify-content-center"
-                style="width:44px;height:44px;background:rgba(255,255,255,.2)">
-                <FileText style="width:22px;height:22px" />
-              </div>
-              <div>
-                <div class="fs-3 fw-bold">{{ rejectedCount }}</div>
-                <div class="x-small opacity-90">Rejetés</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="card">
         <div class="card-body d-flex flex-column flex-md-row gap-2">
@@ -114,7 +72,7 @@
 
       <div v-else>
         <!-- Section En attente -->
-        <div class="card mb-3 border-0 shadow-sm overflow-hidden">
+        <div class="card mb-3 border-0 shadow-sm" style="border-radius:0.5rem;overflow:hidden">
           <div class="d-flex align-items-center justify-content-between px-3 py-3"
             style="background:linear-gradient(135deg,#b45309,#d97706)">
             <span class="fw-semibold text-white d-flex align-items-center gap-2">
@@ -133,7 +91,7 @@
             <p class="small mb-0">Aucun certificat en attente</p>
           </div>
           <ul v-else class="list-group list-group-flush">
-            <li v-for="cert in pendingCertificates" :key="cert.id" class="list-group-item py-3">
+            <li v-for="cert in pendingCertificates" :key="cert.id" class="list-group-item py-3 px-3">
               <div class="d-flex align-items-start justify-content-between gap-3">
                 <div class="flex-fill">
                   <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
@@ -141,157 +99,208 @@
                     <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
                       {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
                     </span>
-                    <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
                   </div>
-                  <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
-                  <div class="x-small text-muted mb-1">
-                    Utilisateur: {{ getUserLabel(cert.userId) }}
-                  </div>
+                  <div class="small text-muted mb-1">{{ cert.issuer || 'Émetteur non renseigné' }}</div>
+                  <div class="x-small text-muted mb-1">{{ getUserLabel(cert.userId) }}</div>
                   <div class="x-small text-muted">
                     Délivré le {{ formatDate(cert.issueDate) }}
-                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
+                    <span v-if="cert.expiryDate"> · Expire le {{ formatDate(cert.expiryDate) }}</span>
                   </div>
-                  <div class="mt-2 pt-2 border-top">
-                    <div class="x-small text-muted mb-2">Validation du certificat</div>
-                    <div class="d-flex flex-wrap gap-2">
-                      <button
-                        class="btn btn-outline-success btn-sm"
-                        :disabled="statusSavingId === cert.id || cert.status === 'approved'"
-                        @click="updateStatus(cert, 'approved')"
-                      >
-                        Approuver
+                </div>
+                <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                  <div class="d-flex gap-1">
+                    <button class="btn quick-action-btn rounded-pill"
+                      style="background:#dcfce7;color:#16a34a;border:none"
+                      :disabled="statusSavingId === cert.id"
+                      @click="updateStatus(cert, 'approved')"
+                      title="Approuver">
+                      <Check class="quick-action-icon" />
+                    </button>
+                    <button class="btn quick-action-btn rounded-pill"
+                      style="background:#fee2e2;color:#dc2626;border:none"
+                      :disabled="statusSavingId === cert.id"
+                      @click="updateStatus(cert, 'rejected')"
+                      title="Rejeter">
+                      <X class="quick-action-icon" />
+                    </button>
+                  </div>
+                  <a v-if="cert.filePath" :href="`/storage/${cert.filePath}`" target="_blank"
+                    class="btn quick-action-btn rounded-pill"
+                    style="background:#eff6ff;color:#3b82f6;border:none"
+                    title="Voir le fichier">
+                    <Paperclip class="quick-action-icon" />
+                  </a>
+                  <div class="d-flex gap-1">
+                    <button class="btn quick-action-btn rounded-pill"
+                      style="background:#eff6ff;color:#3b82f6;border:none"
+                      @click="openEditModal(cert)">
+                      <Pencil class="quick-action-icon" />
+                    </button>
+                    <button class="btn quick-action-btn rounded-pill"
+                      style="background:#fff1f2;color:#ef4444;border:none"
+                      @click="askDelete(cert)">
+                      <Trash2 class="quick-action-icon" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Section Approuvés (accordéon) -->
+        <div class="card mb-3 border-0 shadow-sm" style="border-radius:0.5rem;overflow:hidden">
+          <button class="d-flex align-items-center justify-content-between px-3 py-3 w-100 border-0 text-start"
+            style="background:linear-gradient(135deg,#15803d,#16a34a)"
+            @click="openApproved = !openApproved">
+            <span class="fw-semibold text-white d-flex align-items-center gap-2">
+              <FileText style="width:16px;height:16px" /> Certificats approuvés
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge rounded-pill"
+                style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
+                {{ approvedCertificates.length }}
+              </span>
+              <ChevronDown v-if="openApproved" style="width:16px;height:16px;color:rgba(255,255,255,.8)" />
+              <ChevronRight v-else style="width:16px;height:16px;color:rgba(255,255,255,.8)" />
+            </div>
+          </button>
+          <div v-if="openApproved">
+            <div v-if="approvedCertificates.length === 0" class="text-center py-5 text-muted">
+              <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                style="width:56px;height:56px;background:#f3f4f6">
+                <FileText style="width:28px;height:28px;color:#d1d5db" />
+              </div>
+              <p class="small mb-0">Aucun certificat approuvé</p>
+            </div>
+            <ul v-else class="list-group list-group-flush">
+              <li v-for="cert in approvedCertificates" :key="cert.id" class="list-group-item py-3 px-3">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                  <div class="flex-fill">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                      <span class="fw-semibold">{{ cert.name }}</span>
+                      <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
+                        {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                      </span>
+                    </div>
+                    <div class="small text-muted mb-1">{{ cert.issuer || 'Émetteur non renseigné' }}</div>
+                    <div class="x-small text-muted mb-1">{{ getUserLabel(cert.userId) }}</div>
+                    <div class="x-small text-muted">
+                      Délivré le {{ formatDate(cert.issueDate) }}
+                      <span v-if="cert.expiryDate"> · Expire le {{ formatDate(cert.expiryDate) }}</span>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                    <button class="btn quick-action-btn rounded-pill"
+                      style="background:#fee2e2;color:#dc2626;border:none"
+                      :disabled="statusSavingId === cert.id"
+                      @click="updateStatus(cert, 'rejected')"
+                      title="Passer en rejeté">
+                      <X class="quick-action-icon" />
+                    </button>
+                    <a v-if="cert.filePath" :href="`/storage/${cert.filePath}`" target="_blank"
+                      class="btn quick-action-btn rounded-pill"
+                      style="background:#eff6ff;color:#3b82f6;border:none"
+                      title="Voir le fichier">
+                      <Paperclip class="quick-action-icon" />
+                    </a>
+                    <div class="d-flex gap-1">
+                      <button class="btn quick-action-btn rounded-pill"
+                        style="background:#eff6ff;color:#3b82f6;border:none"
+                        @click="openEditModal(cert)">
+                        <Pencil class="quick-action-icon" />
                       </button>
-                      <button
-                        class="btn btn-outline-danger btn-sm"
-                        :disabled="statusSavingId === cert.id || cert.status === 'rejected'"
-                        @click="updateStatus(cert, 'rejected')"
-                      >
-                        Rejeter
+                      <button class="btn quick-action-btn rounded-pill"
+                        style="background:#fff1f2;color:#ef4444;border:none"
+                        @click="askDelete(cert)">
+                        <Trash2 class="quick-action-icon" />
                       </button>
                     </div>
                   </div>
                 </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
-                    <Pencil style="width:14px;height:14px" />
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
-                    <Trash2 style="width:14px;height:14px" />
-                  </button>
-                </div>
-              </div>
-            </li>
-          </ul>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <!-- Section Approuvés -->
-        <div class="card mb-3 border-0 shadow-sm overflow-hidden">
-          <div class="d-flex align-items-center justify-content-between px-3 py-3"
-            style="background:linear-gradient(135deg,#15803d,#16a34a)">
-            <span class="fw-semibold text-white d-flex align-items-center gap-2">
-              <FileText style="width:16px;height:16px" /> Certificats approuvés
-            </span>
-            <span class="badge rounded-pill"
-              style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
-              {{ approvedCertificates.length }}
-            </span>
-          </div>
-          <div v-if="approvedCertificates.length === 0" class="text-center py-5 text-muted">
-            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-              style="width:56px;height:56px;background:#f3f4f6">
-              <FileText style="width:28px;height:28px;color:#d1d5db" />
-            </div>
-            <p class="small mb-0">Aucun certificat approuvé</p>
-          </div>
-          <ul v-else class="list-group list-group-flush">
-            <li v-for="cert in approvedCertificates" :key="cert.id" class="list-group-item py-3">
-              <div class="d-flex align-items-start justify-content-between gap-3">
-                <div class="flex-fill">
-                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <span class="fw-semibold">{{ cert.name }}</span>
-                    <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
-                      {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
-                    </span>
-                    <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
-                  </div>
-                  <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
-                  <div class="x-small text-muted mb-1">
-                    Utilisateur: {{ getUserLabel(cert.userId) }}
-                  </div>
-                  <div class="x-small text-muted">
-                    Délivré le {{ formatDate(cert.issueDate) }}
-                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
-                  </div>
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
-                    <Pencil style="width:14px;height:14px" />
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
-                    <Trash2 style="width:14px;height:14px" />
-                  </button>
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Section Rejetés -->
-        <div class="card border-0 shadow-sm overflow-hidden">
-          <div class="d-flex align-items-center justify-content-between px-3 py-3"
-            style="background:linear-gradient(135deg,#991b1b,#dc2626)">
+        <!-- Section Rejetés (accordéon) -->
+        <div class="card border-0 shadow-sm" style="border-radius:0.5rem;overflow:hidden">
+          <button class="d-flex align-items-center justify-content-between px-3 py-3 w-100 border-0 text-start"
+            style="background:linear-gradient(135deg,#991b1b,#dc2626)"
+            @click="openRejected = !openRejected">
             <span class="fw-semibold text-white d-flex align-items-center gap-2">
               <FileText style="width:16px;height:16px" /> Certificats rejetés
             </span>
-            <span class="badge rounded-pill"
-              style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
-              {{ rejectedCertificates.length }}
-            </span>
-          </div>
-          <div v-if="rejectedCertificates.length === 0" class="text-center py-5 text-muted">
-            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-              style="width:56px;height:56px;background:#f3f4f6">
-              <FileText style="width:28px;height:28px;color:#d1d5db" />
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge rounded-pill"
+                style="background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.3)">
+                {{ rejectedCertificates.length }}
+              </span>
+              <ChevronDown v-if="openRejected" style="width:16px;height:16px;color:rgba(255,255,255,.8)" />
+              <ChevronRight v-else style="width:16px;height:16px;color:rgba(255,255,255,.8)" />
             </div>
-            <p class="small mb-0">Aucun certificat rejeté</p>
-          </div>
-          <ul v-else class="list-group list-group-flush">
-            <li v-for="cert in rejectedCertificates" :key="cert.id" class="list-group-item py-3">
-              <div class="d-flex align-items-start justify-content-between gap-3">
-                <div class="flex-fill">
-                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <span class="fw-semibold">{{ cert.name }}</span>
-                    <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
-                      {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
-                    </span>
-                    <span :class="statusBadgeClass(cert.status)">{{ formatStatus(cert.status) }}</span>
-                  </div>
-                  <div class="small text-muted mb-1">{{ cert.issuer || 'Emetteur non renseigné' }}</div>
-                  <div class="x-small text-muted mb-1">
-                    Utilisateur: {{ getUserLabel(cert.userId) }}
-                  </div>
-                  <div class="x-small text-muted">
-                    Délivré le {{ formatDate(cert.issueDate) }}
-                    <span v-if="cert.expiryDate"> • Expire le {{ formatDate(cert.expiryDate) }}</span>
-                  </div>
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-outline-primary btn-sm" @click="openEditModal(cert)">
-                    <Pencil style="width:14px;height:14px" />
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" @click="askDelete(cert)">
-                    <Trash2 style="width:14px;height:14px" />
-                  </button>
-                </div>
+          </button>
+          <div v-if="openRejected">
+            <div v-if="rejectedCertificates.length === 0" class="text-center py-5 text-muted">
+              <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                style="width:56px;height:56px;background:#f3f4f6">
+                <FileText style="width:28px;height:28px;color:#d1d5db" />
               </div>
-            </li>
-          </ul>
+              <p class="small mb-0">Aucun certificat rejeté</p>
+            </div>
+            <ul v-else class="list-group list-group-flush">
+              <li v-for="cert in rejectedCertificates" :key="cert.id" class="list-group-item py-3 px-3">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                  <div class="flex-fill">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                      <span class="fw-semibold">{{ cert.name }}</span>
+                      <span :class="['badge', cert.type === 'platform' ? 'bg-primary' : 'bg-secondary-subtle text-secondary border']">
+                        {{ cert.type === 'platform' ? 'Plateforme' : 'Externe' }}
+                      </span>
+                    </div>
+                    <div class="small text-muted mb-1">{{ cert.issuer || 'Émetteur non renseigné' }}</div>
+                    <div class="x-small text-muted mb-1">{{ getUserLabel(cert.userId) }}</div>
+                    <div class="x-small text-muted">
+                      Délivré le {{ formatDate(cert.issueDate) }}
+                      <span v-if="cert.expiryDate"> · Expire le {{ formatDate(cert.expiryDate) }}</span>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                    <button class="btn quick-action-btn rounded-pill"
+                      style="background:#dcfce7;color:#16a34a;border:none"
+                      :disabled="statusSavingId === cert.id"
+                      @click="updateStatus(cert, 'approved')"
+                      title="Approuver">
+                      <Check class="quick-action-icon" />
+                    </button>
+                    <a v-if="cert.filePath" :href="`/storage/${cert.filePath}`" target="_blank"
+                      class="btn quick-action-btn rounded-pill"
+                      style="background:#eff6ff;color:#3b82f6;border:none"
+                      title="Voir le fichier">
+                      <Paperclip class="quick-action-icon" />
+                    </a>
+                    <div class="d-flex gap-1">
+                      <button class="btn quick-action-btn rounded-pill"
+                        style="background:#eff6ff;color:#3b82f6;border:none"
+                        @click="openEditModal(cert)">
+                        <Pencil class="quick-action-icon" />
+                      </button>
+                      <button class="btn quick-action-btn rounded-pill"
+                        style="background:#fff1f2;color:#ef4444;border:none"
+                        @click="askDelete(cert)">
+                        <Trash2 class="quick-action-icon" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
-
     <div v-if="showFormModal" class="modal-backdrop-custom" @click.self="closeFormModal">
-      <div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+      <div class="modal-dialog-custom card border-0 shadow-lg">
         <div class="d-flex align-items-center justify-content-between px-4 py-3"
           style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
           <h5 class="mb-0 text-white d-flex align-items-center gap-2">
@@ -309,9 +318,10 @@
         <div class="card-body d-flex flex-column gap-3">
           <div>
             <label class="form-label fw-medium">Utilisateur <span class="text-danger">*</span></label>
+            <input v-model="userPickerSearch" type="text" class="form-control mb-1" placeholder="Rechercher un utilisateur…" />
             <select v-model="form.userId" class="form-select" :class="formError.userId ? 'is-invalid' : ''">
               <option value="">Sélectionner un utilisateur</option>
-              <option v-for="u in users" :key="u.id" :value="String(u.id)">
+              <option v-for="u in filteredUsersModal" :key="u.id" :value="String(u.id)">
                 {{ u.firstName }} {{ u.lastName }} ({{ u.email }})
               </option>
             </select>
@@ -437,7 +447,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Pencil, Trash2, X, FileText, Upload } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Pencil, Trash2, X, FileText, Upload, Check, ChevronDown, ChevronRight, Paperclip } from 'lucide-vue-next'
 import { getCurrentUser, isRole } from '@/utils/auth'
 import userService from '@/services/userService'
 import certificatService from '@/services/certificatService'
@@ -463,6 +473,9 @@ const form = ref(getDefaultForm())
 const fileInput = ref(null)
 const isDraggingFile = ref(false)
 const statusSavingId = ref('')
+const openApproved = ref(false)
+const openRejected = ref(false)
+const userPickerSearch = ref('')
 
 const deleteTarget = ref(null)
 const deleting = ref(false)
@@ -488,6 +501,14 @@ function getFilteredByStatus(status) {
 const pendingCertificates = computed(() => getFilteredByStatus('pending'))
 const approvedCertificates = computed(() => getFilteredByStatus('approved'))
 const rejectedCertificates = computed(() => getFilteredByStatus('rejected'))
+
+const filteredUsersModal = computed(() => {
+  const q = userPickerSearch.value.trim().toLowerCase()
+  if (!q) return users.value
+  return users.value.filter(u =>
+    `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(q)
+  )
+})
 
 onMounted(async () => {
   await loadUsers()
@@ -561,6 +582,7 @@ function openCreateModal() {
   editingId.value = null
   form.value = getDefaultForm()
   formError.value = { userId: '', name: '' }
+  userPickerSearch.value = ''
   showFormModal.value = true
 }
 
@@ -579,6 +601,7 @@ function openEditModal(cert) {
     fileName: '',
   }
   formError.value = { userId: '', name: '' }
+  userPickerSearch.value = ''
   showFormModal.value = true
 }
 
@@ -726,19 +749,41 @@ function showToast(message, type = 'success') {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 1050;
+  z-index: 5000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 1rem;
+  overflow-y: auto;
+  padding: max(0.75rem, env(safe-area-inset-top, 0px)) 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 .modal-dialog-custom {
   width: 100%;
   max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 0.75rem;
+}
+
+.modal-dialog-custom .card-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quick-action-btn {
+  width: 2.05rem;
+  height: 2.05rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-action-icon {
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .toast-custom {

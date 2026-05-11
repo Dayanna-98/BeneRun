@@ -311,8 +311,14 @@ class PostulationController extends Controller
             : null;
 
         if ($missionId !== null) {
-            $mission = Mission::select('id_mission', 'id_evenement')->find($missionId);
+            $mission = Mission::select('id_mission', 'id_evenement', 'inscription_requise')->find($missionId);
             if ($mission) {
+                if (!$mission->inscription_requise) {
+                    abort(response()->json([
+                        'message' => 'Les inscriptions sont fermées pour cette mission.',
+                    ], 422));
+                }
+
                 $validated['id_evenement'] = (int) $mission->id_evenement;
 
                 if ($eventId !== null && $eventId !== (int) $mission->id_evenement) {

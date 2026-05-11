@@ -1,16 +1,23 @@
 <template>
-  <div class="min-vh-100 bg-light pb-5">
+  <div class="min-vh-100 pb-5" style="background:#f0f4f8">
 
     <!-- Header -->
-    <header class="bg-white border-bottom sticky-top">
+    <header class="text-white sticky-top overflow-hidden"
+      style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
       <div class="p-3 d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-link p-0 text-dark" @click="router.go(-1)">
+          <button class="btn btn-link p-0 text-white" @click="router.go(-1)">
             <ArrowLeft style="width:24px;height:24px" />
           </button>
-          <h1 class="fs-5 fw-semibold mb-0">Gestion des Missions</h1>
+          <div>
+            <div class="x-small" style="color:rgba(255,255,255,.55)">Administration</div>
+            <h1 class="fs-5 fw-semibold mb-0">Gestion des Missions</h1>
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm d-flex align-items-center gap-2"
+      </div>
+      <div class="px-3 pb-3 d-flex justify-content-end">
+        <button class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill flex-shrink-0"
+          style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
           @click="router.push('/manage-missions/create')">
           <Plus style="width:16px;height:16px" /> Créer
         </button>
@@ -20,7 +27,7 @@
     <div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:1024px">
 
       <!-- Filtres -->
-      <div class="card">
+      <div class="card border-0 shadow-sm">
         <div class="card-body">
           <div class="row g-2">
             <div class="col-12 col-md-7">
@@ -42,25 +49,47 @@
           </div>
           <div class="filter-pills mt-3">
             <button
-              class="btn btn-sm"
+              class="btn btn-sm rounded-pill px-3"
               :class="timelineFilter === 'upcoming' ? 'btn-primary' : 'btn-outline-primary'"
               @click="timelineFilter = 'upcoming'"
             >
               À venir
             </button>
             <button
-              class="btn btn-sm"
+              class="btn btn-sm rounded-pill px-3"
               :class="timelineFilter === 'past' ? 'btn-primary' : 'btn-outline-primary'"
               @click="timelineFilter = 'past'"
             >
               Passées
             </button>
             <button
-              class="btn btn-sm"
+              class="btn btn-sm rounded-pill px-3"
               :class="timelineFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
               @click="timelineFilter = 'all'"
             >
               Toutes
+            </button>
+          </div>
+
+          <div class="d-flex flex-wrap gap-3 mt-3 align-items-center">
+            <div class="form-check mb-0">
+              <input id="postableOnly" v-model="quickFilters.postableOnly" class="form-check-input" type="checkbox" />
+              <label class="form-check-label small" for="postableOnly">Postables uniquement</label>
+            </div>
+            <div class="form-check mb-0">
+              <input id="publicOnly" v-model="quickFilters.publicOnly" class="form-check-input" type="checkbox" />
+              <label class="form-check-label small" for="publicOnly">Publiques uniquement</label>
+            </div>
+            <div class="form-check mb-0">
+              <input id="availableOnly" v-model="quickFilters.availableOnly" class="form-check-input" type="checkbox" />
+              <label class="form-check-label small" for="availableOnly">Avec places disponibles</label>
+            </div>
+            <button
+              v-if="activeQuickFiltersCount > 0"
+              class="btn btn-link btn-sm p-0"
+              @click="resetQuickFilters"
+            >
+              Réinitialiser ({{ activeQuickFiltersCount }})
             </button>
           </div>
         </div>
@@ -69,7 +98,7 @@
       <!-- Stats -->
       <div class="row g-3">
         <div class="col-6 col-md-3">
-          <div class="card text-center">
+          <div class="card text-center stat-card">
             <div class="card-body p-3">
               <div class="fs-3 fw-bold text-primary">{{ filteredMissions.length }}</div>
               <div class="x-small text-muted">Missions visibles</div>
@@ -77,7 +106,7 @@
           </div>
         </div>
         <div class="col-6 col-md-3">
-          <div class="card text-center">
+          <div class="card text-center stat-card">
             <div class="card-body p-3">
               <div class="fs-3 fw-bold text-success">{{ availableCount }}</div>
               <div class="x-small text-muted">Places disponibles</div>
@@ -85,7 +114,7 @@
           </div>
         </div>
         <div class="col-6 col-md-3">
-          <div class="card text-center">
+          <div class="card text-center stat-card">
             <div class="card-body p-3">
               <div class="fs-3 fw-bold text-warning">{{ fullCount }}</div>
               <div class="x-small text-muted">Complets</div>
@@ -93,7 +122,7 @@
           </div>
         </div>
         <div class="col-6 col-md-3">
-          <div class="card text-center">
+          <div class="card text-center stat-card">
             <div class="card-body p-3">
               <div class="fs-3 fw-bold" style="color:#2563eb">{{ totalVolunteers }}</div>
               <div class="x-small text-muted">Bénévoles inscrits</div>
@@ -103,13 +132,13 @@
       </div>
 
       <!-- Liste -->
-      <div class="card">
-        <div class="card-header"><h5 class="mb-0">Toutes les missions</h5></div>
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><h5 class="mb-0">Toutes les missions</h5></div>
         <div class="card-body d-flex flex-column gap-3">
           <CardListSkeleton v-if="isLoading" :count="3" :image-height="72" />
           <div v-else-if="errorMessage" class="alert alert-danger small mb-0">{{ errorMessage }}</div>
           <div v-for="mission in visibleMissions" :key="mission.id"
-            class="border rounded p-3">
+            class="border rounded p-3 mission-row">
 
             <div class="d-flex align-items-start justify-content-between mb-3">
               <div class="flex-fill">
@@ -117,11 +146,11 @@
                 <p class="small text-muted mb-0">{{ mission.eventName }}</p>
               </div>
               <div class="d-flex gap-1">
-                <button class="btn btn-link p-1 text-secondary"
+                <button class="btn btn-sm rounded-pill px-2" style="background:#f3f4f6;color:#4b5563;border:none"
                   @click="router.push(`/manage-missions/edit/${mission.id}`)">
                   <Edit style="width:16px;height:16px" />
                 </button>
-                <button class="btn btn-link p-1 text-danger"
+                <button class="btn btn-sm rounded-pill px-2" style="background:#fff1f2;color:#ef4444;border:none"
                   :disabled="!canDeleteMission(mission)"
                   :title="!canDeleteMission(mission) ? 'Suppression interdite pour traçabilité (mission en cours ou passée)' : 'Supprimer la mission'"
                   @click="handleDeleteMission(mission.id)">
@@ -155,10 +184,39 @@
                 style="background:rgba(26,34,48,.05);color:#1a2230;border-color:rgba(26,34,48,.2)">
                 {{ skill }}
               </span>
+              <span
+                class="badge border"
+                :style="mission.postable ? 'background:#ecfdf5;color:#065f46;border-color:#6ee7b7' : 'background:#fff7ed;color:#9a3412;border-color:#fdba74'"
+              >
+                {{ mission.postable ? 'Postable' : 'Inscriptions fermées' }}
+              </span>
+              <span
+                class="badge border"
+                :style="mission.visibility === 'public' ? 'background:#ecfeff;color:#0e7490;border-color:#67e8f9' : 'background:#f5f3ff;color:#5b21b6;border-color:#c4b5fd'"
+              >
+                {{ mission.visibility === 'public' ? 'Publique' : 'Privée' }}
+              </span>
               <span v-if="mission.currentVolunteers === mission.maxVolunteers"
                 class="badge bg-warning-subtle text-warning border border-warning">
                 Complet
               </span>
+            </div>
+
+            <div class="mt-3 d-flex justify-content-end">
+              <button
+                class="btn btn-sm"
+                :class="mission.postable ? 'btn-outline-warning' : 'btn-outline-success'"
+                @click="handleTogglePostable(mission)"
+              >
+                {{ mission.postable ? 'Fermer les inscriptions' : 'Activer postable' }}
+              </button>
+              <button
+                class="btn btn-sm"
+                :class="mission.visibility === 'public' ? 'btn-outline-secondary' : 'btn-outline-info'"
+                @click="handleToggleVisibility(mission)"
+              >
+                {{ mission.visibility === 'public' ? 'Passer en privée' : 'Activer publique' }}
+              </button>
             </div>
 
           </div>
@@ -203,6 +261,11 @@ const errorMessage = ref('')
 const searchQuery = ref('')
 const selectedEventId = ref('')
 const timelineFilter = ref('upcoming')
+const quickFilters = ref({
+  postableOnly: false,
+  publicOnly: false,
+  availableOnly: false,
+})
 const PAGE_SIZE = 8
 const visibleCount = ref(PAGE_SIZE)
 
@@ -221,7 +284,11 @@ const filteredMissions = computed(() => {
         ? isPast
         : !isPast
 
-    return matchEvent && matchSearch && matchTimeline
+    const matchPostable = !quickFilters.value.postableOnly || mission.postable !== false
+    const matchVisibility = !quickFilters.value.publicOnly || mission.visibility === 'public'
+    const matchAvailability = !quickFilters.value.availableOnly || mission.currentVolunteers < mission.maxVolunteers
+
+    return matchEvent && matchSearch && matchTimeline && matchPostable && matchVisibility && matchAvailability
   })
 })
 
@@ -238,6 +305,11 @@ const canDeleteMission = (mission) => getMissionStartDate(mission).getTime() > D
 const availableCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
 const fullCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
 const totalVolunteers = computed(() => filteredMissions.value.reduce((sum, mission) => sum + mission.currentVolunteers, 0))
+const activeQuickFiltersCount = computed(() =>
+  [quickFilters.value.postableOnly, quickFilters.value.publicOnly, quickFilters.value.availableOnly]
+    .filter(Boolean)
+    .length
+)
 
 const formatDate = (d) =>
   new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -273,8 +345,82 @@ const handleDeleteMission = async (id) => {
   }
 }
 
+const handleTogglePostable = async (mission) => {
+  const nextPostable = !(mission.postable !== false)
+  const confirmationMessage = nextPostable
+    ? `Activer les inscriptions pour "${mission.name}" ?`
+    : `Fermer les inscriptions pour "${mission.name}" ?`
+
+  if (!confirm(confirmationMessage)) return
+
+  try {
+    await missionService.update(mission.id, {
+      ...mission,
+      postable: nextPostable,
+    })
+
+    mission.postable = nextPostable
+    alert(nextPostable ? 'Option postable activée.' : 'Inscriptions fermées pour cette mission.')
+  } catch (error) {
+    alert(error.message || 'Impossible de mettre à jour l option postable.')
+  }
+}
+
+const handleToggleVisibility = async (mission) => {
+  const nextVisibility = mission.visibility === 'public' ? 'private' : 'public'
+  const confirmationMessage = nextVisibility === 'public'
+    ? `Rendre la mission "${mission.name}" publique ?`
+    : `Passer la mission "${mission.name}" en privée ?`
+
+  if (!confirm(confirmationMessage)) return
+
+  try {
+    await missionService.update(mission.id, {
+      ...mission,
+      public: nextVisibility === 'public',
+    })
+
+    mission.visibility = nextVisibility
+    mission.public = nextVisibility === 'public'
+    alert(nextVisibility === 'public' ? 'Mission rendue publique.' : 'Mission passée en privée.')
+  } catch (error) {
+    alert(error.message || 'Impossible de mettre à jour la visibilité.')
+  }
+}
+
+const resetQuickFilters = () => {
+  quickFilters.value.postableOnly = false
+  quickFilters.value.publicOnly = false
+  quickFilters.value.availableOnly = false
+}
+
 onMounted(loadData)
-watch([searchQuery, selectedEventId, timelineFilter], () => {
+watch([
+  searchQuery,
+  selectedEventId,
+  timelineFilter,
+  () => quickFilters.value.postableOnly,
+  () => quickFilters.value.publicOnly,
+  () => quickFilters.value.availableOnly,
+], () => {
   visibleCount.value = PAGE_SIZE
 })
 </script>
+
+<style scoped>
+.filter-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  border: 0;
+  box-shadow: 0 6px 18px rgba(26, 34, 48, 0.08);
+}
+
+.mission-row {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  border-color: #e5e7eb !important;
+}
+</style>

@@ -372,6 +372,7 @@ const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCoun
   status: rawMission.statut_mission || 'À venir',
   currentVolunteers: currentVolunteersCount,
   maxVolunteers: Number(rawMission.nombre_benevoles_max) || 0,
+  postable: !!rawMission.inscription_requise,
   description: rawMission.description_mission,
   requiredSkills: Array.isArray(rawMission.competences)
     ? rawMission.competences
@@ -477,6 +478,7 @@ const isActiveMission = computed(() =>
 
 const canCurrentUserRegister = computed(() => {
   if (!mission.value || !currentUser.value?.id) return false
+  if (!mission.value.postable) return false
   return !mission.value.isParticipant && !mission.value.registrationStatus
 })
 
@@ -485,6 +487,7 @@ const registrationButtonLabel = computed(() => {
   if (mission.value?.isParticipant) return 'Vous participez déjà à cette mission'
   if (mission.value?.registrationStatus === 'en_attente') return 'Inscription déjà envoyée'
   if (mission.value?.registrationStatus === 'accepte') return 'Vous êtes déjà inscrit à cette mission'
+  if (mission.value && mission.value.postable === false) return 'Inscriptions fermées pour cette mission'
   if (mission.value && Number(mission.value.currentVolunteers || 0) >= Number(mission.value.maxVolunteers || 0)) {
     return 'Mission complète'
   }

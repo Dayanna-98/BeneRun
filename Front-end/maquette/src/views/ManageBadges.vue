@@ -18,19 +18,20 @@
 						</div>
 					</div>
 				</div>
-				<button v-if="canEdit"
-					class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill"
-					style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
-					@click="openCreateModal">
-					<Plus style="width:16px;height:16px" /> Ajouter
-				</button>
+
 			</div>
-			<div class="px-3 pb-3">
+			<div class="px-3 pb-3 d-flex align-items-center justify-content-between gap-2">
 				<div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
 					style="background:rgba(255,255,255,.12)">
 					<Award style="width:14px;height:14px;color:#f5d020" />
 					<span class="small fw-semibold">{{ badges.length }} badge{{ badges.length !== 1 ? 's' : '' }}</span>
 				</div>
+				<button v-if="canEdit"
+					class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill flex-shrink-0"
+					style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+					@click="openCreateModal">
+					<Plus style="width:14px;height:14px" /> Ajouter
+				</button>
 			</div>
 		</header>
 
@@ -52,9 +53,9 @@
 			</div>
 			<div v-else-if="loadError" class="alert alert-danger">{{ loadError }}</div>
 
-			<div v-else class="card border-0 shadow-sm overflow-hidden">
+			<div v-else class="card border-0 shadow-sm" style="border-radius:0.5rem;overflow:hidden">
 				<div class="d-flex align-items-center justify-content-between px-3 py-3"
-					style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+					style="background:linear-gradient(135deg,#1a2230,#2d3a4a);border-radius:0.5rem 0.5rem 0 0">
 					<span class="fw-semibold text-white d-flex align-items-center gap-2">
 						<Award style="width:16px;height:16px;color:#f5d020" /> Tous les badges
 					</span>
@@ -109,7 +110,7 @@
 		</div>
 
 		<div v-if="showFormModal" class="modal-backdrop-custom" @click.self="closeFormModal">
-			<div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+			<div class="modal-dialog-custom card border-0 shadow-lg">
 				<div class="d-flex align-items-center justify-content-between px-4 py-3"
 					style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
 					<h5 class="mb-0 text-white d-flex align-items-center gap-2">
@@ -155,7 +156,7 @@
 		</div>
 
 		<div v-if="deleteTarget" class="modal-backdrop-custom" @click.self="deleteTarget = null">
-			<div class="modal-dialog-custom card border-0 shadow-lg overflow-hidden">
+			<div class="modal-dialog-custom card border-0 shadow-lg">
 				<div class="px-4 py-3 d-flex align-items-center gap-2"
 					style="background:linear-gradient(135deg,#450a0a,#7f1d1d)">
 					<Trash2 style="width:18px;height:18px;color:#fca5a5" />
@@ -337,17 +338,25 @@ function formatRegle(regleStr) {
 	background: rgba(0, 0, 0, 0.5);
 	z-index: 1050;
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
-	padding: 1rem;
+	overflow-y: auto;
+	padding: max(0.75rem, env(safe-area-inset-top, 0px)) 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 .modal-dialog-custom {
 	width: 100%;
 	max-width: 560px;
-	max-height: 90vh;
-	overflow-y: auto;
+	max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom, 0px));
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	border-radius: 0.75rem;
+}
+
+.modal-dialog-custom .card-body {
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
 .toast-custom {
