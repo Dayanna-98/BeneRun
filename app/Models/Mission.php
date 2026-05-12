@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\MissionMedia;
 use App\Models\MissionContact;
 use App\Models\Competence;
+use App\Models\MissionUserReward;
 
 class Mission extends Model
 {
@@ -80,6 +81,23 @@ class Mission extends Model
             'id_mission',
             'id_competence'
         )->withTimestamps();
+    }
+
+    public function rewardCompetences()
+    {
+        return $this->belongsToMany(
+            Competence::class,
+            'mission_reward_competences',
+            'id_mission',
+            'id_competence'
+        )
+            ->withPivot('points_gagnes')
+            ->withTimestamps();
+    }
+
+    public function userRewards()
+    {
+        return $this->hasMany(MissionUserReward::class, 'id_mission', 'id_mission');
     }
 
     public function utilisateurs_favoris()

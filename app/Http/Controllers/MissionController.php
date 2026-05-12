@@ -5,6 +5,7 @@ use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\MissionMedia;
+use App\Services\MissionRewardService;
 use App\Support\GoogleMapsUrl;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -14,12 +15,17 @@ use Illuminate\Http\Request;
 
 class MissionController extends Controller
 {
+    public function __construct(private readonly MissionRewardService $missionRewardService)
+    {
+    }
+
     public function index(Request $request)
     {
         $query = Mission::with([
             'evenement:id_evenement,nom_evenement,date_debut_evenement,date_fin_evenement,nombre_benevoles_requis',
             'responsable:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,telephone_utilisateur',
             'competences:id_competence,nom_competence',
+            'rewardCompetences:id_competence,nom_competence',
         ])->withCount([
             'affectations as current_volunteers_count' => function ($query) {
                 $query->whereIn('statut_affectation', ['assigne', 'confirme', 'present']);
@@ -76,7 +82,7 @@ class MissionController extends Controller
 
     public function show($id)
     {
-        $mission = Mission::with(['evenement', 'responsable', 'medias', 'competences'])
+        $mission = Mission::with(['evenement', 'responsable', 'medias', 'competences', 'rewardCompetences'])
             ->withCount([
                 'affectations as current_volunteers_count' => function ($query) {
                     $query->whereIn('statut_affectation', ['assigne', 'confirme', 'present']);
@@ -116,6 +122,9 @@ class MissionController extends Controller
             'media_files.*' => 'image|max:5120',
             'competence_ids' => 'nullable|array',
             'competence_ids.*' => 'integer|exists:competences,id_competence',
+            'reward_competences' => 'nullable|array',
+            'reward_competences.*.id_competence' => 'required|integer|exists:competences,id_competence',
+            'reward_competences.*.points_gagnes' => 'required|integer|min:1',
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -134,12 +143,22 @@ class MissionController extends Controller
 
         $mission = Mission::create($validated);
         $mission->competences()->sync($request->input('competence_ids', []));
+        $this->syncMissionRewardCompetences($mission, $request->input('reward_competences', []));
         $this->syncResponsibleAffectation($mission, (int) $validated['responsable_utilisateur_id']);
         $this->storeMissionMedias($request, $mission, (int) $validated['responsable_utilisateur_id']);
 
+        $rewardResult = null;
+        if (($mission->statut_mission ?? null) === 'Terminée') {
+            $rewardResult = $this->missionRewardService->rewardMissionParticipants($mission);
+        }
+
         return response()->json([
             'message' => 'Mission ajoutée',
-            'mission' => $mission->load('competences:id_competence,nom_competence'),
+            'mission' => $mission->load([
+                'competences:id_competence,nom_competence',
+                'rewardCompetences:id_competence,nom_competence',
+            ]),
+            'reward_summary' => $rewardResult,
         ], 201);
     }
 
@@ -150,6 +169,8 @@ class MissionController extends Controller
         if (!$mission) {
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
+
+        $wasCompleted = $mission->statut_mission === 'Terminée';
 
         $validator = Validator::make($request->all(), [
             'id_evenement' => 'sometimes|integer|exists:evenements,id_evenement',
@@ -174,6 +195,9 @@ class MissionController extends Controller
             'media_files.*' => 'image|max:5120',
             'competence_ids' => 'nullable|array',
             'competence_ids.*' => 'integer|exists:competences,id_competence',
+            'reward_competences' => 'nullable|array',
+            'reward_competences.*.id_competence' => 'required|integer|exists:competences,id_competence',
+            'reward_competences.*.points_gagnes' => 'required|integer|min:1',
         ]);
 
         $validator->after(function ($validator) use ($request, $mission) {
@@ -206,9 +230,23 @@ class MissionController extends Controller
             $mission->competences()->sync($request->input('competence_ids', []));
         }
 
+        if ($request->has('reward_competences')) {
+            $this->syncMissionRewardCompetences($mission, $request->input('reward_competences', []));
+        }
+
+        $rewardResult = null;
+        if (($mission->statut_mission ?? null) === 'Terminée') {
+            $rewardResult = $this->missionRewardService->rewardMissionParticipants($mission);
+        }
+
         return response()->json([
             'message' => 'Mission mise à jour',
-            'mission' => $mission->load('competences:id_competence,nom_competence'),
+            'mission' => $mission->load([
+                'competences:id_competence,nom_competence',
+                'rewardCompetences:id_competence,nom_competence',
+            ]),
+            'reward_summary' => $rewardResult,
+            'reward_triggered_by_completion' => !$wasCompleted && (($mission->statut_mission ?? null) === 'Terminée'),
         ], 200);
     }
 
@@ -457,5 +495,25 @@ class MissionController extends Controller
                 'date_affectation' => now(),
             ]
         );
+    }
+
+    private function syncMissionRewardCompetences(Mission $mission, array $rewardCompetences): void
+    {
+        $syncPayload = [];
+
+        foreach ($rewardCompetences as $rewardCompetence) {
+            $competenceId = (int) ($rewardCompetence['id_competence'] ?? 0);
+            $points = (int) ($rewardCompetence['points_gagnes'] ?? 0);
+
+            if ($competenceId <= 0 || $points <= 0) {
+                continue;
+            }
+
+            $syncPayload[$competenceId] = [
+                'points_gagnes' => $points,
+            ];
+        }
+
+        $mission->rewardCompetences()->sync($syncPayload);
     }
 }

@@ -44,7 +44,7 @@
 
 			<div class="input-group shadow-sm rounded-3 overflow-hidden">
 				<span class="input-group-text bg-white border-0 ps-3"><Search style="width:16px;height:16px;color:#9ca3af" /></span>
-				<input v-model="search" type="text" class="form-control border-0 bg-white" placeholder="Rechercher un badge..." />
+				<input v-model="search" type="text" class="form-control border-0 bg-white" placeholder="Rechercher un badge, une compétence, un seuil..." />
 			</div>
 
 			<div v-if="loading" class="text-center py-4 text-muted">
@@ -88,6 +88,14 @@
 										</span>
 									</div>
 									<div v-if="b.description_badge" class="small text-muted">{{ b.description_badge }}</div>
+									<div v-if="badgeRulesTextList(b).length" class="mt-2 d-flex flex-wrap gap-1">
+										<span
+											v-for="ruleText in badgeRulesTextList(b)"
+											:key="`${b.id_badge}-${ruleText}`"
+											class="badge rounded-pill text-bg-light border">
+											{{ ruleText }}
+										</span>
+									</div>
 									<div v-if="b.regle_auto" class="x-small text-muted fst-italic mt-1">📋 {{ formatRegle(b.regle_auto) }}</div>
 								</div>
 							</div>
@@ -142,6 +150,44 @@
 						<label class="form-label fw-medium">Règle d'attribution automatique</label>
 						<BadgeRuleBuilder v-model="form.regle_auto" />
 					</div>
+					<div>
+						<div class="d-flex align-items-center justify-content-between mb-2">
+							<label class="form-label fw-medium mb-0">Seuils points par compétence</label>
+							<button
+								type="button"
+								class="btn btn-sm btn-outline-primary rounded-pill"
+								@click="addCompetenceRule">
+								<Plus style="width:12px;height:12px" /> Ajouter un seuil
+							</button>
+						</div>
+						<div v-if="competencesLoading" class="small text-muted">Chargement des compétences...</div>
+						<div v-else-if="competencesError" class="small text-danger">{{ competencesError }}</div>
+						<div v-else-if="form.competence_rules.length === 0" class="small text-muted">
+							Aucun seuil défini. Le badge restera manuel tant qu'aucune règle de points n'est ajoutée.
+						</div>
+						<div v-else class="d-flex flex-column gap-2">
+							<div
+								v-for="(rule, idx) in form.competence_rules"
+								:key="`form-rule-${idx}`"
+								class="border rounded-3 p-2 d-flex flex-wrap align-items-center gap-2">
+								<select v-model.number="rule.id_competence" class="form-select form-select-sm" style="max-width: 260px">
+									<option :value="null" disabled>Choisir une compétence</option>
+									<option
+										v-for="competence in competences"
+										:key="`competence-option-${competence.id_competence}`"
+										:value="competence.id_competence">
+										{{ competence.nom_competence }}
+									</option>
+								</select>
+								<span class="small text-muted">seuil</span>
+								<input v-model.number="rule.points_requis" type="number" min="1" class="form-control form-control-sm" style="max-width: 120px" />
+								<span class="small text-muted">pts</span>
+								<button type="button" class="btn btn-sm btn-outline-danger rounded-pill ms-auto" @click="removeCompetenceRule(idx)">
+									<Trash2 style="width:12px;height:12px" />
+								</button>
+							</div>
+						</div>
+					</div>
 				</div>
 				<div class="d-flex gap-2 justify-content-end px-4 py-3 border-top">
 					<button class="btn btn-outline-secondary btn-sm rounded-pill px-4" @click="closeFormModal">Annuler</button>
@@ -185,6 +231,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Pencil, Trash2, Search, Award, X } from 'lucide-vue-next'
 import { getCurrentUser, hasPermission } from '@/utils/auth'
 import badgeService from '@/services/badgeService'
+import competenceService from '@/services/competenceService'
 import BadgeRuleBuilder from '@/components/badges/BadgeRuleBuilder.vue'
 
 const router = useRouter()
@@ -197,12 +244,15 @@ const badges = ref([])
 const loading = ref(true)
 const loadError = ref('')
 const search = ref('')
+const competences = ref([])
+const competencesLoading = ref(true)
+const competencesError = ref('')
 
 const showFormModal = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
 const formError = ref('')
-const form = ref({ titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '' })
+const form = ref({ titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '', competence_rules: [] })
 
 const deleteTarget = ref(null)
 const deleting = ref(false)
@@ -211,16 +261,25 @@ const toast = ref({ show: false, message: '', type: 'success' })
 const filtered = computed(() => {
 	const q = search.value.trim().toLowerCase()
 	if (!q) return badges.value
-	return badges.value.filter(b => (b.titre_badge || '').toLowerCase().includes(q) || (b.description_badge || '').toLowerCase().includes(q))
+	return badges.value.filter((b) => {
+		const titleMatch = (b.titre_badge || '').toLowerCase().includes(q)
+		const descriptionMatch = (b.description_badge || '').toLowerCase().includes(q)
+		const rulesMatch = badgeRulesTextList(b).some((text) => text.toLowerCase().includes(q))
+		return titleMatch || descriptionMatch || rulesMatch
+	})
 })
 
-onMounted(fetchBadges)
+onMounted(() => {
+	fetchBadges()
+	fetchCompetences()
+})
 
 async function fetchBadges() {
 	loading.value = true
 	loadError.value = ''
 	try {
-		badges.value = await badgeService.getAll()
+		const rows = await badgeService.getAll()
+		badges.value = Array.isArray(rows) ? rows.map(normalizeBadge) : []
 	} catch {
 		loadError.value = 'Impossible de charger les badges.'
 	} finally {
@@ -228,10 +287,23 @@ async function fetchBadges() {
 	}
 }
 
+async function fetchCompetences() {
+	competencesLoading.value = true
+	competencesError.value = ''
+	try {
+		const rows = await competenceService.getAll()
+		competences.value = Array.isArray(rows) ? rows : []
+	} catch {
+		competencesError.value = 'Impossible de charger les compétences.'
+	} finally {
+		competencesLoading.value = false
+	}
+}
+
 function openCreateModal() {
 	editingId.value = null
 	formError.value = ''
-	form.value = { titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '' }
+	form.value = { titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '', competence_rules: [] }
 	showFormModal.value = true
 }
 
@@ -243,6 +315,7 @@ function openEditModal(badge) {
 		description_badge: badge.description_badge || '',
 		score_badge: badge.score_badge ?? 0,
 		regle_auto: badge.regle_auto || '',
+		competence_rules: normalizeRules(badge.competence_rules),
 	}
 	showFormModal.value = true
 }
@@ -258,25 +331,23 @@ async function submitForm() {
 	}
 	saving.value = true
 	try {
+		const payload = {
+			titre_badge: form.value.titre_badge.trim(),
+			description_badge: form.value.description_badge.trim() || null,
+			score_badge: form.value.score_badge ?? 0,
+			regle_auto: form.value.regle_auto.trim() || null,
+			competence_rules: normalizeRules(form.value.competence_rules),
+		}
+
 		if (editingId.value) {
-			const res = await badgeService.update(editingId.value, {
-				titre_badge: form.value.titre_badge.trim(),
-				description_badge: form.value.description_badge.trim() || null,
-				score_badge: form.value.score_badge ?? 0,
-				regle_auto: form.value.regle_auto.trim() || null,
-			})
-			const updated = res.badge ?? res
+			const res = await badgeService.update(editingId.value, payload)
+			const updated = normalizeBadge(res.badge ?? res)
 			const idx = badges.value.findIndex(b => b.id_badge === editingId.value)
 			if (idx !== -1) badges.value[idx] = updated
 			showToast('Badge mis a jour.', 'success')
 		} else {
-			const res = await badgeService.create({
-				titre_badge: form.value.titre_badge.trim(),
-				description_badge: form.value.description_badge.trim() || null,
-				score_badge: form.value.score_badge ?? 0,
-				regle_auto: form.value.regle_auto.trim() || null,
-			})
-			badges.value.push(res.badge ?? res)
+			const res = await badgeService.create(payload)
+			badges.value.push(normalizeBadge(res.badge ?? res))
 			showToast('Badge ajoute.', 'success')
 		}
 		closeFormModal()
@@ -308,6 +379,49 @@ async function confirmDelete() {
 function showToast(message, type = 'success') {
 	toast.value = { show: true, message, type }
 	setTimeout(() => { toast.value.show = false }, 3000)
+}
+
+function normalizeRules(rules) {
+	if (!Array.isArray(rules)) return []
+
+	const normalized = rules
+		.map((rule) => ({
+			id_competence: Number(rule?.id_competence),
+			points_requis: Number(rule?.points_requis),
+		}))
+		.filter((rule) => Number.isInteger(rule.id_competence) && rule.id_competence > 0 && Number.isInteger(rule.points_requis) && rule.points_requis > 0)
+
+	const seen = new Set()
+	return normalized.filter((rule) => {
+		if (seen.has(rule.id_competence)) return false
+		seen.add(rule.id_competence)
+		return true
+	})
+}
+
+function normalizeBadge(badge) {
+	return {
+		...badge,
+		competence_rules: normalizeRules(badge?.competence_rules ?? badge?.competenceRules),
+	}
+}
+
+function resolveCompetenceName(competenceId) {
+	const match = competences.value.find((competence) => Number(competence.id_competence) === Number(competenceId))
+	return match?.nom_competence ?? `Compétence #${competenceId}`
+}
+
+function badgeRulesTextList(badge) {
+	const rules = normalizeRules(badge?.competence_rules ?? badge?.competenceRules)
+	return rules.map((rule) => `${resolveCompetenceName(rule.id_competence)} >= ${rule.points_requis} pts`)
+}
+
+function addCompetenceRule() {
+	form.value.competence_rules.push({ id_competence: null, points_requis: 1 })
+}
+
+function removeCompetenceRule(index) {
+	form.value.competence_rules.splice(index, 1)
 }
 
 // ─── Rule preview helper ────────────────────────────────────────────────────

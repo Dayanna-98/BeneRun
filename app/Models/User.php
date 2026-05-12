@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Badge;
 use App\Models\Competence;
+use App\Models\UserCompetencePoint;
+use App\Models\MissionUserReward;
 
 class User extends Authenticatable
 {
@@ -100,5 +102,15 @@ class User extends Authenticatable
     public function postulations()
     {
         return $this->hasMany(Postulation::class, 'id_utilisateur');
+    }
+
+    public function competencePoints()
+    {
+        return $this->hasMany(UserCompetencePoint::class, 'id_utilisateur', 'id_utilisateur');
+    }
+
+    public function missionRewards()
+    {
+        return $this->hasMany(MissionUserReward::class, 'id_utilisateur', 'id_utilisateur');
     }
 }

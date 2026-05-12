@@ -246,6 +246,69 @@
                 <p v-else class="small text-muted mb-0">Aucune compétence sélectionnée.</p>
               </div>
 
+              <!-- Compétences récompensées -->
+              <div class="bg-light border rounded p-3 section-panel section-panel--rewards">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                  <label class="form-label small fw-medium mb-0">Compétences gagnées (points)</label>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    @click="isRewardsDropdownOpen = !isRewardsDropdownOpen">
+                    {{ isRewardsDropdownOpen ? 'Fermer la liste' : 'Ouvrir la liste' }}
+                  </button>
+                </div>
+
+                <div class="mb-2">
+                  <input
+                    v-model="rewardCompetencesSearch"
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Rechercher une compétence à récompenser..."
+                    @focus="isRewardsDropdownOpen = true"
+                  />
+                </div>
+
+                <div v-if="isRewardsDropdownOpen" class="skills-dropdown border rounded bg-white mb-2">
+                  <button
+                    v-for="skill in filteredRewardCompetences"
+                    :key="`reward-${skill.id}`"
+                    type="button"
+                    class="skills-option"
+                    @click="toggleRewardSkill(skill.id)">
+                    <span>{{ skill.name }}</span>
+                    <span v-if="rewardedSkillIds.includes(skill.id)" class="badge rounded-pill text-bg-success">Ajoutée</span>
+                  </button>
+                  <div v-if="filteredRewardCompetences.length === 0" class="small text-muted p-2">
+                    Aucune compétence trouvée.
+                  </div>
+                </div>
+
+                <div v-if="selectedRewardSkills.length > 0" class="d-flex flex-column gap-2">
+                  <div
+                    v-for="rewardSkill in selectedRewardSkills"
+                    :key="`selected-reward-${rewardSkill.id}`"
+                    class="border rounded bg-white p-2 d-flex flex-wrap align-items-center gap-2">
+                    <span class="small fw-medium">{{ rewardSkill.name }}</span>
+                    <span class="small text-muted">points</span>
+                    <input
+                      :value="rewardSkill.points"
+                      type="number"
+                      min="1"
+                      class="form-control form-control-sm"
+                      style="max-width: 120px"
+                      @input="updateRewardPoints(rewardSkill.id, $event.target.value)"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger ms-auto"
+                      @click="removeRewardSkill(rewardSkill.id)">
+                      Retirer
+                    </button>
+                  </div>
+                </div>
+                <p v-else class="small text-muted mb-0">Aucune compétence récompensée.</p>
+              </div>
+
               <!-- Responsable -->
               <div class="bg-light border rounded p-3 d-flex flex-column gap-3 section-panel section-panel--owner">
                 <h6 class="fw-medium mb-0">Responsable de la mission</h6>
@@ -349,6 +412,8 @@ const submitError = ref('')
 const mainImagePreviewUrl = ref('')
 const competencesSearch = ref('')
 const isSkillsDropdownOpen = ref(false)
+const rewardCompetencesSearch = ref('')
+const isRewardsDropdownOpen = ref(false)
 
 const timePresets = [
   { label: 'Matin', start: '08:00', end: '12:00' },
@@ -380,6 +445,7 @@ const formData = reactive({
   safetyInstructions: '',
   photoFiles: [],
   competenceIds: [],
+  rewardCompetences: [],
 })
 
 const switchOptions = [
@@ -418,6 +484,33 @@ const filteredCompetences = computed(() => {
   if (!query) return competencesList.value
   return competencesList.value.filter((skill) => skill.name.toLowerCase().includes(query))
 })
+
+const filteredRewardCompetences = computed(() => {
+  const query = rewardCompetencesSearch.value.trim().toLowerCase()
+  if (!query) return competencesList.value
+  return competencesList.value.filter((skill) => skill.name.toLowerCase().includes(query))
+})
+
+const rewardedSkillIds = computed(() =>
+  (Array.isArray(formData.rewardCompetences) ? formData.rewardCompetences : [])
+    .map((entry) => Number(entry.id))
+    .filter((id) => !Number.isNaN(id))
+)
+
+const selectedRewardSkills = computed(() =>
+  (Array.isArray(formData.rewardCompetences) ? formData.rewardCompetences : [])
+    .map((entry) => {
+      const id = Number(entry.id)
+      const points = Number(entry.points || 0)
+      const skill = competencesList.value.find((item) => item.id === id)
+      return {
+        id,
+        points: points > 0 ? points : 1,
+        name: skill?.name || `Compétence #${id}`,
+      }
+    })
+    .filter((entry) => !Number.isNaN(entry.id))
+)
 
 const suggestedSkillsForType = computed(() => {
   const type = String(formData.type || '').trim().toLowerCase()
@@ -558,6 +651,34 @@ const removeSkill = (competenceId) => {
   formData.competenceIds = formData.competenceIds.filter((id) => id !== numericId)
 }
 
+const toggleRewardSkill = (competenceId) => {
+  const numericId = Number(competenceId)
+  if (Number.isNaN(numericId)) return
+
+  const current = Array.isArray(formData.rewardCompetences) ? formData.rewardCompetences : []
+  const index = current.findIndex((entry) => Number(entry.id) === numericId)
+
+  if (index === -1) {
+    current.push({ id: numericId, points: 10 })
+  } else {
+    current.splice(index, 1)
+  }
+}
+
+const updateRewardPoints = (competenceId, value) => {
+  const numericId = Number(competenceId)
+  const numericPoints = Math.max(1, Number(value || 0))
+  const target = formData.rewardCompetences.find((entry) => Number(entry.id) === numericId)
+  if (!target) return
+  target.points = Number.isNaN(numericPoints) ? 1 : numericPoints
+}
+
+const removeRewardSkill = (competenceId) => {
+  const numericId = Number(competenceId)
+  if (Number.isNaN(numericId)) return
+  formData.rewardCompetences = formData.rewardCompetences.filter((entry) => Number(entry.id) !== numericId)
+}
+
 const addSuggestedSkills = () => {
   for (const skill of suggestedSkillsForType.value) {
     if (!formData.competenceIds.includes(skill.id)) {
@@ -671,6 +792,9 @@ const loadMission = async () => {
     formData.imageUrl = loadedMission.imageUrl || ''
     formData.safetyInstructions = loadedMission.safetyInstructions || ''
     formData.competenceIds = loadedMission.competenceIds || []
+    formData.rewardCompetences = Array.isArray(loadedMission.rewardCompetences)
+      ? loadedMission.rewardCompetences.map((entry) => ({ id: Number(entry.id), points: Number(entry.points || 0) || 1 }))
+      : []
 
     await loadEventMissions()
   } catch {
@@ -771,6 +895,10 @@ watch(() => formData.type, () => {
 
 .section-panel--skills {
   border-left: 4px solid #22a06b;
+}
+
+.section-panel--rewards {
+  border-left: 4px solid #c084fc;
 }
 
 .skills-dropdown {

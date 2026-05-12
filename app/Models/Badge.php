@@ -27,4 +27,9 @@ class Badge extends Model
         ->withPivot('attribue_le')
         ->withTimestamps();
     }
+
+    public function competenceRules()
+    {
+        return $this->hasMany(BadgeCompetenceRule::class, 'id_badge', 'id_badge');
+    }
 }

@@ -153,6 +153,14 @@
                       {{ missionType }}
                     </span>
                   </div>
+                  <div v-if="linkedBadgeRules(c.id_competence).length" class="d-flex flex-wrap gap-1 mt-2">
+                    <span
+                      v-for="rule in linkedBadgeRules(c.id_competence)"
+                      :key="`competence-rule-${c.id_competence}-${rule.id_badge}-${rule.points_requis}`"
+                      class="badge rounded-pill text-bg-light border">
+                      {{ rule.titre_badge }} >= {{ rule.points_requis }} pts
+                    </span>
+                  </div>
                 </template>
               </div>
             </div>
@@ -273,6 +281,7 @@ import {
 } from 'lucide-vue-next'
 import { getCurrentUser, hasPermission } from '@/utils/auth'
 import competenceService from '@/services/competenceService'
+import badgeService from '@/services/badgeService'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -286,6 +295,7 @@ const competences = ref([])
 const loading = ref(true)
 const loadError = ref(null)
 const search = ref('')
+const badges = ref([])
 
 // Création
 const showCreateModal = ref(false)
@@ -321,7 +331,7 @@ const missionTypeOptions = [
 
 // ─── Chargement ─────────────────────────────────────────
 onMounted(async () => {
-  await fetchCompetences()
+  await Promise.all([fetchCompetences(), fetchBadges()])
 })
 
 async function fetchCompetences() {
@@ -336,12 +346,22 @@ async function fetchCompetences() {
   }
 }
 
+async function fetchBadges() {
+  try {
+    const rows = await badgeService.getAll()
+    badges.value = Array.isArray(rows) ? rows.map(normalizeBadge) : []
+  } catch {
+    badges.value = []
+  }
+}
+
 // ─── Filtrage ────────────────────────────────────────────
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return competences.value
   return competences.value.filter(c =>
-    c.nom_competence.toLowerCase().includes(q)
+    (c.nom_competence || '').toLowerCase().includes(q)
+    || linkedBadgeRules(c.id_competence).some((rule) => `${rule.titre_badge} ${rule.points_requis}`.toLowerCase().includes(q))
   )
 })
 
@@ -461,6 +481,36 @@ async function confirmDelete() {
 function showToast(message, type = 'success') {
   toast.value = { show: true, message, type }
   setTimeout(() => { toast.value.show = false }, 3000)
+}
+
+function normalizeRules(rules) {
+  if (!Array.isArray(rules)) return []
+  return rules
+    .map((rule) => ({
+      id_competence: Number(rule?.id_competence),
+      points_requis: Number(rule?.points_requis),
+    }))
+    .filter((rule) => Number.isInteger(rule.id_competence) && rule.id_competence > 0 && Number.isInteger(rule.points_requis) && rule.points_requis > 0)
+}
+
+function normalizeBadge(badge) {
+  return {
+    ...badge,
+    competence_rules: normalizeRules(badge?.competence_rules ?? badge?.competenceRules),
+  }
+}
+
+function linkedBadgeRules(competenceId) {
+  const numericCompetenceId = Number(competenceId)
+
+  return badges.value
+    .flatMap((badge) => (badge.competence_rules || [])
+      .filter((rule) => Number(rule.id_competence) === numericCompetenceId)
+      .map((rule) => ({
+        id_badge: badge.id_badge,
+        titre_badge: badge.titre_badge || `Badge #${badge.id_badge}`,
+        points_requis: rule.points_requis,
+      })))
 }
 
 function toggleTypeSelection(list, missionType) {

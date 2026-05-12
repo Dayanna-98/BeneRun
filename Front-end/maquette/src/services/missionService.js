@@ -86,6 +86,14 @@ export const missionService = {
       competenceIds: Array.isArray(apiMission.competences)
         ? apiMission.competences.map((c) => Number(c.id_competence)).filter((id) => !Number.isNaN(id))
         : [],
+      rewardCompetences: Array.isArray(apiMission.reward_competences ?? apiMission.rewardCompetences)
+        ? (apiMission.reward_competences ?? apiMission.rewardCompetences)
+          .map((c) => ({
+            id: Number(c.id_competence),
+            points: Number(c?.pivot?.points_gagnes ?? c.points_gagnes ?? 0),
+          }))
+          .filter((entry) => !Number.isNaN(entry.id) && entry.id > 0 && !Number.isNaN(entry.points) && entry.points > 0)
+        : [],
       eventGoogleMapsUrl: apiMission.evenement?.google_maps_url_evenement || '',
       eventRadiusMeters: Number(apiMission.evenement?.rayon_localisation_evenement || 0),
     }
@@ -116,6 +124,14 @@ export const missionService = {
       competence_ids: Array.isArray(formData.competenceIds)
         ? formData.competenceIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
         : [],
+      reward_competences: Array.isArray(formData.rewardCompetences)
+        ? formData.rewardCompetences
+          .map((entry) => ({
+            id_competence: Number(entry?.id),
+            points_gagnes: Number(entry?.points),
+          }))
+          .filter((entry) => !Number.isNaN(entry.id_competence) && entry.id_competence > 0 && !Number.isNaN(entry.points_gagnes) && entry.points_gagnes > 0)
+        : [],
     }
   },
 
@@ -143,6 +159,11 @@ export const missionService = {
 
     for (const competenceId of payload.competence_ids || []) {
       multipart.append('competence_ids[]', competenceId)
+    }
+
+    for (const [index, reward] of (payload.reward_competences || []).entries()) {
+      multipart.append(`reward_competences[${index}][id_competence]`, reward.id_competence)
+      multipart.append(`reward_competences[${index}][points_gagnes]`, reward.points_gagnes)
     }
 
     if (formData.imageFile instanceof File) {

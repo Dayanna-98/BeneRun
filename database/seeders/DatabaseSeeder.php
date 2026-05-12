@@ -38,6 +38,8 @@ class DatabaseSeeder extends Seeder
     {
         $defaultPassword = Hash::make('password');
         $emmaPassword = Hash::make('Soleil1234');
+        $marcPassword = Hash::make('chocolat1');
+        $leoPassword = Hash::make('tagada2');
         $dayannaPassword = Hash::make('vanille18');
         $sofianPassword = Hash::make('fraise23');
 
@@ -227,6 +229,8 @@ class DatabaseSeeder extends Seeder
                 ...$row,
                 'password' => match ($key) {
                     'emma' => $emmaPassword,
+                    'marc' => $marcPassword,
+                    'leo' => $leoPassword,
                     'dayanna' => $dayannaPassword,
                     'sofian' => $sofianPassword,
                     default => $defaultPassword,
