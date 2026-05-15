@@ -44,9 +44,17 @@ jobs:
       
       - name: Generate application key
         run: php artisan key:generate
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
       
       - name: Run migrations
-        run: php artisan migrate --force --env=testing
+        run: php artisan migrate --force
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
       
       - name: Clear config cache
         run: php artisan config:clear
