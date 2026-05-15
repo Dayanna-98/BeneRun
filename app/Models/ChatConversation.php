@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ChatConversation extends Model
 {
     protected $table = 'chat_conversations';
+
     protected $primaryKey = 'id_chat_conversation';
 
     protected $fillable = [

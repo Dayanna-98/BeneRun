@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Certificat extends Model
 {
     protected $table = 'certificats';
+
     protected $primaryKey = 'id_certificat';
+
     protected $fillable = [
         'id_utilisateur',
         'titre_certificat',
@@ -23,5 +25,4 @@ class Certificat extends Model
     {
         return $this->belongsTo(User::class, 'id_utilisateur', 'id_utilisateur');
     }
-
 }

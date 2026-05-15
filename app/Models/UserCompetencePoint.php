@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class UserCompetencePoint extends Model
 {
     protected $table = 'user_competence_points';
+
     public $incrementing = false;
 
     protected $fillable = [

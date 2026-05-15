@@ -20,7 +20,7 @@ class MissionEmergencyMessageController extends Controller
         }
 
         $token = $request->bearerToken();
-        if (!$token) {
+        if (! $token) {
             return null;
         }
 
@@ -58,7 +58,7 @@ class MissionEmergencyMessageController extends Controller
         $actor = $this->resolveActorUser($request);
         $role = $this->normalizedRoleFromRequest($request);
 
-        if (!$actor || $role !== 'superadmin') {
+        if (! $actor || $role !== 'superadmin') {
             return null;
         }
 
@@ -68,7 +68,7 @@ class MissionEmergencyMessageController extends Controller
     public function index(Request $request)
     {
         $superAdmin = $this->assertSuperAdmin($request);
-        if (!$superAdmin) {
+        if (! $superAdmin) {
             return response()->json(['message' => 'Accès réservé aux superadmins.'], 403);
         }
 
@@ -88,7 +88,7 @@ class MissionEmergencyMessageController extends Controller
     public function storeForMission(Request $request, $idMission)
     {
         $actor = $this->resolveActorUser($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Utilisateur introuvable.'], 401);
         }
 
@@ -103,7 +103,7 @@ class MissionEmergencyMessageController extends Controller
         }
 
         $mission = Mission::with('evenement:id_evenement,nom_evenement')->find($idMission);
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission inexistante.'], 404);
         }
 
@@ -118,7 +118,7 @@ class MissionEmergencyMessageController extends Controller
 
         $isSuperAdmin = str_replace(['-', '_', ' '], '', strtolower((string) $actor->role_utilisateur)) === 'superadmin';
 
-        if (!$isParticipant && !$isSuperAdmin) {
+        if (! $isParticipant && ! $isSuperAdmin) {
             return response()->json(['message' => 'Seuls les participants de la mission peuvent envoyer une urgence.'], 403);
         }
 
@@ -143,12 +143,12 @@ class MissionEmergencyMessageController extends Controller
     public function markViewed(Request $request, $idUrgence)
     {
         $superAdmin = $this->assertSuperAdmin($request);
-        if (!$superAdmin) {
+        if (! $superAdmin) {
             return response()->json(['message' => 'Accès réservé aux superadmins.'], 403);
         }
 
         $urgence = MissionEmergencyMessage::find($idUrgence);
-        if (!$urgence) {
+        if (! $urgence) {
             return response()->json(['message' => 'Message d\'urgence introuvable.'], 404);
         }
 
@@ -176,17 +176,17 @@ class MissionEmergencyMessageController extends Controller
     public function takeOwnership(Request $request, $idUrgence)
     {
         $superAdmin = $this->assertSuperAdmin($request);
-        if (!$superAdmin) {
+        if (! $superAdmin) {
             return response()->json(['message' => 'Accès réservé aux superadmins.'], 403);
         }
 
         $urgence = MissionEmergencyMessage::find($idUrgence);
-        if (!$urgence) {
+        if (! $urgence) {
             return response()->json(['message' => 'Message d\'urgence introuvable.'], 404);
         }
 
         if (
-            !empty($urgence->pris_en_charge_par_utilisateur_id)
+            ! empty($urgence->pris_en_charge_par_utilisateur_id)
             && (int) $urgence->pris_en_charge_par_utilisateur_id !== (int) $superAdmin->id_utilisateur
         ) {
             return response()->json([

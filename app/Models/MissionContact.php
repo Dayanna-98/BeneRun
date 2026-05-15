@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MissionContact extends Model
 {
     protected $table = 'mission_contacts';
+
     protected $primaryKey = 'id_contact_mission';
 
     protected $fillable = [
@@ -22,5 +23,4 @@ class MissionContact extends Model
     {
         return $this->belongsTo(Mission::class, 'id_mission');
     }
-
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MissionUserReward extends Model
 {
     protected $table = 'mission_user_rewards';
+
     protected $primaryKey = 'id_mission_user_reward';
 
     protected $fillable = [

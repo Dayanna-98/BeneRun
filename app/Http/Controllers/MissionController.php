@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
@@ -8,16 +9,14 @@ use App\Models\MissionMedia;
 use App\Services\MissionRewardService;
 use App\Support\GoogleMapsUrl;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class MissionController extends Controller
 {
-    public function __construct(private readonly MissionRewardService $missionRewardService)
-    {
-    }
+    public function __construct(private readonly MissionRewardService $missionRewardService) {}
 
     public function index(Request $request)
     {
@@ -90,7 +89,7 @@ class MissionController extends Controller
             ])
             ->find($id);
 
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
 
@@ -166,7 +165,7 @@ class MissionController extends Controller
     {
         $mission = Mission::find($id);
 
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
 
@@ -246,7 +245,7 @@ class MissionController extends Controller
                 'rewardCompetences:id_competence,nom_competence',
             ]),
             'reward_summary' => $rewardResult,
-            'reward_triggered_by_completion' => !$wasCompleted && (($mission->statut_mission ?? null) === 'Terminée'),
+            'reward_triggered_by_completion' => ! $wasCompleted && (($mission->statut_mission ?? null) === 'Terminée'),
         ], 200);
     }
 
@@ -254,7 +253,7 @@ class MissionController extends Controller
     {
         $mission = Mission::find($id);
 
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
 
@@ -273,7 +272,7 @@ class MissionController extends Controller
     {
         $mission = Mission::find($id);
 
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
 
@@ -304,7 +303,7 @@ class MissionController extends Controller
         }
 
         $event = Evenement::find($eventId);
-        if (!$event) {
+        if (! $event) {
             return;
         }
 
@@ -327,7 +326,7 @@ class MissionController extends Controller
         }
 
         $event = Evenement::find($eventId);
-        if (!$event) {
+        if (! $event) {
             return;
         }
 
@@ -354,7 +353,7 @@ class MissionController extends Controller
         }
 
         $event = Evenement::find($eventId);
-        if (!$event) {
+        if (! $event) {
             return;
         }
 
@@ -435,7 +434,7 @@ class MissionController extends Controller
     {
         if ($request->hasFile('image_file')) {
             $validated['image_mission'] = $this->storeUploadedImage($request->file('image_file'), 'missions');
-        } elseif (!array_key_exists('image_mission', $validated) && $mission?->image_mission) {
+        } elseif (! array_key_exists('image_mission', $validated) && $mission?->image_mission) {
             $validated['image_mission'] = $mission->image_mission;
         }
 
@@ -444,12 +443,12 @@ class MissionController extends Controller
 
     private function storeMissionMedias(Request $request, Mission $mission, int $uploadedByUserId): void
     {
-        if (!$request->hasFile('media_files')) {
+        if (! $request->hasFile('media_files')) {
             return;
         }
 
         foreach ((array) $request->file('media_files') as $file) {
-            if (!$file) {
+            if (! $file) {
                 continue;
             }
 
@@ -467,11 +466,11 @@ class MissionController extends Controller
     {
         $targetDirectory = public_path("uploads/{$directory}");
 
-        if (!File::exists($targetDirectory)) {
+        if (! File::exists($targetDirectory)) {
             File::makeDirectory($targetDirectory, 0755, true);
         }
 
-        $filename = uniqid("{$directory}_", true) . '.' . $file->getClientOriginalExtension();
+        $filename = uniqid("{$directory}_", true).'.'.$file->getClientOriginalExtension();
         $file->move($targetDirectory, $filename);
 
         return url("uploads/{$directory}/{$filename}");

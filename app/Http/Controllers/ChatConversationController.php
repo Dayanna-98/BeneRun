@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ChatConversationChanged;
 use App\Models\ChatConversation;
 use App\Models\ChatConversationParticipant;
-use App\Events\ChatConversationChanged;
 use App\Models\Mission;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -21,7 +21,7 @@ class ChatConversationController extends Controller
         }
 
         $token = $request->bearerToken();
-        if (!$token) {
+        if (! $token) {
             return null;
         }
 
@@ -33,7 +33,7 @@ class ChatConversationController extends Controller
 
     private function mapUser(?User $user): ?array
     {
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
@@ -91,7 +91,7 @@ class ChatConversationController extends Controller
     public function index(Request $request)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
@@ -124,7 +124,7 @@ class ChatConversationController extends Controller
     public function storeDirect(Request $request)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
@@ -154,7 +154,7 @@ class ChatConversationController extends Controller
         $created = false;
         $conversation = $existing;
 
-        if (!$conversation) {
+        if (! $conversation) {
             $created = true;
 
             $conversation = DB::transaction(function () use ($actorId, $otherUserId): ChatConversation {
@@ -194,7 +194,7 @@ class ChatConversationController extends Controller
     public function storeOrGetMissionGroup(Request $request)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
@@ -212,13 +212,13 @@ class ChatConversationController extends Controller
             ->with('evenement:id_evenement,nom_evenement')
             ->find($missionId);
 
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission introuvable.'], 404);
         }
 
         $defaultName = sprintf(
             '%s • %s',
-            (string) ($mission->titre_mission ?? ('Mission #' . $missionId)),
+            (string) ($mission->titre_mission ?? ('Mission #'.$missionId)),
             (string) ($mission->evenement?->nom_evenement ?? 'Événement')
         );
 
@@ -229,7 +229,7 @@ class ChatConversationController extends Controller
 
         $created = false;
 
-        if (!$conversation) {
+        if (! $conversation) {
             $created = true;
 
             $conversation = ChatConversation::create([
@@ -238,7 +238,7 @@ class ChatConversationController extends Controller
                 'id_mission' => $missionId,
                 'created_by_utilisateur_id' => $actorId,
             ]);
-        } elseif (!empty($validated['name'])) {
+        } elseif (! empty($validated['name'])) {
             $conversation->update([
                 'titre_conversation' => trim((string) $validated['name']),
             ]);
@@ -276,7 +276,7 @@ class ChatConversationController extends Controller
     public function addParticipant(Request $request, $conversationId)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
@@ -288,7 +288,7 @@ class ChatConversationController extends Controller
         $targetUserId = (int) $validated['user_id'];
 
         $conversation = ChatConversation::query()->find((int) $conversationId);
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['message' => 'Conversation introuvable.'], 404);
         }
 
@@ -301,7 +301,7 @@ class ChatConversationController extends Controller
             ->where('id_utilisateur', $actorId)
             ->exists();
 
-        if (!$actorParticipant) {
+        if (! $actorParticipant) {
             return response()->json(['message' => 'Conversation inaccessible.'], 403);
         }
 

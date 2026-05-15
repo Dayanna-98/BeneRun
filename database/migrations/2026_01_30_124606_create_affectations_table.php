@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('id_mission');  // FK vers missions
             $table->unsignedBigInteger('id_utilisateur');  // FK vers users
             $table->enum('statut_affectation', ['assigne', 'confirme', 'present', 'absent', 'annule'])
-                  ->default('assigne');
+                ->default('assigne');
             $table->boolean('est_responsable')->default(false);
             $table->text('remarque')->nullable();
             $table->timestamp('date_affectation')->nullable();
@@ -26,14 +26,14 @@ return new class extends Migration
 
             // Clés étrangères
             $table->foreign('id_mission')
-                  ->references('id_mission')
-                  ->on('missions')
-                  ->cascadeOnDelete();
+                ->references('id_mission')
+                ->on('missions')
+                ->cascadeOnDelete();
 
             $table->foreign('id_utilisateur')
-                  ->references('id_utilisateur')
-                  ->on('users')
-                  ->cascadeOnDelete();
+                ->references('id_utilisateur')
+                ->on('users')
+                ->cascadeOnDelete();
 
             // Contrainte unique pour éviter doublons
             $table->unique(['id_mission', 'id_utilisateur']);

@@ -51,7 +51,7 @@ class EvenementController extends Controller
     {
         $event = Evenement::withCount('missions')->find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
@@ -97,7 +97,7 @@ class EvenementController extends Controller
     {
         $event = Evenement::find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
@@ -138,7 +138,7 @@ class EvenementController extends Controller
     {
         $event = Evenement::find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
@@ -159,7 +159,7 @@ class EvenementController extends Controller
             ? Carbon::parse($event->date_debut_evenement)->format('Y-m-d')
             : null;
 
-        if (!$startDate) {
+        if (! $startDate) {
             return false;
         }
 
@@ -175,7 +175,7 @@ class EvenementController extends Controller
             ?? $event?->mode_localisation_evenement
             ?? 'manual';
 
-        if (!in_array($locationMode, ['manual', 'missions'], true)) {
+        if (! in_array($locationMode, ['manual', 'missions'], true)) {
             $locationMode = 'manual';
         }
 
@@ -236,7 +236,7 @@ class EvenementController extends Controller
     {
         if ($request->hasFile('image_file')) {
             $validated['image_evenement'] = $this->storeUploadedImage($request->file('image_file'), 'events');
-        } elseif (!array_key_exists('image_evenement', $validated) && $event?->image_evenement) {
+        } elseif (! array_key_exists('image_evenement', $validated) && $event?->image_evenement) {
             $validated['image_evenement'] = $event->image_evenement;
         }
 
@@ -247,11 +247,11 @@ class EvenementController extends Controller
     {
         $targetDirectory = public_path("uploads/{$directory}");
 
-        if (!File::exists($targetDirectory)) {
+        if (! File::exists($targetDirectory)) {
             File::makeDirectory($targetDirectory, 0755, true);
         }
 
-        $filename = uniqid("{$directory}_", true) . '.' . $file->getClientOriginalExtension();
+        $filename = uniqid("{$directory}_", true).'.'.$file->getClientOriginalExtension();
         $file->move($targetDirectory, $filename);
 
         return url("uploads/{$directory}/{$filename}");

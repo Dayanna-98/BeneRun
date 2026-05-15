@@ -31,7 +31,7 @@ return new class extends Migration
                 'accueil',
                 'technique',
                 'animation',
-                'autre'
+                'autre',
             ]);
             $table->text('description_mission');
             $table->date('date_mission');
@@ -46,13 +46,13 @@ return new class extends Migration
                 'À venir',
                 'En cours',
                 'Terminée',
-                'Annulée'
+                'Annulée',
             ])->default('À venir');
             $table->boolean('inscription_requise')->default(true);
             $table->enum('visibilite_mission', [
                 'publique',
                 'privée',
-                'limitée'
+                'limitée',
             ])->default('publique');
             $table->text('consignes_securite')->nullable();
             $table->string('image_mission', 500)->nullable();

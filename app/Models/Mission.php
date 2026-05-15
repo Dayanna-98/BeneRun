@@ -3,16 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Evenement; 
-use App\Models\User;
-use App\Models\MissionMedia;
-use App\Models\MissionContact;
-use App\Models\Competence;
-use App\Models\MissionUserReward;
 
 class Mission extends Model
 {
     protected $primaryKey = 'id_mission';
+
     protected $fillable = [
         'id_evenement',
         'responsable_utilisateur_id',

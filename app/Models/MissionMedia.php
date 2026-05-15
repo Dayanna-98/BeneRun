@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class MissionMedia extends Model
 {
     protected $table = 'mission_medias';
+
     protected $primaryKey = 'id_media_mission';
+
     protected $fillable = [
         'id_mission',
         'chemin_fichier',

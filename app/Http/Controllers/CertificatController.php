@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Certificat;
@@ -27,6 +28,7 @@ class CertificatController extends Controller
     private function resolveActorFromBearerToken(Request $request): ?User
     {
         $actor = $request->user('sanctum');
+
         return $actor instanceof User ? $actor : null;
     }
 
@@ -43,7 +45,7 @@ class CertificatController extends Controller
         }
 
         $headerRole = $request->header('X-User-Role');
-        if (!empty($headerRole) && $this->normalizeRole($headerRole) === 'superadmin') {
+        if (! empty($headerRole) && $this->normalizeRole($headerRole) === 'superadmin') {
             return true;
         }
 
@@ -88,7 +90,7 @@ class CertificatController extends Controller
         }
 
         if (
-            !$this->isSuperAdminRequest($request)
+            ! $this->isSuperAdminRequest($request)
             && (int) $certificat->id_utilisateur !== (int) $actor->id_utilisateur
         ) {
             return response()->json(['message' => 'Action non autorisée'], 403);
@@ -118,9 +120,9 @@ class CertificatController extends Controller
             'file_certificat' => 'nullable|file|mimes:pdf,png,jpg,jpeg,webp|max:10240',
         ]);
 
-        if (!$isSuperAdmin && (int) $validated['id_utilisateur'] !== (int) $actor->id_utilisateur) {
+        if (! $isSuperAdmin && (int) $validated['id_utilisateur'] !== (int) $actor->id_utilisateur) {
             return response()->json([
-                'message' => 'Vous ne pouvez soumettre un certificat que pour votre propre compte'
+                'message' => 'Vous ne pouvez soumettre un certificat que pour votre propre compte',
             ], 403);
         }
 
@@ -149,14 +151,14 @@ class CertificatController extends Controller
 
     public function update(Request $request, $id)
     {
-        if (!$this->isSuperAdminRequest($request)) {
+        if (! $this->isSuperAdminRequest($request)) {
             return response()->json([
-                'message' => 'Action réservée aux super-admins'
+                'message' => 'Action réservée aux super-admins',
             ], 403);
         }
 
         $certificat = Certificat::find($id);
-        if (!$certificat) {
+        if (! $certificat) {
             return response()->json(['message' => 'Certificat inexistant'], 404);
         }
 
@@ -177,7 +179,7 @@ class CertificatController extends Controller
         }
 
         if ($request->hasFile('file_certificat')) {
-            if (!empty($certificat->chemin_fichier_certificat)) {
+            if (! empty($certificat->chemin_fichier_certificat)) {
                 Storage::disk('public')->delete($certificat->chemin_fichier_certificat);
             }
             $validated['chemin_fichier_certificat'] = $request->file('file_certificat')->store('certificats', 'public');
@@ -196,18 +198,18 @@ class CertificatController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        if (!$this->isSuperAdminRequest($request)) {
+        if (! $this->isSuperAdminRequest($request)) {
             return response()->json([
-                'message' => 'Action réservée aux super-admins'
+                'message' => 'Action réservée aux super-admins',
             ], 403);
         }
 
         $certificat = Certificat::find($id);
-        if (!$certificat) {
+        if (! $certificat) {
             return response()->json(['message' => 'Certificat inexistant'], 404);
         }
 
-        if (!empty($certificat->chemin_fichier_certificat)) {
+        if (! empty($certificat->chemin_fichier_certificat)) {
             Storage::disk('public')->delete($certificat->chemin_fichier_certificat);
         }
 
@@ -215,5 +217,4 @@ class CertificatController extends Controller
 
         return response()->json(['message' => 'Certificat supprimé'], 200);
     }
-
 }

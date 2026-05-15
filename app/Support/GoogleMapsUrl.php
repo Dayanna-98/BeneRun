@@ -23,21 +23,21 @@ final class GoogleMapsUrl
 
         if (self::isPotentialShortGoogleMapsUrl($value)) {
             $resolved = self::resolveFinalUrl($value);
-            if ($resolved && !in_array($resolved, $candidateUrls, true)) {
+            if ($resolved && ! in_array($resolved, $candidateUrls, true)) {
                 $candidateUrls[] = $resolved;
             }
         }
 
         foreach ($candidateUrls as $candidateUrl) {
             foreach ($patterns as $pattern) {
-                if (!preg_match($pattern, $candidateUrl, $matches)) {
+                if (! preg_match($pattern, $candidateUrl, $matches)) {
                     continue;
                 }
 
                 $latitude = (float) $matches[1];
                 $longitude = (float) $matches[2];
 
-                if (!self::isValidCoordinatePair($latitude, $longitude)) {
+                if (! self::isValidCoordinatePair($latitude, $longitude)) {
                     continue;
                 }
 
@@ -64,7 +64,7 @@ final class GoogleMapsUrl
 
     private static function resolveFinalUrl(string $url): ?string
     {
-        if (!function_exists('curl_init')) {
+        if (! function_exists('curl_init')) {
             return null;
         }
 
@@ -84,7 +84,7 @@ final class GoogleMapsUrl
         $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         curl_close($ch);
 
-        if (!is_string($effectiveUrl) || trim($effectiveUrl) === '') {
+        if (! is_string($effectiveUrl) || trim($effectiveUrl) === '') {
             return null;
         }
 

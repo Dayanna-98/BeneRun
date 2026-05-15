@@ -3,12 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
+use App\Models\Badge;
 use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\User;
-use App\Models\Badge;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class StatsController extends Controller
 {
@@ -19,20 +18,20 @@ class StatsController extends Controller
     {
         $user = $request->user('sanctum');
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
         $role = strtolower($user->role_utilisateur ?? '');
-        if (!in_array($role, ['admin', 'superadmin'])) {
+        if (! in_array($role, ['admin', 'superadmin'])) {
             return response()->json(['message' => 'Accès refusé'], 403);
         }
 
         // Comptages généraux
-        $totalUsers     = User::count();
-        $totalEvents    = Evenement::count();
-        $totalMissions  = Mission::count();
-        $totalBadges    = Badge::count();
+        $totalUsers = User::count();
+        $totalEvents = Evenement::count();
+        $totalMissions = Mission::count();
+        $totalBadges = Badge::count();
 
         $today = now()->toDateString();
 
@@ -47,7 +46,7 @@ class StatsController extends Controller
             ->groupBy('role_utilisateur')
             ->get()
             ->mapWithKeys(fn ($row) => [
-                $row->role_utilisateur ?? 'inconnu' => $row->total
+                $row->role_utilisateur ?? 'inconnu' => $row->total,
             ]);
 
         $volunteerCount = $roleStats['bénévole'] ?? $roleStats['volunteer'] ?? 0;
@@ -64,6 +63,7 @@ class StatsController extends Controller
         if ($missions->count() > 0) {
             $sum = $missions->reduce(function ($carry, $m) {
                 $max = max(1, $m->nombre_benevoles_max);
+
                 return $carry + min(100, ($m->confirmed_count / $max) * 100);
             }, 0);
             $completionRate = round($sum / $missions->count());
@@ -82,27 +82,28 @@ class StatsController extends Controller
             ->get()
             ->map(function ($event) {
                 $currentVolunteers = $event->missions->sum('confirmed_count');
+
                 return [
-                    'id'               => $event->id_evenement,
-                    'name'             => $event->nom_evenement,
-                    'missionsCount'    => $event->missions_count,
-                    'currentVolunteers'=> $currentVolunteers,
-                    'totalNeeded'      => $event->nombre_benevoles_requis,
+                    'id' => $event->id_evenement,
+                    'name' => $event->nom_evenement,
+                    'missionsCount' => $event->missions_count,
+                    'currentVolunteers' => $currentVolunteers,
+                    'totalNeeded' => $event->nombre_benevoles_requis,
                 ];
             });
 
         return response()->json([
             'kpis' => [
-                'totalUsers'            => $totalUsers,
-                'totalEvents'           => $totalEvents,
-                'totalMissions'         => $totalMissions,
-                'totalBadges'           => $totalBadges,
-                'activeMissions'        => $activeMissions,
+                'totalUsers' => $totalUsers,
+                'totalEvents' => $totalEvents,
+                'totalMissions' => $totalMissions,
+                'totalBadges' => $totalBadges,
+                'activeMissions' => $activeMissions,
                 'confirmedAffectations' => $confirmedAffectations,
-                'volunteerCount'        => $volunteerCount,
-                'completionRate'        => $completionRate,
+                'volunteerCount' => $volunteerCount,
+                'completionRate' => $completionRate,
             ],
-            'roleStats'       => $roleStats,
+            'roleStats' => $roleStats,
             'missionsByEvent' => $missionsByEvent,
         ]);
     }
@@ -114,7 +115,7 @@ class StatsController extends Controller
     {
         $user = $request->user('sanctum');
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
@@ -125,9 +126,9 @@ class StatsController extends Controller
             ->where('statut_affectation', 'confirmé')
             ->with(['mission' => function ($q) {
                 $q->with('evenement')
-                  ->withCount(['affectations as current_volunteers_count' => function ($q2) {
-                      $q2->where('statut_affectation', 'confirmé');
-                  }]);
+                    ->withCount(['affectations as current_volunteers_count' => function ($q2) {
+                        $q2->where('statut_affectation', 'confirmé');
+                    }]);
             }])
             ->get();
 
@@ -185,12 +186,12 @@ class StatsController extends Controller
         }
 
         return response()->json([
-            'totalMissions'    => $totalMissions,
-            'activeMissions'   => $activeMissions,
-            'nextMission'      => $nextMission,
-            'badges'           => $badges,
-            'managedMissions'  => $managedMissions,
-            'suggestedMissions'=> $suggestedMissions,
+            'totalMissions' => $totalMissions,
+            'activeMissions' => $activeMissions,
+            'nextMission' => $nextMission,
+            'badges' => $badges,
+            'managedMissions' => $managedMissions,
+            'suggestedMissions' => $suggestedMissions,
         ]);
     }
 }

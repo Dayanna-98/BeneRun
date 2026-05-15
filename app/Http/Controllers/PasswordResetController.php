@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Mail\ResetPasswordMail;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class PasswordResetController extends Controller
@@ -25,9 +24,9 @@ class PasswordResetController extends Controller
         // Vérifier que l'email existe en BDD
         $user = User::where('email', $validated['email'])->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Email non trouvé dans notre système'
+                'message' => 'Email non trouvé dans notre système',
             ], 404);
         }
 
@@ -46,7 +45,7 @@ class PasswordResetController extends Controller
         // Envoyer le mail avec le lien de réinitialisation
         Mail::send('emails.reset-password', [
             'user' => $user,
-            'resetLink' => env('FRONTEND_URL') . '/reset-password?token=' . $token . '&email=' . urlencode($validated['email']),
+            'resetLink' => env('FRONTEND_URL').'/reset-password?token='.$token.'&email='.urlencode($validated['email']),
             'token' => $token,
         ], function ($mail) use ($user) {
             $mail->to($user->email)
@@ -54,7 +53,7 @@ class PasswordResetController extends Controller
         });
 
         return response()->json([
-            'message' => 'Un lien de réinitialisation a été envoyé à ' . $validated['email']
+            'message' => 'Un lien de réinitialisation a été envoyé à '.$validated['email'],
         ], 200);
     }
 
@@ -72,33 +71,34 @@ class PasswordResetController extends Controller
             ->where('email', $validated['email'])
             ->first();
 
-        if (!$resetRecord) {
+        if (! $resetRecord) {
             return response()->json([
                 'valid' => false,
-                'message' => 'Token invalide ou expiré'
+                'message' => 'Token invalide ou expiré',
             ], 401);
         }
 
         // Vérifier le token
-        if (!Hash::check($validated['token'], $resetRecord->token)) {
+        if (! Hash::check($validated['token'], $resetRecord->token)) {
             return response()->json([
                 'valid' => false,
-                'message' => 'Token invalide'
+                'message' => 'Token invalide',
             ], 401);
         }
 
         // Vérifier l'expiration (30 minutes)
         if (now()->diffInMinutes($resetRecord->created_at) > 30) {
             DB::table('password_resets')->where('email', $validated['email'])->delete();
+
             return response()->json([
                 'valid' => false,
-                'message' => 'Token expiré. Veuillez demander une nouvelle réinitialisation'
+                'message' => 'Token expiré. Veuillez demander une nouvelle réinitialisation',
             ], 401);
         }
 
         return response()->json([
             'valid' => true,
-            'message' => 'Token valide'
+            'message' => 'Token valide',
         ], 200);
     }
 
@@ -115,9 +115,9 @@ class PasswordResetController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Email non trouvé'
+                'message' => 'Email non trouvé',
             ], 404);
         }
 
@@ -125,37 +125,38 @@ class PasswordResetController extends Controller
             ->where('email', $validated['email'])
             ->first();
 
-        if (!$resetRecord) {
+        if (! $resetRecord) {
             return response()->json([
-                'message' => 'Token invalide ou expiré'
+                'message' => 'Token invalide ou expiré',
             ], 401);
         }
 
         // Vérifier le token
-        if (!Hash::check($validated['token'], $resetRecord->token)) {
+        if (! Hash::check($validated['token'], $resetRecord->token)) {
             return response()->json([
-                'message' => 'Token invalide'
+                'message' => 'Token invalide',
             ], 401);
         }
 
         // Vérifier l'expiration
         if (now()->diffInMinutes($resetRecord->created_at) > 30) {
             DB::table('password_resets')->where('email', $validated['email'])->delete();
+
             return response()->json([
-                'message' => 'Token expiré'
+                'message' => 'Token expiré',
             ], 401);
         }
 
         // Mettre à jour le mot de passe
         $user->update([
-            'password' => Hash::make($validated['password'])
+            'password' => Hash::make($validated['password']),
         ]);
 
         // Supprimer le token utilisé
         DB::table('password_resets')->where('email', $validated['email'])->delete();
 
         return response()->json([
-            'message' => 'Mot de passe réinitialisé avec succès'
+            'message' => 'Mot de passe réinitialisé avec succès',
         ], 200);
     }
 }

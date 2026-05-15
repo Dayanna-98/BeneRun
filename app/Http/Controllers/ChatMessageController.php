@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ChatConversationChanged;
+use App\Events\ChatMessageSent;
 use App\Models\ChatConversation;
 use App\Models\ChatConversationParticipant;
 use App\Models\ChatMessage;
 use App\Models\ChatMessageRead;
 use App\Models\User;
-use App\Events\ChatConversationChanged;
-use App\Events\ChatMessageSent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -23,7 +23,7 @@ class ChatMessageController extends Controller
         }
 
         $token = $request->bearerToken();
-        if (!$token) {
+        if (! $token) {
             return null;
         }
 
@@ -45,7 +45,7 @@ class ChatMessageController extends Controller
 
     private function mapUser(?User $user): ?array
     {
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
@@ -77,14 +77,14 @@ class ChatMessageController extends Controller
     public function index(Request $request, $conversationId)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
         $actorId = (int) $actor->id_utilisateur;
         $conversation = $this->findConversationForActor((int) $conversationId, $actorId);
 
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['message' => 'Conversation introuvable ou inaccessible.'], 404);
         }
 
@@ -104,14 +104,14 @@ class ChatMessageController extends Controller
     public function store(Request $request, $conversationId)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
         $actorId = (int) $actor->id_utilisateur;
         $conversation = $this->findConversationForActor((int) $conversationId, $actorId);
 
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['message' => 'Conversation introuvable ou inaccessible.'], 404);
         }
 
@@ -170,7 +170,7 @@ class ChatMessageController extends Controller
     public function markRead(Request $request, $messageId)
     {
         $actor = $this->resolveActorFromBearerToken($request);
-        if (!$actor) {
+        if (! $actor) {
             return response()->json(['message' => 'Non authentifie'], 401);
         }
 
@@ -181,7 +181,7 @@ class ChatMessageController extends Controller
             ->where('id_chat_message', (int) $messageId)
             ->first();
 
-        if (!$message || !$message->conversation) {
+        if (! $message || ! $message->conversation) {
             return response()->json(['message' => 'Message introuvable.'], 404);
         }
 
@@ -190,7 +190,7 @@ class ChatMessageController extends Controller
             ->where('id_utilisateur', $actorId)
             ->first();
 
-        if (!$participant) {
+        if (! $participant) {
             return response()->json(['message' => 'Conversation inaccessible.'], 403);
         }
 

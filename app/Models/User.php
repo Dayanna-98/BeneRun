@@ -2,14 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\Badge;
-use App\Models\Competence;
-use App\Models\UserCompetencePoint;
-use App\Models\MissionUserReward;
 
 class User extends Authenticatable
 {
@@ -63,7 +59,7 @@ class User extends Authenticatable
             'user_competences',
             'id_utilisateur',
             'id_competence'
-            )->withPivot('niveau')
+        )->withPivot('niveau')
             ->withTimestamps();
     }
 
@@ -75,8 +71,8 @@ class User extends Authenticatable
             'id_utilisateur',
             'id_badge'
         )
-        ->withPivot('attribue_le')
-        ->withTimestamps();
+            ->withPivot('attribue_le')
+            ->withTimestamps();
     }
 
     public function certificats()

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Postulation extends Model
 {
     protected $primaryKey = 'id_postulation';
+
     protected $fillable = [
         'id_mission',
         'id_evenement',

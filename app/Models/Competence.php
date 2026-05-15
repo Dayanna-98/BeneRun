@@ -3,14 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Mission;
-use App\Models\User;
-use App\Models\UserCompetencePoint;
-use App\Models\BadgeCompetenceRule;
 
 class Competence extends Model
 {
     protected $table = 'competences';
+
     protected $primaryKey = 'id_competence';
 
     protected $fillable = [
@@ -40,7 +37,7 @@ class Competence extends Model
             'id_competence',
             'id_utilisateur'
         )->withPivot('niveau_competence')
-        ->withTimestamps();
+            ->withTimestamps();
     }
 
     public function rewardedInMissions()
@@ -64,5 +61,4 @@ class Competence extends Model
     {
         return $this->hasMany(BadgeCompetenceRule::class, 'id_competence', 'id_competence');
     }
-
 }

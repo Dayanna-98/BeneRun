@@ -2,9 +2,9 @@ name: Tests CI/CD
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, front-end ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, front-end ]
 
 jobs:
   backend-tests:

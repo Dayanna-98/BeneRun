@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Badge extends Model
 {
     protected $table = 'badges';
+
     protected $primaryKey = 'id_badge';
+
     protected $fillable = [
         'titre_badge',
         'description_badge',
@@ -23,9 +25,9 @@ class Badge extends Model
             'user_badges',
             'id_badge',
             'id_utilisateur'
-            )
-        ->withPivot('attribue_le')
-        ->withTimestamps();
+        )
+            ->withPivot('attribue_le')
+            ->withTimestamps();
     }
 
     public function competenceRules()

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('postulations', function (Blueprint $table) {
             $table->unsignedBigInteger('id_mission')->nullable()->change();
 
-            if (!Schema::hasColumn('postulations', 'id_evenement')) {
+            if (! Schema::hasColumn('postulations', 'id_evenement')) {
                 $table->unsignedBigInteger('id_evenement')->nullable()->after('id_mission');
                 $table->foreign('id_evenement')
                     ->references('id_evenement')

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
@@ -18,6 +19,7 @@ class PostulationController extends Controller
             'evenement:id_evenement,nom_evenement,date_debut_evenement,date_fin_evenement,heure_debut_evenement,heure_fin_evenement',
             'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
         ])->get();
+
         return response()->json($postulations);
     }
 
@@ -28,11 +30,10 @@ class PostulationController extends Controller
             'evenement:id_evenement,nom_evenement,date_debut_evenement,date_fin_evenement,heure_debut_evenement,heure_fin_evenement',
             'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
         ])->find($id);
-        if (!empty($postulation)){
+        if (! empty($postulation)) {
             return response()->json($postulation);
-        } 
-        else {
-            return response()->json(["message"=>"Postulation inexistante"], 404);
+        } else {
+            return response()->json(['message' => 'Postulation inexistante'], 404);
         }
     }
 
@@ -64,10 +65,10 @@ class PostulationController extends Controller
             ], 422);
         }
 
-        $existingMissionPostulation = !empty($validated['id_mission'])
+        $existingMissionPostulation = ! empty($validated['id_mission'])
             ? Postulation::where('id_mission', $validated['id_mission'])
-            ->where('id_utilisateur', $validated['id_utilisateur'])
-            ->first()
+                ->where('id_utilisateur', $validated['id_utilisateur'])
+                ->first()
             : null;
 
         if ($existingMissionPostulation) {
@@ -78,7 +79,7 @@ class PostulationController extends Controller
         }
 
         // Vérifie si l'utilisateur est déjà inscrit à une autre mission du même événement
-        if (!empty($validated['id_mission']) && !empty($validated['id_evenement'])) {
+        if (! empty($validated['id_mission']) && ! empty($validated['id_evenement'])) {
             $existingEventMissionPostulation = Postulation::whereNotNull('id_mission')
                 ->where('id_evenement', $validated['id_evenement'])
                 ->where('id_utilisateur', $validated['id_utilisateur'])
@@ -92,7 +93,7 @@ class PostulationController extends Controller
             }
         }
 
-        $existingEventWaitingList = !empty($validated['id_evenement'])
+        $existingEventWaitingList = ! empty($validated['id_evenement'])
             ? Postulation::where('id_evenement', $validated['id_evenement'])
                 ->whereNull('id_mission')
                 ->where('id_utilisateur', $validated['id_utilisateur'])
@@ -145,15 +146,14 @@ class PostulationController extends Controller
         });
 
         return response()->json([
-        'message' => 'Postulation créée',
-        'postulation' => $postulation->load([
-            'mission:id_mission,titre_mission,date_mission',
-            'evenement:id_evenement,nom_evenement,date_debut_evenement,date_fin_evenement,heure_debut_evenement,heure_fin_evenement',
-            'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
-        ])
+            'message' => 'Postulation créée',
+            'postulation' => $postulation->load([
+                'mission:id_mission,titre_mission,date_mission',
+                'evenement:id_evenement,nom_evenement,date_debut_evenement,date_fin_evenement,heure_debut_evenement,heure_fin_evenement',
+                'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+            ]),
         ], 201);
     }
-
 
     public function inscrireMission(Request $request, $idMission)
     {
@@ -178,14 +178,13 @@ class PostulationController extends Controller
         return $this->store(new Request($payload));
     }
 
-
     public function update(Request $request, $id) // Modifier une postulation
     {
         $postulation = Postulation::find($id);
 
-        if (!$postulation) {
+        if (! $postulation) {
             return response()->json([
-                'message' => 'Postulation inexistante'
+                'message' => 'Postulation inexistante',
             ], 404);
         }
 
@@ -229,11 +228,11 @@ class PostulationController extends Controller
             }
 
             if (array_key_exists('statut_postulation', $validated)) {
-                if (in_array($validated['statut_postulation'], ['accepte', 'refuse'], true) && !array_key_exists('date_decision', $validated)) {
+                if (in_array($validated['statut_postulation'], ['accepte', 'refuse'], true) && ! array_key_exists('date_decision', $validated)) {
                     $validated['date_decision'] = now();
                 }
 
-                if ($validated['statut_postulation'] === 'annule' && !array_key_exists('date_annulation', $validated)) {
+                if ($validated['statut_postulation'] === 'annule' && ! array_key_exists('date_annulation', $validated)) {
                     $validated['date_annulation'] = now();
                 }
             }
@@ -250,14 +249,13 @@ class PostulationController extends Controller
                 'mission:id_mission,titre_mission,date_mission',
                 'evenement:id_evenement,nom_evenement,date_debut_evenement,date_fin_evenement,heure_debut_evenement,heure_fin_evenement',
                 'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
-            ])
+            ]),
         ], 200);
     }
 
-
     public function destroy($id) // Supprimer une postulation
     {
-        if(Postulation::where('id_postulation', $id)->exists()){
+        if (Postulation::where('id_postulation', $id)->exists()) {
             $postulation = Postulation::find($id);
 
             if ($postulation && $this->isLockedPostulation($postulation)) {
@@ -267,9 +265,10 @@ class PostulationController extends Controller
             }
 
             $postulation->delete();
-            return response()->json(['message'=>'Postulation supprimée'], 200);
+
+            return response()->json(['message' => 'Postulation supprimée'], 200);
         } else {
-            return response()->json(['message'=>'Postulation inexistante'], 404);
+            return response()->json(['message' => 'Postulation inexistante'], 404);
         }
     }
 
@@ -313,7 +312,7 @@ class PostulationController extends Controller
         if ($missionId !== null) {
             $mission = Mission::select('id_mission', 'id_evenement', 'inscription_requise')->find($missionId);
             if ($mission) {
-                if (!$mission->inscription_requise) {
+                if (! $mission->inscription_requise) {
                     abort(response()->json([
                         'message' => 'Les inscriptions sont fermées pour cette mission.',
                     ], 422));
@@ -334,11 +333,11 @@ class PostulationController extends Controller
 
     private function getTargetWindow(array $payload): ?array
     {
-        if (!empty($payload['id_mission'])) {
+        if (! empty($payload['id_mission'])) {
             return $this->getMissionWindow((int) $payload['id_mission']);
         }
 
-        if (!empty($payload['id_evenement'])) {
+        if (! empty($payload['id_evenement'])) {
             return $this->getEventWindow((int) $payload['id_evenement']);
         }
 
@@ -348,7 +347,7 @@ class PostulationController extends Controller
     private function getMissionWindow(int $missionId): ?array
     {
         $mission = Mission::select('id_mission', 'date_mission', 'heure_debut_mission', 'heure_fin_mission')->find($missionId);
-        if (!$mission || !$mission->date_mission) {
+        if (! $mission || ! $mission->date_mission) {
             return null;
         }
 
@@ -356,8 +355,8 @@ class PostulationController extends Controller
         $startTime = $mission->heure_debut_mission ?: '00:00:00';
         $endTime = $mission->heure_fin_mission ?: $startTime;
 
-        $start = strtotime($date . ' ' . $startTime);
-        $end = strtotime($date . ' ' . $endTime);
+        $start = strtotime($date.' '.$startTime);
+        $end = strtotime($date.' '.$endTime);
 
         if ($start === false || $end === false) {
             return null;
@@ -380,7 +379,7 @@ class PostulationController extends Controller
             'heure_fin_evenement'
         )->find($eventId);
 
-        if (!$event || !$event->date_debut_evenement || !$event->date_fin_evenement) {
+        if (! $event || ! $event->date_debut_evenement || ! $event->date_fin_evenement) {
             return null;
         }
 
@@ -389,8 +388,8 @@ class PostulationController extends Controller
         $startTime = $event->heure_debut_evenement ?: '00:00:00';
         $endTime = $event->heure_fin_evenement ?: '23:59:59';
 
-        $start = strtotime($startDate . ' ' . $startTime);
-        $end = strtotime($endDate . ' ' . $endTime);
+        $start = strtotime($startDate.' '.$startTime);
+        $end = strtotime($endDate.' '.$endTime);
 
         if ($start === false || $end === false) {
             return null;
@@ -419,7 +418,7 @@ class PostulationController extends Controller
                 continue;
             }
 
-            if (!$waiting->evenement) {
+            if (! $waiting->evenement) {
                 continue;
             }
 
@@ -444,7 +443,7 @@ class PostulationController extends Controller
             ->get();
 
         foreach ($assignments as $assignment) {
-            if (!$assignment->mission) {
+            if (! $assignment->mission) {
                 continue;
             }
 
@@ -481,5 +480,4 @@ class PostulationController extends Controller
     {
         return $startA <= $endB && $startB <= $endA;
     }
-
 }

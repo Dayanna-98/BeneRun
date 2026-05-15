@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Badge;
@@ -9,17 +10,17 @@ class BadgeController extends Controller
     public function index()// Récupérer tous les badges
     {
         $badges = Badge::with('competenceRules')->get();
+
         return response()->json($badges);
     }
 
     public function show($id) // Rechercher une affectation selon son id
     {
         $badge = Badge::with('competenceRules')->find($id);
-        if (!empty($badge)){
+        if (! empty($badge)) {
             return response()->json($badge);
-        } 
-        else {
-            return response()->json(["message"=>"Badge inexistant"], 404);
+        } else {
+            return response()->json(['message' => 'Badge inexistant'], 404);
         }
     }
 
@@ -49,13 +50,13 @@ class BadgeController extends Controller
             'badge' => $badge->load('competenceRules'),
         ], 201);
     }
- 
+
     public function update(Request $request, $id)
     {
         $badge = Badge::find($id);
-        if (!$badge) {
+        if (! $badge) {
             return response()->json([
-                'message' => 'Badge inexistant'
+                'message' => 'Badge inexistant',
             ], 404);
         }
 
@@ -88,12 +89,13 @@ class BadgeController extends Controller
 
     public function destroy($id) // Supprimer un badge
     {
-        if(Badge::where('id_badge', $id)->exists()){
+        if (Badge::where('id_badge', $id)->exists()) {
             $badge = Badge::find($id);
             $badge->delete();
-            return response()->json(['message'=>'Badge supprimé'], 200);
+
+            return response()->json(['message' => 'Badge supprimé'], 200);
         } else {
-            return response()->json(['message'=>'Badge inexistant'], 404);
+            return response()->json(['message' => 'Badge inexistant'], 404);
         }
     }
 
@@ -115,5 +117,4 @@ class BadgeController extends Controller
             ]);
         }
     }
-
 }

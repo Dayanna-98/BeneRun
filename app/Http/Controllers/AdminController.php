@@ -1,15 +1,16 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Admin;
+use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
-
     public function index(Request $request)
     {
         $admins = Admin::with('user')->get();
+
         return response()->json($admins);
     }
 
@@ -22,10 +23,10 @@ class AdminController extends Controller
         }
 
         return response()->json([
-            'message' => 'Admin inexistant'
+            'message' => 'Admin inexistant',
         ], 404);
     }
- 
+
     public function store(Request $request)
     {
         $admin = new Admin;
@@ -35,45 +36,43 @@ class AdminController extends Controller
         $admin->save();
 
         return response()->json([
-            'message' => 'Admin créé'
+            'message' => 'Admin créé',
         ], 200);
     }
 
-        public function update(Request $request, $id)
+    public function update(Request $request, $id)
     {
-        if (Admin::where('id_admin', $id)->exists())
-        {
+        if (Admin::where('id_admin', $id)->exists()) {
             $admin = Admin::find($id);
             $admin->id_utilisateur = $request->id_utilisateur;
             $admin->est_organisateur_admin = $request->est_organisateur_admin;
             $admin->permission_admin = $request->permission_admin;
 
             $admin->save();
+
             return response()->json([
-                'message'=>'Admin mise à jour'
+                'message' => 'Admin mise à jour',
             ], 200);
         } else {
             return response()->json([
-                'message'=>'Admin inexistant'
+                'message' => 'Admin inexistant',
             ], 404);
         }
     }
 
-        public function destroy($id)
+    public function destroy($id)
     {
-        if (Admin::where('id_admin', $id)->exists())
-        {
+        if (Admin::where('id_admin', $id)->exists()) {
             $admin = Admin::find($id);
             $admin->delete();
+
             return response()->json([
-                'message'=>'Admin supprimé'
+                'message' => 'Admin supprimé',
             ], 200);
         } else {
             return response()->json([
-                'message'=>'Admin inexistant'
+                'message' => 'Admin inexistant',
             ], 404);
         }
-    } 
-    
-    
+    }
 }
