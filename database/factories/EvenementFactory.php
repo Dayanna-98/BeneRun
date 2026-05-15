@@ -2,12 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\Evenement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class EvenementFactory extends Factory
 {
-    protected $model = \App\Models\Evenement::class;
+    protected $model = Evenement::class;
 
     public function definition(): array
     {

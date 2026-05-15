@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\User;

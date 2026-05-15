@@ -2,13 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Models\Affectation;
 use App\Models\Mission;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class AffectationFactory extends Factory
 {
-    protected $model = \App\Models\Affectation::class;
+    protected $model = Affectation::class;
 
     public function definition(): array
     {

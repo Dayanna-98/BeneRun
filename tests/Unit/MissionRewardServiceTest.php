@@ -2,9 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\Affectation;
 use App\Models\Mission;
-use App\Models\User;
 use App\Services\MissionRewardService;
 use Tests\TestCase;
 
@@ -15,7 +13,7 @@ class MissionRewardServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new MissionRewardService();
+        $this->service = new MissionRewardService;
     }
 
     public function test_no_rewards_if_mission_has_no_competence_rewards(): void

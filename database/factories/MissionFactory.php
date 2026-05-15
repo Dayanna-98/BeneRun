@@ -3,17 +3,18 @@
 namespace Database\Factories;
 
 use App\Models\Evenement;
+use App\Models\Mission;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class MissionFactory extends Factory
 {
-    protected $model = \App\Models\Mission::class;
+    protected $model = Mission::class;
 
     public function definition(): array
     {
         $startTime = $this->faker->time('H:i');
-        
+
         return [
             'titre_mission' => $this->faker->title(),
             'description_mission' => $this->faker->paragraph(),
