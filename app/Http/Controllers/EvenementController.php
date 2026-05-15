@@ -68,8 +68,9 @@ class EvenementController extends Controller
             'heure_debut_evenement' => 'nullable|date_format:H:i',
             'heure_fin_evenement' => 'nullable|date_format:H:i',
             'lieu_evenement' => 'required|string|max:255',
-            'google_maps_url_evenement' => 'required|string|max:1000',
-            'rayon_localisation_evenement' => 'required|integer|min:1|max:100000',
+            'mode_localisation_evenement' => 'required|in:manual,missions',
+            'google_maps_url_evenement' => 'nullable|string|max:1000',
+            'rayon_localisation_evenement' => 'nullable|integer|min:1|max:100000',
             'organisateur_evenement' => 'required|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
             'image_file' => 'nullable|image|max:5120',
@@ -82,7 +83,7 @@ class EvenementController extends Controller
         ]);
 
         $validated = $this->hydrateEventLocation($validated);
-    $validated = $this->hydrateEventImage($request, $validated);
+        $validated = $this->hydrateEventImage($request, $validated);
 
         $event = Evenement::create($validated);
 
@@ -108,8 +109,9 @@ class EvenementController extends Controller
             'heure_debut_evenement' => 'nullable|date_format:H:i',
             'heure_fin_evenement' => 'nullable|date_format:H:i',
             'lieu_evenement' => 'sometimes|string|max:255',
-            'google_maps_url_evenement' => 'sometimes|string|max:1000',
-            'rayon_localisation_evenement' => 'sometimes|integer|min:1|max:100000',
+            'mode_localisation_evenement' => 'sometimes|in:manual,missions',
+            'google_maps_url_evenement' => 'nullable|string|max:1000',
+            'rayon_localisation_evenement' => 'nullable|integer|min:1|max:100000',
             'organisateur_evenement' => 'sometimes|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
             'image_file' => 'nullable|image|max:5120',
@@ -122,7 +124,7 @@ class EvenementController extends Controller
         ]);
 
         $validated = $this->hydrateEventLocation($validated, $event);
-    $validated = $this->hydrateEventImage($request, $validated, $event);
+        $validated = $this->hydrateEventImage($request, $validated, $event);
 
         $event->update($validated);
 
@@ -169,10 +171,61 @@ class EvenementController extends Controller
 
     private function hydrateEventLocation(array $validated, ?Evenement $event = null): array
     {
-        $mapsUrl = $validated['google_maps_url_evenement'] ?? $event?->google_maps_url_evenement;
-        $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
+        $locationMode = $validated['mode_localisation_evenement']
+            ?? $event?->mode_localisation_evenement
+            ?? 'manual';
 
-        $validated['google_maps_url_evenement'] = $mapsUrl;
+        if (!in_array($locationMode, ['manual', 'missions'], true)) {
+            $locationMode = 'manual';
+        }
+
+        $mapsUrl = trim((string) ($validated['google_maps_url_evenement'] ?? $event?->google_maps_url_evenement ?? ''));
+
+        if ($locationMode === 'manual') {
+            $radius = $validated['rayon_localisation_evenement'] ?? $event?->rayon_localisation_evenement;
+            if (empty($mapsUrl)) {
+                abort(response()->json([
+                    'message' => 'Le lien Google Maps du centre est obligatoire en mode manuel.',
+                    'errors' => [
+                        'google_maps_url_evenement' => ['Le lien Google Maps du centre est obligatoire en mode manuel.'],
+                    ],
+                ], 422));
+            }
+
+            if (empty($radius)) {
+                abort(response()->json([
+                    'message' => 'Le périmètre est obligatoire en mode manuel.',
+                    'errors' => [
+                        'rayon_localisation_evenement' => ['Le périmètre est obligatoire en mode manuel.'],
+                    ],
+                ], 422));
+            }
+
+            $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
+            if ($coordinates === null) {
+                abort(response()->json([
+                    'message' => 'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
+                    'errors' => [
+                        'google_maps_url_evenement' => [
+                            'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
+                        ],
+                    ],
+                ], 422));
+            }
+
+            $validated['google_maps_url_evenement'] = $mapsUrl;
+            $validated['rayon_localisation_evenement'] = (int) $radius;
+            $validated['latitude_evenement'] = $coordinates['latitude'];
+            $validated['longitude_evenement'] = $coordinates['longitude'];
+            $validated['mode_localisation_evenement'] = 'manual';
+
+            return $validated;
+        }
+
+        $coordinates = $mapsUrl !== '' ? GoogleMapsUrl::extractCoordinates($mapsUrl) : null;
+        $validated['mode_localisation_evenement'] = 'missions';
+        $validated['rayon_localisation_evenement'] = null;
+        $validated['google_maps_url_evenement'] = $mapsUrl !== '' ? $mapsUrl : null;
         $validated['latitude_evenement'] = $coordinates['latitude'] ?? null;
         $validated['longitude_evenement'] = $coordinates['longitude'] ?? null;
 

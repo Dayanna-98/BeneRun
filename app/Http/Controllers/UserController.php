@@ -236,12 +236,6 @@ public function login(Request $request)
         ], 401);
     }
 
-    if ($user->est_suspendu_utilisateur) {
-        return response()->json([
-            'message' => 'Ce compte est suspendu.'
-        ], 403);
-    }
-
     $token = $user->createToken('api-token')->plainTextToken;
 
     return response()->json([
@@ -350,8 +344,6 @@ public function index(Request $request)
         $user->possede_vehicule_utilisateur = (bool) $request->possede_vehicule_utilisateur;
         $user->taille_tshirt_utilisateur = $request->taille_tshirt_utilisateur;
         $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
-        $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
-        $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
         $user->partage_localisation_directe_utilisateur = (bool) $request->partage_localisation_directe_utilisateur;
         $user->latitude_localisation_directe_utilisateur = $request->latitude_localisation_directe_utilisateur;
         $user->longitude_localisation_directe_utilisateur = $request->longitude_localisation_directe_utilisateur;
@@ -465,8 +457,6 @@ public function index(Request $request)
         $user->possede_vehicule_utilisateur = (bool) ($validated['possede_vehicule_utilisateur'] ?? false);
         $user->taille_tshirt_utilisateur = $validated['taille_tshirt_utilisateur'] ?? null;
         $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
-        $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
-        $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
         $user->partage_localisation_directe_utilisateur = (bool) ($validated['partage_localisation_directe_utilisateur'] ?? false);
         $user->latitude_localisation_directe_utilisateur = $validated['latitude_localisation_directe_utilisateur'] ?? $user->latitude_localisation_directe_utilisateur;
         $user->longitude_localisation_directe_utilisateur = $validated['longitude_localisation_directe_utilisateur'] ?? $user->longitude_localisation_directe_utilisateur;

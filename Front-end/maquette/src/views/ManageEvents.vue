@@ -546,7 +546,9 @@
 
       const healthIssues = (event) => {
         const issues = []
-        if (!event.googleMapsUrl) issues.push('Périmètre map manquant')
+        if ((event.locationMode || 'manual') === 'manual' && !event.googleMapsUrl) {
+          issues.push('Périmètre map manquant')
+        }
         if (Number(event.missionsCount || 0) === 0) issues.push('Aucune mission liée')
         if (!event.isPublished) issues.push('Non publié')
         if (isEventFull(event)) issues.push('Quota atteint')

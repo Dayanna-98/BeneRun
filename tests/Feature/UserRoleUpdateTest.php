@@ -40,8 +40,6 @@ class UserRoleUpdateTest extends TestCase
             'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
             'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
             'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
-            'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
-            'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
             'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
         ]);
 
@@ -84,8 +82,6 @@ class UserRoleUpdateTest extends TestCase
             'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
             'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
             'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
-            'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
-            'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
             'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
         ]);
 
@@ -120,8 +116,6 @@ class UserRoleUpdateTest extends TestCase
                 'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
                 'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
                 'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
-                'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
-                'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
                 'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
             ]);
 
@@ -149,8 +143,6 @@ class UserRoleUpdateTest extends TestCase
             'possede_vehicule_utilisateur' => false,
             'taille_tshirt_utilisateur' => 'S',
             'est_anonyme_utilisateur' => false,
-            'est_suspendu_utilisateur' => false,
-            'raison_suspension_utilisateur' => null,
             'nombre_missions_utilisateur' => 1,
         ]);
 
@@ -171,8 +163,6 @@ class UserRoleUpdateTest extends TestCase
             'possede_vehicule_utilisateur' => true,
             'taille_tshirt_utilisateur' => 'M',
             'est_anonyme_utilisateur' => false,
-            'est_suspendu_utilisateur' => false,
-            'raison_suspension_utilisateur' => null,
             'nombre_missions_utilisateur' => 1,
         ]);
 
@@ -225,8 +215,6 @@ class UserRoleUpdateTest extends TestCase
             'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
             'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
             'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
-            'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
-            'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
             'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
             'partage_localisation_directe_utilisateur' => true,
             'latitude_localisation_directe_utilisateur' => 46.2044,
@@ -237,8 +225,8 @@ class UserRoleUpdateTest extends TestCase
         $enableResponse
             ->assertOk()
             ->assertJsonPath('user.partage_localisation_directe_utilisateur', true)
-            ->assertJsonPath('user.latitude_localisation_directe_utilisateur', '46.2044000')
-            ->assertJsonPath('user.longitude_localisation_directe_utilisateur', '6.1432000');
+            ->assertJsonPath('user.latitude_localisation_directe_utilisateur', 46.2044)
+            ->assertJsonPath('user.longitude_localisation_directe_utilisateur', 6.1432);
 
         $this->assertDatabaseHas('users', [
             'id_utilisateur' => $user->id_utilisateur,
@@ -262,8 +250,6 @@ class UserRoleUpdateTest extends TestCase
             'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
             'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
             'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
-            'est_suspendu_utilisateur' => $user->est_suspendu_utilisateur,
-            'raison_suspension_utilisateur' => $user->raison_suspension_utilisateur,
             'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
             'partage_localisation_directe_utilisateur' => false,
             'latitude_localisation_directe_utilisateur' => 46.3000,

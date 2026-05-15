@@ -51,6 +51,7 @@ export const eventService = {
       category: 'Non défini',
       googleMapsUrl: apiEvent.google_maps_url_evenement || '',
       radiusMeters: Number(apiEvent.rayon_localisation_evenement || 0),
+      locationMode: apiEvent.mode_localisation_evenement === 'missions' ? 'missions' : 'manual',
       isPublished: !!apiEvent.est_publie_evenement,
       isCancelled: !!apiEvent.est_annule_evenement,
       cancellationDate: apiEvent.date_annulation_evenement || '',
@@ -72,8 +73,9 @@ export const eventService = {
       heure_fin_evenement: formData.endTime || null,
       lieu_evenement: formData.location,
       organisateur_evenement: formData.organizer,
-      google_maps_url_evenement: formData.googleMapsUrl || null,
-      rayon_localisation_evenement: Number(formData.radiusMeters || 0),
+      mode_localisation_evenement: formData.locationMode === 'missions' ? 'missions' : 'manual',
+      google_maps_url_evenement: formData.locationMode === 'missions' ? (formData.googleMapsUrl || null) : (formData.googleMapsUrl || null),
+      rayon_localisation_evenement: formData.locationMode === 'manual' ? Number(formData.radiusMeters || 0) : null,
       image_evenement: formData.imageUrl || null,
       nombre_benevoles_requis: Number(formData.totalVolunteersNeeded || 0),
       est_annule_evenement: !!formData.isCancelled,
@@ -96,6 +98,7 @@ export const eventService = {
     appendNullable(multipart, 'heure_fin_evenement', payload.heure_fin_evenement)
     appendNullable(multipart, 'lieu_evenement', payload.lieu_evenement)
     appendNullable(multipart, 'organisateur_evenement', payload.organisateur_evenement)
+    appendNullable(multipart, 'mode_localisation_evenement', payload.mode_localisation_evenement)
     appendNullable(multipart, 'google_maps_url_evenement', payload.google_maps_url_evenement)
     appendNullable(multipart, 'rayon_localisation_evenement', payload.rayon_localisation_evenement)
     appendNullable(multipart, 'image_evenement', payload.image_evenement)
@@ -128,8 +131,11 @@ export const eventService = {
     if (!formData.totalVolunteersNeeded || Number(formData.totalVolunteersNeeded) < 1) {
       errors.totalVolunteersNeeded = 'Le nombre de bénévoles doit être supérieur à 0.'
     }
-    if (!String(formData.googleMapsUrl || '').trim()) errors.googleMapsUrl = 'Le lien Google Maps est obligatoire.'
-    if (!formData.radiusMeters || Number(formData.radiusMeters) < 1) errors.radiusMeters = 'Le périmètre doit être supérieur à 0.'
+    const locationMode = formData.locationMode === 'missions' ? 'missions' : 'manual'
+    if (locationMode === 'manual') {
+      if (!String(formData.googleMapsUrl || '').trim()) errors.googleMapsUrl = 'Le lien Google Maps est obligatoire.'
+      if (!formData.radiusMeters || Number(formData.radiusMeters) < 1) errors.radiusMeters = 'Le périmètre doit être supérieur à 0.'
+    }
 
     if (formData.imageFile instanceof File) {
       if (!String(formData.imageFile.type || '').startsWith('image/')) {
@@ -147,12 +153,14 @@ export const eventService = {
       throw { message: 'Utilisateur non identifié. Reconnectez-vous pour créer ou modifier un événement.' }
     }
 
-    if (!payload.google_maps_url_evenement) {
-      throw { message: 'Veuillez renseigner un lien Google Maps pour l\'événement.' }
-    }
+    if (payload.mode_localisation_evenement === 'manual') {
+      if (!payload.google_maps_url_evenement) {
+        throw { message: 'Veuillez renseigner un lien Google Maps pour l\'événement.' }
+      }
 
-    if (!payload.rayon_localisation_evenement || Number.isNaN(payload.rayon_localisation_evenement)) {
-      throw { message: 'Veuillez renseigner un périmètre valide pour l\'événement.' }
+      if (!payload.rayon_localisation_evenement || Number.isNaN(payload.rayon_localisation_evenement)) {
+        throw { message: 'Veuillez renseigner un périmètre valide pour l\'événement.' }
+      }
     }
   },
 

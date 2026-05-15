@@ -554,6 +554,10 @@ const quotaError = computed(() => {
 })
 
 const locationPerimeterError = computed(() => {
+  if ((selectedEvent.value?.locationMode || 'manual') !== 'manual') {
+    return ''
+  }
+
   if (!selectedEvent.value?.googleMapsUrl || !selectedEvent.value?.radiusMeters || !formData.googleMapsUrl) {
     return ''
   }

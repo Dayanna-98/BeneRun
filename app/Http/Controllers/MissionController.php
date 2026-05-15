@@ -358,6 +358,10 @@ class MissionController extends Controller
             return;
         }
 
+        if (($event->mode_localisation_evenement ?? 'manual') !== 'manual') {
+            return;
+        }
+
         $missionCoordinates = GoogleMapsUrl::extractCoordinates($missionMapsUrl);
         if ($missionCoordinates === null) {
             $validator->errors()->add(
