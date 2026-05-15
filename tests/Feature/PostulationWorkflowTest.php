@@ -128,6 +128,87 @@ class PostulationWorkflowTest extends TestCase
             ->assertJsonPath('message', "Inscription impossible: l'utilisateur est déjà en liste d'attente sur un autre événement au même créneau.");
     }
 
+    public function test_same_event_waiting_list_duplicate_returns_conflict(): void
+    {
+        $user = User::factory()->create();
+        $event = $this->createEventForDateRange('2026-06-25', '2026-06-26', '08:00', '17:00');
+
+        Postulation::create([
+            'id_mission' => null,
+            'id_evenement' => $event->id_evenement,
+            'id_utilisateur' => $user->id_utilisateur,
+            'statut_postulation' => 'en_attente',
+        ]);
+
+        $this->postJson("/api/evenements/{$event->id_evenement}/inscriptions", [
+            'id_utilisateur' => $user->id_utilisateur,
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('message', "Cet utilisateur est déjà en liste d'attente ou déjà dispatché sur cet événement.");
+    }
+
+    public function test_cannot_apply_to_two_missions_in_same_event(): void
+    {
+        $user = User::factory()->create();
+        $event = $this->createEventForDateRange('2026-06-27', '2026-06-27', '06:00', '23:00', 200);
+        $responsableA = User::factory()->create();
+        $responsableB = User::factory()->create();
+
+        $missionA = Mission::factory()->create([
+            'id_evenement' => $event->id_evenement,
+            'responsable_utilisateur_id' => $responsableA->id_utilisateur,
+            'date_mission' => '2026-06-27',
+            'heure_debut_mission' => '09:00',
+            'heure_fin_mission' => '10:00',
+            'inscription_requise' => true,
+            'nombre_benevoles_max' => 10,
+        ]);
+
+        $missionB = Mission::factory()->create([
+            'id_evenement' => $event->id_evenement,
+            'responsable_utilisateur_id' => $responsableB->id_utilisateur,
+            'date_mission' => '2026-06-27',
+            'heure_debut_mission' => '11:00',
+            'heure_fin_mission' => '12:00',
+            'inscription_requise' => true,
+            'nombre_benevoles_max' => 10,
+        ]);
+
+        Postulation::create([
+            'id_mission' => $missionA->id_mission,
+            'id_evenement' => $event->id_evenement,
+            'id_utilisateur' => $user->id_utilisateur,
+            'statut_postulation' => 'en_attente',
+        ]);
+
+        $this->postJson("/api/missions/{$missionB->id_mission}/inscriptions", [
+            'id_utilisateur' => $user->id_utilisateur,
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('message', "Vous êtes déjà inscrit à une mission de cet événement. Il n'est pas possible de participer à deux missions du même événement.");
+    }
+
+    public function test_waiting_list_on_non_overlapping_event_is_allowed(): void
+    {
+        $user = User::factory()->create();
+        $eventA = $this->createEventForDateRange('2026-07-01', '2026-07-01', '08:00', '12:00');
+        $eventB = $this->createEventForDateRange('2026-07-02', '2026-07-02', '08:00', '12:00');
+
+        Postulation::create([
+            'id_mission' => null,
+            'id_evenement' => $eventA->id_evenement,
+            'id_utilisateur' => $user->id_utilisateur,
+            'statut_postulation' => 'en_attente',
+        ]);
+
+        $this->postJson("/api/evenements/{$eventB->id_evenement}/inscriptions", [
+            'id_utilisateur' => $user->id_utilisateur,
+        ])
+            ->assertStatus(201)
+            ->assertJsonPath('postulation.id_evenement', $eventB->id_evenement)
+            ->assertJsonPath('postulation.statut_postulation', 'en_attente');
+    }
+
     public function test_locked_assignment_conflict_blocks_new_application(): void
     {
         $user = User::factory()->create();
