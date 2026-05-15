@@ -1,0 +1,17 @@
+includes:
+  - extension.neon
+
+parameters:
+  level: 5
+  paths:
+    - app
+    - config
+    - routes
+    - database/factories
+    - database/seeders
+
+  ignoreErrors:
+    - identifier: missingType.iterableValue
+    - identifier: missingType.generics
+
+  reportUnmatchedIgnoredErrors: false
