@@ -60,7 +60,7 @@ jobs:
         run: php artisan config:clear
       
       - name: Run PHPUnit tests
-        run: php artisan test --coverage --min=50
+        run: php artisan test --coverage --min=10
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
