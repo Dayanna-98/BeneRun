@@ -16,7 +16,7 @@ class AffectationFactory extends Factory
         return [
             'id_utilisateur' => User::factory(),
             'id_mission' => Mission::factory(),
-            'statut_affectation' => $this->faker->randomElement(['assigne', 'confirmé', 'présent', 'refusé']),
+            'statut_affectation' => $this->faker->randomElement(['assigne', 'confirme', 'present', 'absent', 'annule']),
             'date_affectation' => now(),
         ];
     }
