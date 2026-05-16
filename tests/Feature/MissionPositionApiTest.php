@@ -1,0 +1,132 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Mission;
+use App\Models\MissionPosition;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class MissionPositionApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_store_position_creates_record(): void
+    {
+        $mission = Mission::factory()->create();
+        $user = User::factory()->create();
+
+        $this->postJson("/api/missions/{$mission->id_mission}/positions", [
+            'id_utilisateur' => $user->id_utilisateur,
+            'latitude' => 46.2044,
+            'longitude' => 6.1432,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('message', 'Position mise à jour');
+
+        $this->assertDatabaseHas('mission_positions', [
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $user->id_utilisateur,
+        ]);
+    }
+
+    public function test_store_position_updates_existing_record_for_same_user_and_mission(): void
+    {
+        $mission = Mission::factory()->create();
+        $user = User::factory()->create();
+
+        MissionPosition::create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $user->id_utilisateur,
+            'latitude' => 46.20,
+            'longitude' => 6.14,
+        ]);
+
+        $this->postJson("/api/missions/{$mission->id_mission}/positions", [
+            'id_utilisateur' => $user->id_utilisateur,
+            'latitude' => 46.25,
+            'longitude' => 6.18,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('message', 'Position mise à jour');
+
+        $this->assertEquals(
+            1,
+            MissionPosition::where('id_mission', $mission->id_mission)
+                ->where('id_utilisateur', $user->id_utilisateur)
+                ->count()
+        );
+
+        $position = MissionPosition::where('id_mission', $mission->id_mission)
+            ->where('id_utilisateur', $user->id_utilisateur)
+            ->firstOrFail();
+
+        $this->assertSame('46.2500000', $position->latitude);
+        $this->assertSame('6.1800000', $position->longitude);
+    }
+
+    public function test_store_position_validates_payload(): void
+    {
+        $mission = Mission::factory()->create();
+
+        $this->postJson("/api/missions/{$mission->id_mission}/positions", [
+            'id_utilisateur' => 999999,
+            'latitude' => 200,
+            'longitude' => -400,
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['id_utilisateur', 'latitude', 'longitude']);
+    }
+
+    public function test_index_returns_only_recent_positions_for_mission(): void
+    {
+        $mission = Mission::factory()->create();
+        $otherMission = Mission::factory()->create();
+        $userRecent = User::factory()->create([
+            'prenom_utilisateur' => 'Alice',
+            'nom_utilisateur' => 'Martin',
+        ]);
+        $userOld = User::factory()->create();
+        $userOtherMission = User::factory()->create();
+
+        $recent = MissionPosition::create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $userRecent->id_utilisateur,
+            'latitude' => 46.2044,
+            'longitude' => 6.1432,
+        ]);
+
+        $old = MissionPosition::create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $userOld->id_utilisateur,
+            'latitude' => 46.3000,
+            'longitude' => 6.2000,
+        ]);
+
+        $other = MissionPosition::create([
+            'id_mission' => $otherMission->id_mission,
+            'id_utilisateur' => $userOtherMission->id_utilisateur,
+            'latitude' => 46.5000,
+            'longitude' => 6.5000,
+        ]);
+
+        $old->updated_at = now()->subMinutes(31);
+        $old->save();
+
+        $other->updated_at = now();
+        $other->save();
+
+        $recent->updated_at = now()->subMinutes(5);
+        $recent->save();
+
+        $response = $this->getJson("/api/missions/{$mission->id_mission}/positions")
+            ->assertStatus(200)
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id_utilisateur', $userRecent->id_utilisateur)
+            ->assertJsonPath('0.name', 'Alice Martin');
+
+        $this->assertSame(46.2044, $response->json('0.latitude'));
+        $this->assertSame(6.1432, $response->json('0.longitude'));
+    }
+}
