@@ -42,6 +42,23 @@ class UserAuthFlowTest extends TestCase
             ->assertJsonPath('message', 'Email ou mot de passe incorrect');
     }
 
+    public function test_login_validates_required_email_and_password(): void
+    {
+        $this->postJson('/api/login', [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email', 'password']);
+    }
+
+    public function test_login_validates_email_format(): void
+    {
+        $this->postJson('/api/login', [
+            'email' => 'not-an-email',
+            'password' => 'secret-password',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
     public function test_me_requires_authentication(): void
     {
         $this->getJson('/api/me')

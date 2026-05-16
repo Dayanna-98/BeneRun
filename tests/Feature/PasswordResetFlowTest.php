@@ -65,6 +65,43 @@ class PasswordResetFlowTest extends TestCase
             ->assertJsonPath('message', 'Token valide');
     }
 
+    public function test_verify_token_validates_required_fields(): void
+    {
+        $this->postJson('/api/password-reset/verify', [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email', 'token']);
+    }
+
+    public function test_verify_token_rejects_when_no_reset_record_exists(): void
+    {
+        $this->postJson('/api/password-reset/verify', [
+            'email' => 'missing@example.com',
+            'token' => 'some-token',
+        ])
+            ->assertStatus(401)
+            ->assertJsonPath('valid', false)
+            ->assertJsonPath('message', 'Token invalide ou expiré');
+    }
+
+    public function test_verify_token_rejects_invalid_token_for_existing_record(): void
+    {
+        $email = 'wrong-token@example.com';
+
+        DB::table('password_resets')->insert([
+            'email' => $email,
+            'token' => Hash::make('expected-token'),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/password-reset/verify', [
+            'email' => $email,
+            'token' => 'bad-token',
+        ])
+            ->assertStatus(401)
+            ->assertJsonPath('valid', false)
+            ->assertJsonPath('message', 'Token invalide');
+    }
+
     public function test_verify_token_accepts_matching_token_even_when_record_is_old(): void
     {
         $email = 'expired@example.com';
@@ -143,5 +180,46 @@ class PasswordResetFlowTest extends TestCase
 
         $user->refresh();
         $this->assertFalse(Hash::check('new-password-456', $user->password));
+    }
+
+    public function test_reset_password_validates_confirmation_and_minimum_length(): void
+    {
+        $this->postJson('/api/password-reset/reset', [
+            'email' => 'someone@example.com',
+            'token' => 'any-token',
+            'password' => 'short',
+            'password_confirmation' => 'different',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+    }
+
+    public function test_reset_password_returns_404_when_email_does_not_exist(): void
+    {
+        $this->postJson('/api/password-reset/reset', [
+            'email' => 'unknown@example.com',
+            'token' => 'any-token',
+            'password' => 'new-password-456',
+            'password_confirmation' => 'new-password-456',
+        ])
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'Email non trouvé');
+    }
+
+    public function test_reset_password_returns_401_when_no_reset_record_exists(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'no-record@example.com',
+            'password' => Hash::make('old-password-123'),
+        ]);
+
+        $this->postJson('/api/password-reset/reset', [
+            'email' => $user->email,
+            'token' => 'any-token',
+            'password' => 'new-password-456',
+            'password_confirmation' => 'new-password-456',
+        ])
+            ->assertStatus(401)
+            ->assertJsonPath('message', 'Token invalide ou expiré');
     }
 }
