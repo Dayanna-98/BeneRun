@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\SecurityHeaders;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         attributes: ['middleware' => ['auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->append(SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

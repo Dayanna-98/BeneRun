@@ -29,15 +29,15 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::post('/login', [UserController::class, 'login']);
+Route::post('/login', [UserController::class, 'login'])->middleware('throttle:auth-login');
 
 // Réinitialisation de mot de passe (routes publiques)
-Route::post('/password-reset/request', [PasswordResetController::class, 'requestReset']);
-Route::post('/password-reset/verify', [PasswordResetController::class, 'verifyToken']);
-Route::post('/password-reset/reset', [PasswordResetController::class, 'resetPassword']);
+Route::post('/password-reset/request', [PasswordResetController::class, 'requestReset'])->middleware('throttle:password-reset');
+Route::post('/password-reset/verify', [PasswordResetController::class, 'verifyToken'])->middleware('throttle:password-reset');
+Route::post('/password-reset/reset', [PasswordResetController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
 // Google Maps URL resolution (public route)
-Route::post('/maps/resolve', [MapsController::class, 'resolve']);
+Route::post('/maps/resolve', [MapsController::class, 'resolve'])->middleware('throttle:maps-resolve');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);
@@ -73,7 +73,7 @@ Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignRes
 Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
 Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
 Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
-Route::get('/notifications', [NotificationController::class, 'index']);
+Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:notifications-read');
 Route::middleware('auth:sanctum')->group(function () {
     // Favoris
     Route::get('/favorites', [FavoriteController::class, 'index']);
@@ -89,10 +89,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/location', [LocationController::class, 'deleteLocation']);
     Route::get('/locations', [LocationController::class, 'getAllLocations']);
 });
-Route::post('/missions/{idMission}/urgences', [MissionEmergencyMessageController::class, 'storeForMission']);
+Route::post('/missions/{idMission}/urgences', [MissionEmergencyMessageController::class, 'storeForMission'])
+    ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
 Route::post('/evenements/{idEvenement}/inscriptions', [PostulationController::class, 'inscrireEvenement']);
-Route::get('/urgences', [MissionEmergencyMessageController::class, 'index']);
-Route::post('/urgences/{idUrgence}/consultation', [MissionEmergencyMessageController::class, 'markViewed']);
-Route::post('/urgences/{idUrgence}/prise-en-charge', [MissionEmergencyMessageController::class, 'takeOwnership']);
+Route::get('/urgences', [MissionEmergencyMessageController::class, 'index'])
+    ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
+Route::post('/urgences/{idUrgence}/consultation', [MissionEmergencyMessageController::class, 'markViewed'])
+    ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
+Route::post('/urgences/{idUrgence}/prise-en-charge', [MissionEmergencyMessageController::class, 'takeOwnership'])
+    ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
 Route::apiResource('/postulations', PostulationController::class); // ->middleware('auth:sanctum');
 Route::apiResource('/telephones', TelephoneController::class); // ->middleware('auth:sanctum');

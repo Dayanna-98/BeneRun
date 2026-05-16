@@ -26,8 +26,8 @@ class PasswordResetController extends Controller
 
         if (! $user) {
             return response()->json([
-                'message' => 'Email non trouvé dans notre système',
-            ], 404);
+                'message' => 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.',
+            ], 200);
         }
 
         // Générer un token unique
@@ -53,7 +53,7 @@ class PasswordResetController extends Controller
         });
 
         return response()->json([
-            'message' => 'Un lien de réinitialisation a été envoyé à '.$validated['email'],
+            'message' => 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.',
         ], 200);
     }
 

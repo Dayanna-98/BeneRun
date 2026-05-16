@@ -20,13 +20,13 @@ class PasswordResetFlowTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    public function test_request_reset_returns_404_when_email_not_found(): void
+    public function test_request_reset_returns_generic_success_when_email_not_found(): void
     {
         $this->postJson('/api/password-reset/request', [
             'email' => 'inconnu@example.com',
         ])
-            ->assertStatus(404)
-            ->assertJsonPath('message', 'Email non trouvé dans notre système');
+            ->assertStatus(200)
+            ->assertJsonPath('message', 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.');
     }
 
     public function test_request_reset_creates_token_record_for_existing_email(): void
