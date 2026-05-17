@@ -38,6 +38,8 @@ class DatabaseSeeder extends Seeder
     {
         $defaultPassword = Hash::make('password');
         $emmaPassword = Hash::make('Soleil1234');
+        $marcPassword = Hash::make('chocolat1');
+        $leoPassword = Hash::make('tagada2');
         $dayannaPassword = Hash::make('vanille18');
         $sofianPassword = Hash::make('fraise23');
 
@@ -57,8 +59,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => true,
                 'taille_tshirt_utilisateur' => 'M',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => false,
                 'latitude_localisation_directe_utilisateur' => null,
                 'longitude_localisation_directe_utilisateur' => null,
@@ -81,8 +81,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => true,
                 'taille_tshirt_utilisateur' => 'L',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => false,
                 'latitude_localisation_directe_utilisateur' => null,
                 'longitude_localisation_directe_utilisateur' => null,
@@ -105,8 +103,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => false,
                 'taille_tshirt_utilisateur' => 'M',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => false,
                 'latitude_localisation_directe_utilisateur' => null,
                 'longitude_localisation_directe_utilisateur' => null,
@@ -129,8 +125,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => true,
                 'taille_tshirt_utilisateur' => 'XL',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => true,
                 'latitude_localisation_directe_utilisateur' => 46.2021205,
                 'longitude_localisation_directe_utilisateur' => 6.1499801,
@@ -153,8 +147,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => false,
                 'taille_tshirt_utilisateur' => 'S',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => true,
                 'latitude_localisation_directe_utilisateur' => 46.2020500,
                 'longitude_localisation_directe_utilisateur' => 6.1497600,
@@ -177,8 +169,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => false,
                 'taille_tshirt_utilisateur' => 'M',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => false,
                 'latitude_localisation_directe_utilisateur' => null,
                 'longitude_localisation_directe_utilisateur' => null,
@@ -201,8 +191,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => false,
                 'taille_tshirt_utilisateur' => 'M',
                 'est_anonyme_utilisateur' => false,
-                'est_suspendu_utilisateur' => true,
-                'raison_suspension_utilisateur' => 'Absences répétées non justifiées',
                 'partage_localisation_directe_utilisateur' => false,
                 'latitude_localisation_directe_utilisateur' => null,
                 'longitude_localisation_directe_utilisateur' => null,
@@ -225,8 +213,6 @@ class DatabaseSeeder extends Seeder
                 'possede_vehicule_utilisateur' => false,
                 'taille_tshirt_utilisateur' => 'XS',
                 'est_anonyme_utilisateur' => true,
-                'est_suspendu_utilisateur' => false,
-                'raison_suspension_utilisateur' => null,
                 'partage_localisation_directe_utilisateur' => true,
                 'latitude_localisation_directe_utilisateur' => 46.2022800,
                 'longitude_localisation_directe_utilisateur' => 6.1501500,
@@ -243,6 +229,8 @@ class DatabaseSeeder extends Seeder
                 ...$row,
                 'password' => match ($key) {
                     'emma' => $emmaPassword,
+                    'marc' => $marcPassword,
+                    'leo' => $leoPassword,
                     'dayanna' => $dayannaPassword,
                     'sofian' => $sofianPassword,
                     default => $defaultPassword,
@@ -636,6 +624,8 @@ class DatabaseSeeder extends Seeder
     private function seedAffectations(array $users, array $missions): void
     {
         $rows = [
+            [$users['emma'], $missions['ravitaillement'], 'assigne', false, 'Suivi global superadmin.', now()->subDays(6), null, null],
+            [$users['emma'], $missions['signalisation'], 'confirme', false, 'Validation planning communication.', now()->subDays(5), now()->subDays(4), null],
             [$users['marc'], $missions['ravitaillement'], 'assigne', true, 'Responsable mission.', now()->subDays(8), null, null],
             [$users['dayanna'], $missions['ravitaillement'], 'confirme', false, 'Disponible dès 07h15.', now()->subDays(6), now()->subDays(4), null],
             [$users['leo'], $missions['ravitaillement'], 'assigne', false, 'Renfort ravitaillement.', now()->subDays(5), null, null],

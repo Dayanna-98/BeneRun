@@ -125,6 +125,14 @@ const certificatService = {
 
   update: (id, payload) => updateRequest(`/certificats/${id}`, payload).then(r => mapApiCertificate(r.data?.certificat ?? r.data)),
 
+  download: (id) => api.get(`/certificats/${id}/download`, {
+    responseType: 'blob',
+  }).then((response) => ({
+    blob: response.data,
+    contentType: response.headers?.['content-type'] || '',
+    contentDisposition: response.headers?.['content-disposition'] || '',
+  })),
+
   delete: (id) => api.delete(`/certificats/${id}`).then(r => r.data),
 }
 

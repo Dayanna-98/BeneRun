@@ -21,13 +21,13 @@ return new class extends Migration
             $table->timestamp('date_decision')->nullable();
             $table->timestamp('date_annulation')->nullable();
             $table->foreign('id_mission')
-                  ->references('id_mission')
-                  ->on('missions')
-                  ->cascadeOnDelete();
+                ->references('id_mission')
+                ->on('missions')
+                ->cascadeOnDelete();
             $table->foreign('id_utilisateur')
-                  ->references('id_utilisateur')
-                  ->on('users')
-                  ->cascadeOnDelete();
+                ->references('id_utilisateur')
+                ->on('users')
+                ->cascadeOnDelete();
             $table->unique(['id_mission', 'id_utilisateur']);
             $table->timestamps();
         });

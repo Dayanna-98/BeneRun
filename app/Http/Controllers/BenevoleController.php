@@ -1,31 +1,32 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Benevole;
+use Illuminate\Http\Request;
 
 class BenevoleController extends Controller
 {
     public function index(Request $request)
-{
-    // Récupère tous les bénévoles
-    $benevoles = Benevole::all();
-    return response()->json($benevoles);
-}
+    {
+        // Récupère tous les bénévoles
+        $benevoles = Benevole::all();
+
+        return response()->json($benevoles);
+    }
 
     public function show($id)
     {
         $benevole = Benevole::find($id);
-        if (!empty($benevole ))
-        {
+        if (! empty($benevole)) {
             return response()->json($benevole);
         } else {
             return response()->json([
-                "message"=>"Bénévole inexistant"
+                'message' => 'Bénévole inexistant',
             ], 404);
         }
     }
- 
+
     public function store(Request $request)
     {
 
@@ -36,44 +37,42 @@ class BenevoleController extends Controller
         $benevole->save();
 
         return response()->json([
-            'message'=>'Bénévole  ajouté',
+            'message' => 'Bénévole  ajouté',
         ], 200);
     }
 
-
- 
     public function update(Request $request, $id)
     {
-        if (Benevole::where('id_benevole', $id)->exists())
-        {
+        if (Benevole::where('id_benevole', $id)->exists()) {
             $benevole = Benevole::find($id);
             $benevole->nb_missions_benevole = $request->nb_missions_benevole;
             $benevole->id_utilisateur = $request->id_utilisateur;
-           
+
             $benevole->save();
+
             return response()->json([
-                'message'=>'Bénévole mis à jour'
+                'message' => 'Bénévole mis à jour',
             ], 200);
         } else {
             return response()->json([
-                'message'=>'Bénévole inexistant'
+                'message' => 'Bénévole inexistant',
             ], 404);
         }
     }
- 
+
     public function destroy($id)
     {
-        if (Benevole::where('id_benevole', $id)->exists())
-        {
+        if (Benevole::where('id_benevole', $id)->exists()) {
             $benevole = Benevole::find($id);
             $benevole->delete();
+
             return response()->json([
-                'message'=>'Bénévole supprimé'
+                'message' => 'Bénévole supprimé',
             ], 200);
         } else {
             return response()->json([
-                'message'=>'Bénévole inexistant'
+                'message' => 'Bénévole inexistant',
             ], 404);
         }
-    } 
+    }
 }

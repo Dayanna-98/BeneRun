@@ -67,6 +67,7 @@ export const missionService = {
       maxVolunteers: Number(apiMission.nombre_benevoles_max || 0),
       backupVolunteers: Number(apiMission.nombre_benevoles_backup || 0),
       currentVolunteers: Number(apiMission.current_volunteers_count || 0),
+      postable: !!apiMission.inscription_requise,
       inscription: !!apiMission.inscription_requise,
       public: apiMission.visibilite_mission === 'publique',
       visibility: apiMission.visibilite_mission || 'publique',
@@ -84,6 +85,14 @@ export const missionService = {
         : [],
       competenceIds: Array.isArray(apiMission.competences)
         ? apiMission.competences.map((c) => Number(c.id_competence)).filter((id) => !Number.isNaN(id))
+        : [],
+      rewardCompetences: Array.isArray(apiMission.reward_competences ?? apiMission.rewardCompetences)
+        ? (apiMission.reward_competences ?? apiMission.rewardCompetences)
+          .map((c) => ({
+            id: Number(c.id_competence),
+            points: Number(c?.pivot?.points_gagnes ?? c.points_gagnes ?? 0),
+          }))
+          .filter((entry) => !Number.isNaN(entry.id) && entry.id > 0 && !Number.isNaN(entry.points) && entry.points > 0)
         : [],
       eventGoogleMapsUrl: apiMission.evenement?.google_maps_url_evenement || '',
       eventRadiusMeters: Number(apiMission.evenement?.rayon_localisation_evenement || 0),
@@ -108,12 +117,20 @@ export const missionService = {
       nombre_benevoles_max: Number(formData.maxVolunteers || 0),
       nombre_benevoles_backup: Number(formData.backupVolunteers || 0),
       statut_mission: formData.status || 'À venir',
-      inscription_requise: formData.inscription !== false,
+      inscription_requise: formData.postable !== false,
       visibilite_mission: formData.public === false ? 'privée' : 'publique',
       consignes_securite: formData.safetyInstructions || null,
       image_mission: formData.imageUrl || null,
       competence_ids: Array.isArray(formData.competenceIds)
         ? formData.competenceIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+        : [],
+      reward_competences: Array.isArray(formData.rewardCompetences)
+        ? formData.rewardCompetences
+          .map((entry) => ({
+            id_competence: Number(entry?.id),
+            points_gagnes: Number(entry?.points),
+          }))
+          .filter((entry) => !Number.isNaN(entry.id_competence) && entry.id_competence > 0 && !Number.isNaN(entry.points_gagnes) && entry.points_gagnes > 0)
         : [],
     }
   },
@@ -142,6 +159,11 @@ export const missionService = {
 
     for (const competenceId of payload.competence_ids || []) {
       multipart.append('competence_ids[]', competenceId)
+    }
+
+    for (const [index, reward] of (payload.reward_competences || []).entries()) {
+      multipart.append(`reward_competences[${index}][id_competence]`, reward.id_competence)
+      multipart.append(`reward_competences[${index}][points_gagnes]`, reward.points_gagnes)
     }
 
     if (formData.imageFile instanceof File) {
@@ -207,6 +229,30 @@ export const missionService = {
 
     if (!payload.google_maps_url_mission) {
       throw { message: 'Veuillez renseigner un lien Google Maps pour la mission.' }
+    }
+  },
+
+  resolveMapsUrl: async (mapsUrl) => {
+    try {
+      const trimmedUrl = String(mapsUrl || '').trim()
+      if (!trimmedUrl) return null
+
+      // Check if it's a short Google Maps link
+      if (!trimmedUrl.includes('maps.app.goo.gl')) {
+        // Not a short link, return as-is
+        return trimmedUrl
+      }
+
+      // Resolve the short link via backend endpoint
+      const response = await api.post('/maps/resolve', { url: trimmedUrl })
+      return response.data?.resolved_url || trimmedUrl
+    } catch (error) {
+      // Resolution is a best-effort enhancement; keep original URL silently.
+      if (!error?.response || error.response.status >= 500) {
+        console.warn('Failed to resolve maps URL, keeping original:', error.message)
+      }
+      // Return original URL if resolution fails
+      return mapsUrl
     }
   },
 

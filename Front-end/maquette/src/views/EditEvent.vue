@@ -84,6 +84,30 @@
 
               <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
                 <div>
+                  <label class="form-label small fw-medium d-block">Mode de périmètre *</label>
+                  <div class="d-flex flex-column gap-2">
+                    <label class="form-check mb-0">
+                      <input
+                        v-model="formData.locationMode"
+                        class="form-check-input"
+                        type="radio"
+                        value="manual"
+                      />
+                      <span class="form-check-label">Centre + rayon manuel</span>
+                    </label>
+                    <label class="form-check mb-0">
+                      <input
+                        v-model="formData.locationMode"
+                        class="form-check-input"
+                        type="radio"
+                        value="missions"
+                      />
+                      <span class="form-check-label">Périmètre calculé depuis les points des missions liées</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div v-if="formData.locationMode === 'manual'">
                   <label class="form-label small fw-medium">Lien Google Maps du centre *</label>
                   <input
                     v-model="formData.googleMapsUrl"
@@ -95,7 +119,7 @@
                   <div v-if="fieldErrors.googleMapsUrl" class="invalid-feedback d-block">{{ fieldErrors.googleMapsUrl }}</div>
                 </div>
 
-                <div>
+                <div v-if="formData.locationMode === 'manual'">
                   <label class="form-label small fw-medium">Périmètre autorisé (mètres) *</label>
                   <input
                     v-model="formData.radiusMeters"
@@ -110,10 +134,22 @@
                 </div>
 
                 <LeafletPreview
+                  v-if="formData.locationMode === 'manual'"
                   :maps-url="formData.googleMapsUrl"
                   :radius-meters="formData.radiusMeters"
                   link-label="Ouvrir le centre dans Google Maps"
                 />
+
+                <LeafletPreview
+                  v-else-if="missionBoundaryPoints.length > 0"
+                  :maps-url="formData.googleMapsUrl"
+                  :boundary-points="missionBoundaryPoints"
+                  link-label="Ouvrir la zone de l'événement dans Google Maps"
+                />
+
+                <div v-else class="alert alert-info small mb-0">
+                  Aucun point mission disponible pour le moment. Le périmètre sera automatiquement calculé dès que des missions liées auront une position map.
+                </div>
               </div>
 
               <div>
@@ -153,6 +189,8 @@ import { getCurrentUser, hasMinRole } from '@/utils/auth'
 import eventService from '@/services/eventService'
 import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 import { useToast } from '@/composables/useToast'
+import api from '@/services/api'
+import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 
 const router = useRouter()
 const route = useRoute()
@@ -166,6 +204,7 @@ const isSubmitting = ref(false)
 const fieldErrors = ref({})
 const submitError = ref('')
 const imagePreviewUrl = ref('')
+const missionBoundaryPoints = ref([])
 
 const formData = reactive({
   name: '',
@@ -175,6 +214,7 @@ const formData = reactive({
   organizer: '',
   category: '',
   totalVolunteersNeeded: '',
+  locationMode: 'manual',
   googleMapsUrl: '',
   radiusMeters: '1000',
   imageFile: null,
@@ -211,13 +251,31 @@ const loadEvent = async () => {
     formData.organizer = loadedEvent?.organizer || ''
     formData.category = loadedEvent?.category || ''
     formData.totalVolunteersNeeded = loadedEvent?.totalVolunteersNeeded?.toString() || ''
+    formData.locationMode = loadedEvent?.locationMode === 'missions' ? 'missions' : 'manual'
     formData.googleMapsUrl = loadedEvent?.googleMapsUrl || ''
     formData.radiusMeters = loadedEvent?.radiusMeters ? String(loadedEvent.radiusMeters) : '1000'
     formData.imageUrl = loadedEvent?.imageUrl || ''
+    await loadMissionBoundaryPoints(String(loadedEvent?.id || ''))
   } catch {
     event.value = null
   } finally {
     isLoading.value = false
+  }
+}
+
+const loadMissionBoundaryPoints = async (eventId) => {
+  missionBoundaryPoints.value = []
+  if (!eventId) return
+
+  try {
+    const response = await api.get('/missions', { params: { id_evenement: eventId } })
+    const rows = Array.isArray(response.data) ? response.data : (Array.isArray(response.data?.data) ? response.data.data : [])
+    missionBoundaryPoints.value = rows
+      .map((mission) => extractGoogleMapsCoordinates(mission?.google_maps_url_mission))
+      .filter(Boolean)
+      .map((point) => ({ latitude: point.latitude, longitude: point.longitude }))
+  } catch {
+    missionBoundaryPoints.value = []
   }
 }
 

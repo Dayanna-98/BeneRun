@@ -1,0 +1,33 @@
+# Pre-commit hook pour lancer les tests localement avant de committer
+# 
+# Installation:
+#   chmod +x .git/hooks/pre-commit
+#   cp scripts/pre-commit .git/hooks/pre-commit
+
+#!/bin/bash
+
+echo "🧪 Exécution des tests avant commit..."
+
+# Vérifier le format PHP avec Pint
+echo "📝 Vérification du format PHP..."
+./vendor/bin/pint --test
+if [ $? -ne 0 ]; then
+    echo "❌ Pint a détecté des problèmes de format"
+    echo "Exécute: ./vendor/bin/pint (pour auto-fixer)"
+    exit 1
+fi
+
+# Exécuter les tests PHPUnit
+echo ""
+echo "✅ Format OK"
+echo ""
+echo "🧪 Exécution des tests PHPUnit..."
+php artisan test
+if [ $? -ne 0 ]; then
+    echo "❌ Les tests ont échoué"
+    exit 1
+fi
+
+echo ""
+echo "✨ Tout est bon! Commit autorisé"
+exit 0

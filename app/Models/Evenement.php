@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Evenement extends Model
 {
+    use HasFactory;
+
     protected $table = 'evenements';
+
     protected $primaryKey = 'id_evenement';
+
     protected $fillable = [
         'nom_evenement',
         'description_evenement',
@@ -18,6 +23,7 @@ class Evenement extends Model
         'lieu_evenement',
         'google_maps_url_evenement',
         'rayon_localisation_evenement',
+        'mode_localisation_evenement',
         'latitude_evenement',
         'longitude_evenement',
         'organisateur_evenement',
@@ -36,6 +42,7 @@ class Evenement extends Model
         'heure_debut_evenement' => 'string',
         'heure_fin_evenement' => 'string',
         'rayon_localisation_evenement' => 'integer',
+        'mode_localisation_evenement' => 'string',
         'latitude_evenement' => 'decimal:7',
         'longitude_evenement' => 'decimal:7',
         'nombre_benevoles_requis' => 'integer',

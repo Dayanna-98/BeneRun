@@ -52,10 +52,18 @@ html { scroll-behavior: smooth; }
 
 body {
   background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at top left, rgba(197,216,46,0.08), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(44,53,73,0.08), transparent 28%);
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #1e2533;
+}
+
+::selection {
+  background: rgba(197,216,46,0.45);
+  color: var(--primary-dark);
 }
 
 /* Replace Bootstrap bg-light */

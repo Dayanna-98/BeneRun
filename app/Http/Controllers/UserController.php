@@ -2,302 +2,300 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    private const DEFAULT_PERMISSIONS_BY_ROLE = [
+        'bénévole' => 'manageSkills,manageCertificates,favoriteMission',
+        'responsable' => 'createMission,editMission,deleteMission,contactMissionMembers',
+        'admin' => 'createEvent,editEvent,createMission,editMission',
+        'superadmin' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
+    ];
 
-private const DEFAULT_PERMISSIONS_BY_ROLE = [
-    'bénévole' => 'manageSkills,manageCertificates,favoriteMission',
-    'responsable' => 'createMission,editMission,deleteMission,contactMissionMembers',
-    'admin' => 'createEvent,editEvent,createMission,editMission',
-    'superadmin' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
-];
+    private function resolveActorFromBearerToken(Request $request): ?User
+    {
+        $actor = $request->user('sanctum');
 
-private function resolveActorFromBearerToken(Request $request): ?User
-{
-    $actor = $request->user('sanctum');
-    return $actor instanceof User ? $actor : null;
-}
-
-private function isSuperAdminRequest(Request $request): bool
-{
-    $actor = $this->resolveActorFromBearerToken($request);
-    return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
-}
-
-private function normalizeRole(?string $role): string
-{
-    return str_replace(['-', '_', ' '], '', strtolower((string) $role));
-}
-
-private function normalizePermissions(?string $permissions): ?string
-{
-    if ($permissions === null) {
-        return null;
+        return $actor instanceof User ? $actor : null;
     }
 
-    $items = array_filter(array_map(
-        static fn (string $permission): string => trim($permission),
-        explode(',', $permissions)
-    ));
+    private function isSuperAdminRequest(Request $request): bool
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
 
-    if ($items === []) {
-        return null;
+        return $actor !== null && $this->normalizeRole($actor->role_utilisateur) === 'superadmin';
     }
 
-    return implode(',', array_values(array_unique($items)));
-}
-
-private function defaultPermissionsForRole(string $role): ?string
-{
-    return self::DEFAULT_PERMISSIONS_BY_ROLE[$role] ?? null;
-}
-
-private function canManageUser(Request $request, User $user): bool
-{
-    $actor = $this->resolveActorFromBearerToken($request);
-
-    if ($actor === null) {
-        return false;
+    private function normalizeRole(?string $role): string
+    {
+        return str_replace(['-', '_', ' '], '', strtolower((string) $role));
     }
 
-    return (int) $actor->id_utilisateur === (int) $user->id_utilisateur
-        || $this->isSuperAdminRequest($request);
-}
+    private function normalizePermissions(?string $permissions): ?string
+    {
+        if ($permissions === null) {
+            return null;
+        }
 
-public function competences($id)
-{
-    $user = User::find($id);
-    if (!$user) {
+        $items = array_filter(array_map(
+            static fn (string $permission): string => trim($permission),
+            explode(',', $permissions)
+        ));
+
+        if ($items === []) {
+            return null;
+        }
+
+        return implode(',', array_values(array_unique($items)));
+    }
+
+    private function defaultPermissionsForRole(string $role): ?string
+    {
+        return self::DEFAULT_PERMISSIONS_BY_ROLE[$role] ?? null;
+    }
+
+    private function canManageUser(Request $request, User $user): bool
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
+
+        if ($actor === null) {
+            return false;
+        }
+
+        return (int) $actor->id_utilisateur === (int) $user->id_utilisateur
+            || $this->isSuperAdminRequest($request);
+    }
+
+    public function competences($id)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User inexistant',
+            ], 404);
+        }
+
+        $competences = $user->competences()->orderBy('nom_competence')->get();
+
+        return response()->json($competences);
+    }
+
+    public function addCompetence(Request $request, $id)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User inexistant',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'id_competence' => 'required|integer|exists:competences,id_competence',
+        ]);
+
+        $alreadyLinked = $user->competences()
+            ->where('competences.id_competence', $validated['id_competence'])
+            ->exists();
+
+        if ($alreadyLinked) {
+            return response()->json([
+                'message' => 'Compétence déjà associée à cet utilisateur',
+            ], 409);
+        }
+
+        $user->competences()->attach($validated['id_competence']);
+
         return response()->json([
-            'message' => 'User inexistant'
-        ], 404);
+            'message' => 'Compétence ajoutée au profil',
+        ], 201);
     }
 
-    $competences = $user->competences()->orderBy('nom_competence')->get();
-    return response()->json($competences);
-}
+    public function removeCompetence($id, $competenceId)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User inexistant',
+            ], 404);
+        }
 
-public function addCompetence(Request $request, $id)
-{
-    $user = User::find($id);
-    if (!$user) {
+        $exists = $user->competences()
+            ->where('competences.id_competence', $competenceId)
+            ->exists();
+
+        if (! $exists) {
+            return response()->json([
+                'message' => 'Compétence non associée à cet utilisateur',
+            ], 404);
+        }
+
+        $user->competences()->detach($competenceId);
+
         return response()->json([
-            'message' => 'User inexistant'
-        ], 404);
+            'message' => 'Compétence supprimée du profil',
+        ], 200);
     }
 
-    $validated = $request->validate([
-        'id_competence' => 'required|integer|exists:competences,id_competence',
-    ]);
+    public function badges($id)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User inexistant',
+            ], 404);
+        }
 
-    $alreadyLinked = $user->competences()
-        ->where('competences.id_competence', $validated['id_competence'])
-        ->exists();
+        $badges = $user->badges()->orderBy('titre_badge')->get();
 
-    if ($alreadyLinked) {
+        return response()->json($badges);
+    }
+
+    public function addBadge(Request $request, $id)
+    {
+        if (! $this->isSuperAdminRequest($request)) {
+            return response()->json([
+                'message' => 'Action réservée aux super-admins',
+            ], 403);
+        }
+
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User inexistant',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'id_badge' => 'required|integer|exists:badges,id_badge',
+        ]);
+
+        $alreadyLinked = $user->badges()
+            ->where('badges.id_badge', $validated['id_badge'])
+            ->exists();
+
+        if ($alreadyLinked) {
+            return response()->json([
+                'message' => 'Badge déjà attribué à cet utilisateur',
+            ], 409);
+        }
+
+        $user->badges()->attach($validated['id_badge'], [
+            'attribue_le' => now(),
+        ]);
+
         return response()->json([
-            'message' => 'Compétence déjà associée à cet utilisateur'
-        ], 409);
+            'message' => 'Badge attribué au profil',
+        ], 201);
     }
 
-    $user->competences()->attach($validated['id_competence']);
+    public function removeBadge(Request $request, $id, $badgeId)
+    {
+        if (! $this->isSuperAdminRequest($request)) {
+            return response()->json([
+                'message' => 'Action réservée aux super-admins',
+            ], 403);
+        }
 
-    return response()->json([
-        'message' => 'Compétence ajoutée au profil'
-    ], 201);
-}
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User inexistant',
+            ], 404);
+        }
 
-public function removeCompetence($id, $competenceId)
-{
-    $user = User::find($id);
-    if (!$user) {
+        $exists = $user->badges()
+            ->where('badges.id_badge', $badgeId)
+            ->exists();
+
+        if (! $exists) {
+            return response()->json([
+                'message' => 'Badge non associé à cet utilisateur',
+            ], 404);
+        }
+
+        $user->badges()->detach($badgeId);
+
         return response()->json([
-            'message' => 'User inexistant'
-        ], 404);
+            'message' => 'Badge supprimé du profil',
+        ], 200);
     }
 
-    $exists = $user->competences()
-        ->where('competences.id_competence', $competenceId)
-        ->exists();
+    public function login(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
 
-    if (!$exists) {
+        $user = User::where('email', $validated['email'])->first();
+
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'message' => 'Email ou mot de passe incorrect',
+            ], 401);
+        }
+
+        $token = $user->createToken('api-token')->plainTextToken;
+
         return response()->json([
-            'message' => 'Compétence non associée à cet utilisateur'
-        ], 404);
+            'message' => 'Connexion réussie',
+            'token' => $token,
+            'user' => $user,
+        ], 200);
     }
 
-    $user->competences()->detach($competenceId);
+    public function me(Request $request)
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
 
-    return response()->json([
-        'message' => 'Compétence supprimée du profil'
-    ], 200);
-}
+        if (! $actor) {
+            return response()->json([
+                'message' => 'Non authentifié',
+            ], 401);
+        }
 
-public function badges($id)
-{
-    $user = User::find($id);
-    if (!$user) {
+        return response()->json($actor, 200);
+    }
+
+    public function logout(Request $request)
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
+
+        if (! $actor) {
+            return response()->json([
+                'message' => 'Non authentifié',
+            ], 401);
+        }
+
+        $currentToken = $actor->currentAccessToken();
+        if ($currentToken) {
+            $currentToken->delete();
+        }
+
         return response()->json([
-            'message' => 'User inexistant'
-        ], 404);
+            'message' => 'Déconnexion réussie',
+        ], 200);
     }
 
-    $badges = $user->badges()->orderBy('titre_badge')->get();
-    return response()->json($badges);
-}
+    public function index(Request $request)
+    {
+        $users = User::all();
 
-public function addBadge(Request $request, $id)
-{
-    if (!$this->isSuperAdminRequest($request)) {
-        return response()->json([
-            'message' => 'Action réservée aux super-admins'
-        ], 403);
+        return response()->json($users);
     }
-
-    $user = User::find($id);
-    if (!$user) {
-        return response()->json([
-            'message' => 'User inexistant'
-        ], 404);
-    }
-
-    $validated = $request->validate([
-        'id_badge' => 'required|integer|exists:badges,id_badge',
-    ]);
-
-    $alreadyLinked = $user->badges()
-        ->where('badges.id_badge', $validated['id_badge'])
-        ->exists();
-
-    if ($alreadyLinked) {
-        return response()->json([
-            'message' => 'Badge déjà attribué à cet utilisateur'
-        ], 409);
-    }
-
-    $user->badges()->attach($validated['id_badge'], [
-        'attribue_le' => now(),
-    ]);
-
-    return response()->json([
-        'message' => 'Badge attribué au profil'
-    ], 201);
-}
-
-public function removeBadge(Request $request, $id, $badgeId)
-{
-    if (!$this->isSuperAdminRequest($request)) {
-        return response()->json([
-            'message' => 'Action réservée aux super-admins'
-        ], 403);
-    }
-
-    $user = User::find($id);
-    if (!$user) {
-        return response()->json([
-            'message' => 'User inexistant'
-        ], 404);
-    }
-
-    $exists = $user->badges()
-        ->where('badges.id_badge', $badgeId)
-        ->exists();
-
-    if (!$exists) {
-        return response()->json([
-            'message' => 'Badge non associé à cet utilisateur'
-        ], 404);
-    }
-
-    $user->badges()->detach($badgeId);
-
-    return response()->json([
-        'message' => 'Badge supprimé du profil'
-    ], 200);
-}
-
-public function login(Request $request)
-{
-    $validated = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|string',
-    ]);
-
-    $user = User::where('email', $validated['email'])->first();
-
-    if (!$user || !Hash::check($validated['password'], $user->password)) {
-        return response()->json([
-            'message' => 'Email ou mot de passe incorrect'
-        ], 401);
-    }
-
-    if ($user->est_suspendu_utilisateur) {
-        return response()->json([
-            'message' => 'Ce compte est suspendu.'
-        ], 403);
-    }
-
-    $token = $user->createToken('api-token')->plainTextToken;
-
-    return response()->json([
-        'message' => 'Connexion réussie',
-        'token' => $token,
-        'user' => $user,
-    ], 200);
-}
-
-public function me(Request $request)
-{
-    $actor = $this->resolveActorFromBearerToken($request);
-
-    if (!$actor) {
-        return response()->json([
-            'message' => 'Non authentifié'
-        ], 401);
-    }
-
-    return response()->json($actor, 200);
-}
-
-public function logout(Request $request)
-{
-    $actor = $this->resolveActorFromBearerToken($request);
-
-    if (!$actor) {
-        return response()->json([
-            'message' => 'Non authentifié'
-        ], 401);
-    }
-
-    $currentToken = $actor->currentAccessToken();
-    if ($currentToken) {
-        $currentToken->delete();
-    }
-
-    return response()->json([
-        'message' => 'Déconnexion réussie'
-    ], 200);
-}
-
-public function index(Request $request)
-{
-    $users = User::all();
-    return response()->json($users);
-}
 
     public function show($id)
     {
         $user = User::find($id);
-        if (!empty($user)) {
+        if (! empty($user)) {
             return response()->json($user);
         } else {
             return response()->json([
-                "message" => "User inexistant"
+                'message' => 'User inexistant',
             ], 404);
         }
     }
@@ -350,8 +348,6 @@ public function index(Request $request)
         $user->possede_vehicule_utilisateur = (bool) $request->possede_vehicule_utilisateur;
         $user->taille_tshirt_utilisateur = $request->taille_tshirt_utilisateur;
         $user->est_anonyme_utilisateur = (bool) $request->est_anonyme_utilisateur;
-        $user->est_suspendu_utilisateur = (bool) $request->est_suspendu_utilisateur;
-        $user->raison_suspension_utilisateur = $request->raison_suspension_utilisateur;
         $user->partage_localisation_directe_utilisateur = (bool) $request->partage_localisation_directe_utilisateur;
         $user->latitude_localisation_directe_utilisateur = $request->latitude_localisation_directe_utilisateur;
         $user->longitude_localisation_directe_utilisateur = $request->longitude_localisation_directe_utilisateur;
@@ -360,7 +356,7 @@ public function index(Request $request)
             ?? $this->defaultPermissionsForRole($role);
         $user->nombre_missions_utilisateur = $request->nombre_missions_utilisateur ?? 0;
 
-        if (!$user->partage_localisation_directe_utilisateur) {
+        if (! $user->partage_localisation_directe_utilisateur) {
             $user->latitude_localisation_directe_utilisateur = null;
             $user->longitude_localisation_directe_utilisateur = null;
             $user->date_localisation_directe_utilisateur = null;
@@ -370,7 +366,7 @@ public function index(Request $request)
 
         return response()->json([
             'message' => 'User ajouté',
-            'user' => $user 
+            'user' => $user,
         ], 200);
     }
 
@@ -410,9 +406,9 @@ public function index(Request $request)
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
         ]);
 
-        if (!User::where('id_utilisateur', $id)->exists()) {
+        if (! User::where('id_utilisateur', $id)->exists()) {
             return response()->json([
-                'message' => 'User inexistant'
+                'message' => 'User inexistant',
             ], 404);
         }
 
@@ -421,13 +417,13 @@ public function index(Request $request)
 
         if ($actor === null) {
             return response()->json([
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
-        if (!$this->canManageUser($request, $user)) {
+        if (! $this->canManageUser($request, $user)) {
             return response()->json([
-                'message' => 'Action non autorisée'
+                'message' => 'Action non autorisée',
             ], 403);
         }
 
@@ -436,10 +432,10 @@ public function index(Request $request)
 
         if (
             $roleChanged
-            && !$this->isSuperAdminRequest($request)
+            && ! $this->isSuperAdminRequest($request)
         ) {
             return response()->json([
-                'message' => 'Action réservée aux super-admins'
+                'message' => 'Action réservée aux super-admins',
             ], 403);
         }
 
@@ -450,7 +446,7 @@ public function index(Request $request)
         $user->prenom_utilisateur = $validated['prenom_utilisateur'];
         $user->email = $validated['email'];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
 
@@ -465,8 +461,6 @@ public function index(Request $request)
         $user->possede_vehicule_utilisateur = (bool) ($validated['possede_vehicule_utilisateur'] ?? false);
         $user->taille_tshirt_utilisateur = $validated['taille_tshirt_utilisateur'] ?? null;
         $user->est_anonyme_utilisateur = (bool) ($validated['est_anonyme_utilisateur'] ?? false);
-        $user->est_suspendu_utilisateur = (bool) ($validated['est_suspendu_utilisateur'] ?? false);
-        $user->raison_suspension_utilisateur = $validated['raison_suspension_utilisateur'] ?? null;
         $user->partage_localisation_directe_utilisateur = (bool) ($validated['partage_localisation_directe_utilisateur'] ?? false);
         $user->latitude_localisation_directe_utilisateur = $validated['latitude_localisation_directe_utilisateur'] ?? $user->latitude_localisation_directe_utilisateur;
         $user->longitude_localisation_directe_utilisateur = $validated['longitude_localisation_directe_utilisateur'] ?? $user->longitude_localisation_directe_utilisateur;
@@ -478,7 +472,7 @@ public function index(Request $request)
         }
         $user->nombre_missions_utilisateur = $validated['nombre_missions_utilisateur'] ?? 0;
 
-        if (!$user->partage_localisation_directe_utilisateur) {
+        if (! $user->partage_localisation_directe_utilisateur) {
             $user->latitude_localisation_directe_utilisateur = null;
             $user->longitude_localisation_directe_utilisateur = null;
             $user->date_localisation_directe_utilisateur = null;
@@ -487,8 +481,8 @@ public function index(Request $request)
         $user->save();
 
         return response()->json([
-            'message'=>'User mis à jour',
-            'user' => $user
+            'message' => 'User mis à jour',
+            'user' => $user,
         ], 200);
     }
 
@@ -499,11 +493,11 @@ public function index(Request $request)
             $user->delete();
 
             return response()->json([
-                'message' => 'User supprimé'
+                'message' => 'User supprimé',
             ], 200);
         } else {
             return response()->json([
-                'message' => 'User inexistant'
+                'message' => 'User inexistant',
             ], 404);
         }
     }

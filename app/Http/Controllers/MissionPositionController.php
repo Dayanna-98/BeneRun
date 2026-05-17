@@ -20,8 +20,8 @@ class MissionPositionController extends Controller
             ->get()
             ->map(fn ($p) => [
                 'id_utilisateur' => $p->id_utilisateur,
-                'name' => trim(($p->utilisateur->prenom_utilisateur ?? '') . ' ' . ($p->utilisateur->nom_utilisateur ?? '')) ?: 'Participant',
-                'latitude'  => (float) $p->latitude,
+                'name' => trim(($p->utilisateur->prenom_utilisateur ?? '').' '.($p->utilisateur->nom_utilisateur ?? '')) ?: 'Participant',
+                'latitude' => (float) $p->latitude,
                 'longitude' => (float) $p->longitude,
                 'updated_at' => $p->updated_at,
             ]);
@@ -37,17 +37,17 @@ class MissionPositionController extends Controller
     {
         $validated = $request->validate([
             'id_utilisateur' => 'required|integer|exists:users,id_utilisateur',
-            'latitude'       => 'required|numeric|between:-90,90',
-            'longitude'      => 'required|numeric|between:-180,180',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
         ]);
 
         MissionPosition::updateOrCreate(
             [
-                'id_mission'     => (int) $missionId,
+                'id_mission' => (int) $missionId,
                 'id_utilisateur' => (int) $validated['id_utilisateur'],
             ],
             [
-                'latitude'  => $validated['latitude'],
+                'latitude' => $validated['latitude'],
                 'longitude' => $validated['longitude'],
             ]
         );
