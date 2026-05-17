@@ -104,18 +104,29 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            Front-end/maquette/package-lock.json
       
-      - name: Install NPM dependencies
+      - name: Install NPM dependencies (root)
         run: npm install
       
-      - name: Build frontend with Vite
+      - name: Build frontend with Vite (root)
+        run: npm run build
+
+      - name: Install NPM dependencies (maquette)
+        working-directory: Front-end/maquette
+        run: npm install
+
+      - name: Build frontend with Vite (maquette)
+        working-directory: Front-end/maquette
         run: npm run build
       
       - name: Check build output
         run: |
-          if [ -d "public/build" ] || [ -d "dist" ]; then
-            echo "✓ Build successful"
+          if [ -d "public/build" ] && [ -d "Front-end/maquette/dist" ]; then
+            echo "✓ Root and maquette builds successful"
           else
-            echo "✗ Build output not found"
+            echo "✗ Missing build output (public/build or Front-end/maquette/dist)"
             exit 1
           fi

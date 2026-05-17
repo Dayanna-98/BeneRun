@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Certificat;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CertificatCRUDTest extends TestCase
@@ -394,5 +395,85 @@ class CertificatCRUDTest extends TestCase
         $this->assertDatabaseMissing('certificats', [
             'id_certificat' => $certificat->id_certificat,
         ]);
+    }
+
+    // DOWNLOAD TESTS
+    public function test_unauthenticated_user_cannot_download_certificat()
+    {
+        $certificat = Certificat::factory()->create([
+            'id_utilisateur' => $this->normalUser->id_utilisateur,
+            'chemin_fichier_certificat' => 'certificats/private-proof.pdf',
+        ]);
+
+        $response = $this->getJson('/api/certificats/'.$certificat->id_certificat.'/download');
+
+        $response->assertStatus(401);
+    }
+
+    public function test_user_can_download_their_own_certificat_file()
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('certificats/own-proof.pdf', 'certificate-content');
+
+        $certificat = Certificat::factory()->create([
+            'id_utilisateur' => $this->normalUser->id_utilisateur,
+            'titre_certificat' => 'Mon Certificat',
+            'chemin_fichier_certificat' => 'certificats/own-proof.pdf',
+        ]);
+
+        $response = $this->actingAs($this->normalUser, 'sanctum')
+            ->get('/api/certificats/'.$certificat->id_certificat.'/download');
+
+        $response->assertOk();
+        $contentDisposition = (string) $response->headers->get('content-disposition');
+        $this->assertStringContainsString('attachment;', $contentDisposition);
+        $this->assertStringContainsString('Mon-Certificat.pdf', $contentDisposition);
+    }
+
+    public function test_user_cannot_download_other_users_certificat_file()
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('certificats/other-proof.pdf', 'certificate-content');
+
+        $certificat = Certificat::factory()->create([
+            'id_utilisateur' => $this->superAdmin->id_utilisateur,
+            'chemin_fichier_certificat' => 'certificats/other-proof.pdf',
+        ]);
+
+        $response = $this->actingAs($this->normalUser, 'sanctum')
+            ->get('/api/certificats/'.$certificat->id_certificat.'/download');
+
+        $response->assertStatus(403);
+        $response->assertJson(['message' => 'Action non autorisée']);
+    }
+
+    public function test_download_returns_404_when_certificat_has_no_file_path()
+    {
+        $certificat = Certificat::factory()->create([
+            'id_utilisateur' => $this->normalUser->id_utilisateur,
+            'chemin_fichier_certificat' => null,
+        ]);
+
+        $response = $this->actingAs($this->normalUser, 'sanctum')
+            ->get('/api/certificats/'.$certificat->id_certificat.'/download');
+
+        $response->assertStatus(404);
+        $response->assertJson(['message' => 'Aucun document téléchargeable pour ce certificat']);
+    }
+
+    public function test_download_returns_404_when_certificat_file_is_missing()
+    {
+        Storage::fake('public');
+
+        $certificat = Certificat::factory()->create([
+            'id_utilisateur' => $this->normalUser->id_utilisateur,
+            'chemin_fichier_certificat' => 'certificats/missing-file.pdf',
+        ]);
+
+        $response = $this->actingAs($this->normalUser, 'sanctum')
+            ->get('/api/certificats/'.$certificat->id_certificat.'/download');
+
+        $response->assertStatus(404);
+        $response->assertJson(['message' => 'Fichier du certificat introuvable']);
     }
 }

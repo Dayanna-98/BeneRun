@@ -274,4 +274,42 @@ class UserRoleUpdateTest extends TestCase
             'latitude_localisation_directe_utilisateur' => 46.3000,
         ]);
     }
+
+    public function test_user_can_update_own_permissions_including_messaging(): void
+    {
+        $user = User::factory()->create([
+            'role_utilisateur' => 'bénévole',
+            'permissions_utilisateur' => 'manageSkills',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson('/api/users/'.$user->id_utilisateur, [
+            'nom_utilisateur' => $user->nom_utilisateur,
+            'prenom_utilisateur' => $user->prenom_utilisateur,
+            'email' => $user->email,
+            'role_utilisateur' => $user->role_utilisateur,
+            'telephone_utilisateur' => $user->telephone_utilisateur,
+            'adresse_utilisateur' => $user->adresse_utilisateur,
+            'date_naissance_utilisateur' => optional($user->date_naissance_utilisateur)->format('Y-m-d'),
+            'allergies_utilisateur' => $user->allergies_utilisateur,
+            'problemes_sante_utilisateur' => $user->problemes_sante_utilisateur,
+            'possede_permis_utilisateur' => $user->possede_permis_utilisateur,
+            'est_motorise_utilisateur' => $user->est_motorise_utilisateur,
+            'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
+            'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
+            'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
+            'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
+            'permissions_utilisateur' => 'messaging,favoriteMission,messaging',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('user.permissions_utilisateur', 'messaging,favoriteMission');
+
+        $this->assertDatabaseHas('users', [
+            'id_utilisateur' => $user->id_utilisateur,
+            'permissions_utilisateur' => 'messaging,favoriteMission',
+        ]);
+    }
 }

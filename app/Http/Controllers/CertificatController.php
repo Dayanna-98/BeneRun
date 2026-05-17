@@ -99,6 +99,47 @@ class CertificatController extends Controller
         return response()->json($certificat);
     }
 
+    public function download(Request $request, $id)
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
+        if ($actor === null) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
+        $certificat = Certificat::find($id);
+        if (! $certificat) {
+            return response()->json(['message' => 'Certificat inexistant'], 404);
+        }
+
+        if (
+            ! $this->isSuperAdminRequest($request)
+            && (int) $certificat->id_utilisateur !== (int) $actor->id_utilisateur
+        ) {
+            return response()->json(['message' => 'Action non autorisée'], 403);
+        }
+
+        if (empty($certificat->chemin_fichier_certificat)) {
+            return response()->json(['message' => 'Aucun document téléchargeable pour ce certificat'], 404);
+        }
+
+        $path = $certificat->chemin_fichier_certificat;
+        if (! Storage::disk('public')->exists($path)) {
+            return response()->json(['message' => 'Fichier du certificat introuvable'], 404);
+        }
+
+        $title = trim((string) $certificat->titre_certificat);
+        $safeTitle = preg_replace('/[^A-Za-z0-9_-]+/', '-', $title ?: 'certificat');
+        $safeTitle = trim((string) $safeTitle, '-');
+        if ($safeTitle === '') {
+            $safeTitle = 'certificat';
+        }
+
+        $extension = pathinfo((string) $path, PATHINFO_EXTENSION);
+        $fileName = $safeTitle . ($extension ? ('.' . $extension) : '');
+
+        return Storage::disk('public')->download($path, $fileName);
+    }
+
     public function store(Request $request)
     {
         $actor = $this->resolveActorFromBearerToken($request);

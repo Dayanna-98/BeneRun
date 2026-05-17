@@ -63,6 +63,7 @@ Route::apiResource('/admins', AdminController::class); // ->middleware('auth:san
 Route::apiResource('/affectations', AffectationController::class); // ->middleware('auth:sanctum');
 Route::apiResource('/badges', BadgeController::class); // ->middleware('auth:sanctum');
 Route::apiResource('/benevoles', BenevoleController::class); // ->middleware('auth:sanctum');
+Route::get('/certificats/{id}/download', [CertificatController::class, 'download'])->middleware('auth:sanctum');
 Route::apiResource('/certificats', CertificatController::class)->middleware('auth:sanctum');
 Route::apiResource('/competences', CompetenceController::class); // ->middleware('auth:sanctum');
 Route::apiResource('/courses', EvenementController::class); // ancien alias conservé pour compatibilité
