@@ -11,6 +11,52 @@ Chemin de ce front:
 
 `BeneRun/Front-end/maquette`
 
+## 0) Cas de figure (choisissez votre cas)
+
+### Cas A - Vous recuperez le projet de zero (nouveau PC / nouveau clone)
+
+1. Cloner le repo.
+2. Installer les dependances backend + frontend.
+3. Creer les `.env`.
+4. Lancer les migrations.
+5. Demarrer les 3 terminaux (API, Reverb, Vite).
+
+Commandes:
+
+```bash
+git clone <url-du-repo>
+cd BeneRun
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --force
+php artisan optimize:clear
+
+cd Front-end/maquette
+npm install
+cp .env.example .env
+```
+
+### Cas B - Vous avez deja le projet, vous faites juste un pull (cas le plus frequent)
+
+Commandes minimales a faire apres le pull:
+
+```bash
+cd BeneRun
+git pull
+composer install
+php artisan migrate --force
+php artisan optimize:clear
+
+cd Front-end/maquette
+npm install
+```
+
+### Cas C - Erreurs de librairies manquantes (`Class not found`, `Cannot find module`, etc.)
+
+1. D'abord faire `composer install` et `npm install`.
+2. Si l'erreur persiste, utiliser les commandes de la section 2.4 (reinstallation des libs utilisees).
+
 ## 1) Prerequis (a installer une seule fois)
 
 Installez ces outils sur votre machine:
@@ -77,6 +123,41 @@ Ce qu'il faut faire a la place:
 2. `npm install` ou `npm ci` (frontend)
 
 En bref: **installer ce qui est deja defini dans les lock files**, ne pas changer les dependances.
+
+### 2.4 Si vraiment des libs manquent: commandes de reinstallation des technos utilisees
+
+Normalement, `composer install` et `npm install` suffisent.
+
+Utilisez ce bloc seulement si vous avez une erreur explicite de package manquant.
+
+#### Backend Laravel (dans `BeneRun`)
+
+```bash
+composer require laravel/reverb laravel/sanctum dedoc/scramble laravel/tinker
+```
+
+#### Frontend runtime (dans `Front-end/maquette`)
+
+```bash
+npm install vue vue-router pinia axios bootstrap @popperjs/core leaflet laravel-echo pusher-js chart.js vue-chartjs lucide-vue-next vee-validate yup vue-toastification
+```
+
+#### Frontend dev tools (dans `Front-end/maquette`)
+
+```bash
+npm install -D vite @vitejs/plugin-vue vite-plugin-vue-devtools eslint @eslint/js eslint-config-prettier eslint-plugin-vue eslint-plugin-oxlint oxlint prettier globals npm-run-all2
+```
+
+Puis relancez:
+
+```bash
+cd BeneRun
+composer install
+php artisan optimize:clear
+
+cd Front-end/maquette
+npm install
+```
 
 ## 3) Configuration backend (`BeneRun/.env`)
 
@@ -177,7 +258,7 @@ Si des lignes sont en `Pending`, relancez:
 php artisan migrate --force
 ```
 
-## 6) Demarrage complet (3 terminaux)
+## 6) Demarrage complet (3 terminaux a allumer)
 
 La messagerie en temps reel necessite 3 processus en meme temps.
 
@@ -200,6 +281,12 @@ npm run dev
 ```
 
 URL front par defaut: `http://localhost:5173`
+
+Resume ultra court des terminaux:
+
+1. Terminal A (dossier `BeneRun`): `php artisan serve`
+2. Terminal B (dossier `BeneRun`): `php artisan reverb:start`
+3. Terminal C (dossier `Front-end/maquette`): `npm run dev`
 
 ## 7) Test rapide pour savoir si tout tourne
 
