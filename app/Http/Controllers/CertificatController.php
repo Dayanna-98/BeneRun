@@ -135,7 +135,7 @@ class CertificatController extends Controller
         }
 
         $extension = pathinfo((string) $path, PATHINFO_EXTENSION);
-        $fileName = $safeTitle . ($extension ? ('.' . $extension) : '');
+        $fileName = $safeTitle.($extension ? ('.'.$extension) : '');
 
         return Storage::disk('public')->download($path, $fileName);
     }
