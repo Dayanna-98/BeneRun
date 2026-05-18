@@ -2,16 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Evenement; 
-use App\Models\User;
-use App\Models\MissionMedia;
-use App\Models\MissionContact;
-use App\Models\Competence;
 
 class Mission extends Model
 {
+    use HasFactory;
+
     protected $primaryKey = 'id_mission';
+
     protected $fillable = [
         'id_evenement',
         'responsable_utilisateur_id',
@@ -80,6 +79,23 @@ class Mission extends Model
             'id_mission',
             'id_competence'
         )->withTimestamps();
+    }
+
+    public function rewardCompetences()
+    {
+        return $this->belongsToMany(
+            Competence::class,
+            'mission_reward_competences',
+            'id_mission',
+            'id_competence'
+        )
+            ->withPivot('points_gagnes')
+            ->withTimestamps();
+    }
+
+    public function userRewards()
+    {
+        return $this->hasMany(MissionUserReward::class, 'id_mission', 'id_mission');
     }
 
     public function utilisateurs_favoris()

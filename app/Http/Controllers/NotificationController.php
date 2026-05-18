@@ -50,15 +50,15 @@ class NotificationController extends Controller
             ->limit(10)
             ->get()
             ->map(function (Postulation $postulation) {
-                $userName = trim(($postulation->utilisateur?->prenom_utilisateur ?? '') . ' ' . ($postulation->utilisateur?->nom_utilisateur ?? ''));
+                $userName = trim(($postulation->utilisateur?->prenom_utilisateur ?? '').' '.($postulation->utilisateur?->nom_utilisateur ?? ''));
                 $target = $postulation->mission?->titre_mission ?: $postulation->evenement?->nom_evenement ?: 'une mission';
 
                 return [
-                    'id' => 'pending-postulation-' . $postulation->id_postulation,
+                    'id' => 'pending-postulation-'.$postulation->id_postulation,
                     'type' => 'pending_postulation',
                     'level' => 'info',
                     'title' => 'Nouvelle demande d’inscription',
-                    'body' => trim(($userName ?: 'Un bénévole') . ' a postulé pour ' . $target . '.'),
+                    'body' => trim(($userName ?: 'Un bénévole').' a postulé pour '.$target.'.'),
                     'href' => $postulation->id_mission ? '/manage-missions' : '/manage-events',
                     'created_at' => optional($postulation->date_postulation ?? $postulation->created_at)?->toIso8601String(),
                 ];
@@ -86,7 +86,7 @@ class NotificationController extends Controller
                 };
 
                 return [
-                    'id' => 'postulation-status-' . $postulation->id_postulation,
+                    'id' => 'postulation-status-'.$postulation->id_postulation,
                     'type' => 'postulation_status',
                     'level' => $postulation->statut_postulation === 'accepte' ? 'success' : 'warning',
                     'title' => 'Inscription mise à jour',
@@ -116,12 +116,12 @@ class NotificationController extends Controller
                 };
 
                 return [
-                    'id' => 'affectation-' . $affectation->id_affectation,
+                    'id' => 'affectation-'.$affectation->id_affectation,
                     'type' => 'affectation',
                     'level' => 'success',
                     'title' => 'Mission mise à jour',
-                    'body' => trim($statusLabel . ' ' . ($affectation->mission?->titre_mission ?: 'votre mission') . '.'),
-                    'href' => $affectation->mission ? '/mission/' . $affectation->mission->id_mission : '/my-missions',
+                    'body' => trim($statusLabel.' '.($affectation->mission?->titre_mission ?: 'votre mission').'.'),
+                    'href' => $affectation->mission ? '/mission/'.$affectation->mission->id_mission : '/my-missions',
                     'created_at' => optional($affectation->date_presence ?? $affectation->date_confirmation ?? $affectation->date_affectation ?? $affectation->updated_at)?->toIso8601String(),
                 ];
             });

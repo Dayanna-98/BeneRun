@@ -16,13 +16,13 @@ return new class extends Migration
             $table->unsignedBigInteger('id_competence');
             $table->primary(['id_mission', 'id_competence']);
             $table->foreign('id_mission')
-                    ->references('id_mission')
-                    ->on('missions')
-                    ->cascadeOnDelete();
+                ->references('id_mission')
+                ->on('missions')
+                ->cascadeOnDelete();
             $table->foreign('id_competence')
-                    ->references('id_competence')
-                    ->on('competences')
-                    ->cascadeOnDelete();
+                ->references('id_competence')
+                ->on('competences')
+                ->cascadeOnDelete();
             $table->timestamps();
         });
     }

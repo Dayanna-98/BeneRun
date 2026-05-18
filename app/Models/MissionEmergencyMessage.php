@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MissionEmergencyMessage extends Model
 {
     protected $table = 'mission_emergency_messages';
+
     protected $primaryKey = 'id_mission_emergency_message';
 
     protected $fillable = [

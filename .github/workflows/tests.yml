@@ -1,0 +1,132 @@
+name: Tests CI/CD
+
+on:
+  push:
+    branches: [ main, front-end ]
+  pull_request:
+    branches: [ main, front-end ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        php-version: ['8.2', '8.3']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+          coverage: xdebug
+      
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+      
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+      
+      - name: Create .env file
+        run: cp .env.example .env
+      
+      - name: Generate application key
+        run: php artisan key:generate
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+      
+      - name: Run migrations
+        run: php artisan migrate --force
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+      
+      - name: Clear config cache
+        run: php artisan config:clear
+      
+      - name: Run PHPUnit tests
+        run: php artisan test
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: matrix.php-version == '8.2'
+        with:
+          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  linting:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+      
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+      
+      - name: Run Laravel Pint (PHP linting)
+        run: ./vendor/bin/pint --test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            Front-end/maquette/package-lock.json
+      
+      - name: Install NPM dependencies (root)
+        run: npm install
+      
+      - name: Build frontend with Vite (root)
+        run: npm run build
+
+      - name: Install NPM dependencies (maquette)
+        working-directory: Front-end/maquette
+        run: npm install
+
+      - name: Build frontend with Vite (maquette)
+        working-directory: Front-end/maquette
+        run: npm run build
+      
+      - name: Check build output
+        run: |
+          if [ -d "public/build" ] && [ -d "Front-end/maquette/dist" ]; then
+            echo "✓ Root and maquette builds successful"
+          else
+            echo "✗ Missing build output (public/build or Front-end/maquette/dist)"
+            exit 1
+          fi

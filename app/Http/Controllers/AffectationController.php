@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
@@ -14,6 +15,7 @@ class AffectationController extends Controller
             'mission:id_mission,titre_mission',
             'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,partage_localisation_directe_utilisateur,latitude_localisation_directe_utilisateur,longitude_localisation_directe_utilisateur,date_localisation_directe_utilisateur',
         ])->get();
+
         return response()->json($affectations);
     }
 
@@ -23,15 +25,14 @@ class AffectationController extends Controller
             'mission:id_mission,titre_mission',
             'utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,partage_localisation_directe_utilisateur,latitude_localisation_directe_utilisateur,longitude_localisation_directe_utilisateur,date_localisation_directe_utilisateur',
         ])->find($id);
-        if (!empty($affectation)){
+        if (! empty($affectation)) {
             return response()->json($affectation);
-        } 
-        else {
-            return response()->json(["message"=>"Affectation inexistante"], 404);
+        } else {
+            return response()->json(['message' => 'Affectation inexistante'], 404);
         }
     }
 
-        public function store(Request $request)
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'id_mission' => 'required|integer|exists:missions,id_mission',
@@ -61,11 +62,9 @@ class AffectationController extends Controller
         ], 201);
     }
 
-
-        public function update(Request $request, $id)
+    public function update(Request $request, $id)
     {
-        if (Affectation::where('id_affectation', $id)->exists())
-        {
+        if (Affectation::where('id_affectation', $id)->exists()) {
             $affectation = Affectation::find($id);
             $validated = $request->validate([
                 'id_mission' => 'sometimes|integer|exists:missions,id_mission',
@@ -87,32 +86,33 @@ class AffectationController extends Controller
             });
 
             $affectation->refresh();
+
             return response()->json([
                 'message' => 'Affectation mise à jour',
                 'affectation' => $affectation,
             ], 200);
         } else {
             return response()->json([
-                'message'=>'Affectation inexistante'
+                'message' => 'Affectation inexistante',
             ], 404);
         }
     }
 
-         public function destroy($id)
+    public function destroy($id)
     {
-        if (Affectation::where('id_affectation', $id)->exists())
-        {
+        if (Affectation::where('id_affectation', $id)->exists()) {
             $affectation = Affectation::find($id);
             $affectation->delete();
+
             return response()->json([
-                'message'=>'Affectation supprimée'
+                'message' => 'Affectation supprimée',
             ], 200);
         } else {
             return response()->json([
-                'message'=>'Affectation inexistante'
+                'message' => 'Affectation inexistante',
             ], 404);
         }
-    } 
+    }
 
     private function syncMissionResponsible(int $missionId, int $userId): void
     {
@@ -131,5 +131,4 @@ class AffectationController extends Controller
                 'date_affectation' => now(),
             ]);
     }
-
 }

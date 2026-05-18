@@ -14,7 +14,7 @@ class FavoriteController extends Controller
     {
         $user = $request->user('sanctum');
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
@@ -35,13 +35,13 @@ class FavoriteController extends Controller
     {
         $user = $request->user('sanctum');
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
         $mission = Mission::find($missionId);
 
-        if (!$mission) {
+        if (! $mission) {
             return response()->json(['message' => 'Mission introuvable'], 404);
         }
 
@@ -58,7 +58,7 @@ class FavoriteController extends Controller
     {
         $user = $request->user('sanctum');
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
@@ -74,7 +74,7 @@ class FavoriteController extends Controller
     {
         $user = $request->user('sanctum');
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 

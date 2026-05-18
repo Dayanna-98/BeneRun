@@ -157,9 +157,16 @@
                 </div>
               </div>
               <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" v-model="permissions.messaging" />
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  :checked="!!permissions.messaging"
+                  :disabled="messagingSaving"
+                  @change="handleToggleMessagingPreference"
+                />
               </div>
             </div>
+            <div v-if="messagingError" class="x-small text-danger">{{ messagingError }}</div>
           </div>
         </div>
 
@@ -219,10 +226,6 @@
             <button class="btn btn-outline-secondary d-flex align-items-center gap-2"
               @click="handleChangePassword">
               <Lock style="width:16px;height:16px" /> Changer le mot de passe
-            </button>
-            <button class="btn btn-danger d-flex align-items-center gap-2"
-              @click="handleSuspendOwnAccount">
-              <UserX style="width:16px;height:16px" /> Suspendre mon compte
             </button>
           </div>
         </div>
@@ -346,8 +349,11 @@
             </div>
             <button
               class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
-              @click="exportCert(cert.name)">
-              <Download style="width:16px;height:16px" /> Exporter en PDF
+              :disabled="certExportingId === String(cert.id)"
+              @click="handleExportCert(cert)">
+              <span v-if="certExportingId === String(cert.id)" class="spinner-border spinner-border-sm" />
+              <Download v-else style="width:16px;height:16px" />
+              {{ certExportingId === String(cert.id) ? 'Téléchargement...' : 'Exporter le document' }}
             </button>
           </div>
         </div>
@@ -391,7 +397,7 @@ import { useRouter } from 'vue-router'
 import {
   User, Award, FileText, Briefcase, MapPin, MessageSquare,
   Edit, Download, Star, Calendar, Plus, Trash2, Lock,
-  UserX, LogOut
+  LogOut
 } from 'lucide-vue-next'
 import { getCurrentUser, logout as authLogout, setCurrentUser } from '@/utils/auth'
 import competenceService from '@/services/competenceService'
@@ -411,6 +417,7 @@ const certificates  = ref([])
 const certLoading   = ref(false)
 const certError     = ref('')
 const certSaving    = ref(false)
+const certExportingId = ref('')
 const isAddingCert  = ref(false)
 const isDraggingCertFile = ref(false)
 const certFileInput = ref(null)
@@ -424,6 +431,8 @@ const certForm      = ref({
 const missionHistory = ref([])
 const missionHistoryLoading = ref(false)
 const missionHistoryError = ref('')
+const messagingSaving = ref(false)
+const messagingError = ref('')
 
 const refreshCurrentUser = async () => {
   const freshUser = await userService.getMe()
@@ -531,6 +540,7 @@ const buildUserUpdatePayload = (extra = {}) => ({
   isSuspended: extra.isSuspended ?? !!user.value.suspended,
   suspensionReason: extra.suspensionReason ?? (user.value.suspensionReason || null),
   missionCount: extra.missionCount ?? (user.value.missionCount || 0),
+  permissions: extra.permissions ?? permissions.value,
   liveLocationSharingEnabled: extra.liveLocationSharingEnabled ?? !!user.value.liveLocationSharingEnabled,
   liveLocationLatitude: Object.prototype.hasOwnProperty.call(extra, 'liveLocationLatitude') ? extra.liveLocationLatitude : user.value.liveLocationLatitude ?? null,
   liveLocationLongitude: Object.prototype.hasOwnProperty.call(extra, 'liveLocationLongitude') ? extra.liveLocationLongitude : user.value.liveLocationLongitude ?? null,
@@ -627,8 +637,58 @@ const loadCertificates = async () => {
   }
 }
 
-const exportCert = (name) => {
-  alert(`Export du certificat "${name}" en PDF`)
+const sanitizeFileName = (value) => String(value || '')
+  .replace(/[\\/:*?"<>|]+/g, '-')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const getFileNameFromDisposition = (contentDisposition) => {
+  if (!contentDisposition) return null
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1])
+  }
+
+  const fallbackMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+  return fallbackMatch?.[1] || null
+}
+
+const guessExtensionFromType = (contentType) => {
+  const normalized = (contentType || '').toLowerCase()
+  if (normalized.includes('pdf')) return '.pdf'
+  if (normalized.includes('png')) return '.png'
+  if (normalized.includes('jpeg') || normalized.includes('jpg')) return '.jpg'
+  if (normalized.includes('webp')) return '.webp'
+  return '.bin'
+}
+
+const triggerBlobDownload = (blob, fileName) => {
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
+const handleExportCert = async (cert) => {
+  certError.value = ''
+  certExportingId.value = String(cert.id)
+
+  try {
+    const { blob, contentType, contentDisposition } = await certificatService.download(cert.id)
+    const providedName = getFileNameFromDisposition(contentDisposition)
+    const safeTitle = sanitizeFileName(cert.name || 'certificat')
+    const fallbackName = `${safeTitle}${guessExtensionFromType(contentType)}`
+    triggerBlobDownload(blob, sanitizeFileName(providedName) || fallbackName)
+  } catch (error) {
+    certError.value = error?.response?.data?.message || 'Impossible de télécharger ce certificat.'
+  } finally {
+    certExportingId.value = ''
+  }
 }
 
 const resetCertForm = () => {
@@ -766,34 +826,27 @@ const handleToggleLiveLocationSharing = async (event) => {
   }
 }
 
-const handleSuspendOwnAccount = async () => {
-  if (!confirm('Voulez-vous vraiment suspendre votre compte ?')) return
+const handleToggleMessagingPreference = async (event) => {
+  const nextValue = event.target.checked
+  const previousPermissions = { ...permissions.value }
+  messagingError.value = ''
 
-  const reason = prompt('Raison de suspension (optionnel)', 'Suspension demandée par l\'utilisateur') || 'Suspension demandée par l\'utilisateur'
-  const userId = user.value.id
-  if (!userId) {
-    alert('Impossible de suspendre ce compte (ID utilisateur manquant).')
-    return
+  permissions.value = {
+    ...permissions.value,
+    messaging: nextValue,
   }
 
+  messagingSaving.value = true
   try {
-    await userService.update(userId, {
-      ...buildUserUpdatePayload({
-      isSuspended: true,
-      suspensionReason: reason,
-      }),
-    })
-
-    try {
-      await userService.logout()
-    } catch {
-      // Keep suspension flow usable if logout request fails.
-    }
-    authLogout()
-    alert('Votre compte est maintenant suspendu.')
-    router.push('/login')
+    await userService.update(user.value.id, buildUserUpdatePayload({
+      permissions: permissions.value,
+    }))
+    await refreshCurrentUser()
   } catch (error) {
-    alert(error.message || 'Erreur lors de la suspension du compte')
+    permissions.value = previousPermissions
+    messagingError.value = error.message || 'Impossible de modifier le paramètre de messagerie.'
+  } finally {
+    messagingSaving.value = false
   }
 }
 

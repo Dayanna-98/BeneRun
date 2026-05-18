@@ -12,21 +12,22 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_competences', function (Blueprint $table) {
-        $table->unsignedBigInteger('id_utilisateur');
-        $table->unsignedBigInteger('id_competence');
-        $table->primary(['id_utilisateur', 'id_competence']);
-        $table->string('niveau')->nullable();
-        $table->foreign('id_utilisateur')
-            ->references('id_utilisateur')
-            ->on('users')
-            ->cascadeOnDelete();
-        $table->foreign('id_competence')
-            ->references('id_competence')
-            ->on('competences')
-            ->cascadeOnDelete();
-        $table->timestamps();
-    });
+            $table->unsignedBigInteger('id_utilisateur');
+            $table->unsignedBigInteger('id_competence');
+            $table->primary(['id_utilisateur', 'id_competence']);
+            $table->string('niveau')->nullable();
+            $table->foreign('id_utilisateur')
+                ->references('id_utilisateur')
+                ->on('users')
+                ->cascadeOnDelete();
+            $table->foreign('id_competence')
+                ->references('id_competence')
+                ->on('competences')
+                ->cascadeOnDelete();
+            $table->timestamps();
+        });
     }
+
     /**
      * Reverse the migrations.
      */
@@ -34,4 +35,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('user_competences');
     }
-    };
+};

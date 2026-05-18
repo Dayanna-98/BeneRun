@@ -325,7 +325,7 @@ import {
   MessageCircle, AlertCircle, Send, UserMinus, UserPlus
 } from 'lucide-vue-next'
 import api from '@/services/api'
-import chatService from '@/services/chatService'
+import chatApiService from '@/services/chatApiService'
 import { getCurrentUser, setCurrentUser } from '@/utils/auth'
 import MissionLiveMap from '@/components/maps/MissionLiveMap.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
@@ -372,6 +372,7 @@ const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCoun
   status: rawMission.statut_mission || 'À venir',
   currentVolunteers: currentVolunteersCount,
   maxVolunteers: Number(rawMission.nombre_benevoles_max) || 0,
+  postable: !!rawMission.inscription_requise,
   description: rawMission.description_mission,
   requiredSkills: Array.isArray(rawMission.competences)
     ? rawMission.competences
@@ -477,6 +478,7 @@ const isActiveMission = computed(() =>
 
 const canCurrentUserRegister = computed(() => {
   if (!mission.value || !currentUser.value?.id) return false
+  if (!mission.value.postable) return false
   return !mission.value.isParticipant && !mission.value.registrationStatus
 })
 
@@ -485,6 +487,7 @@ const registrationButtonLabel = computed(() => {
   if (mission.value?.isParticipant) return 'Vous participez déjà à cette mission'
   if (mission.value?.registrationStatus === 'en_attente') return 'Inscription déjà envoyée'
   if (mission.value?.registrationStatus === 'accepte') return 'Vous êtes déjà inscrit à cette mission'
+  if (mission.value && mission.value.postable === false) return 'Inscriptions fermées pour cette mission'
   if (mission.value && Number(mission.value.currentVolunteers || 0) >= Number(mission.value.maxVolunteers || 0)) {
     return 'Mission complète'
   }
@@ -593,13 +596,17 @@ const registerUserToMission = async (userId, successMessage) => {
     })
 
     const postulation = response?.data?.postulation || null
-    chatService.addUserToMissionGroup({
+    const conversationResponse = await chatApiService.ensureMissionConversation({
       missionId: mission.value.id,
-      eventId: mission.value.eventId || null,
-      missionName: mission.value.name,
-      eventName: mission.value.eventName,
-      userId,
+      name: `${mission.value.name} • ${mission.value.eventName || 'Événement'}`,
     })
+
+    if (conversationResponse?.conversation?.id) {
+      await chatApiService.addParticipant({
+        conversationId: conversationResponse.conversation.id,
+        userId,
+      })
+    }
 
     if (String(userId) === String(currentUser.value?.id || '')) {
       mission.value.registrationStatus = postulation?.statut_postulation || 'en_attente'

@@ -51,7 +51,7 @@ class EvenementController extends Controller
     {
         $event = Evenement::withCount('missions')->find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
@@ -68,8 +68,9 @@ class EvenementController extends Controller
             'heure_debut_evenement' => 'nullable|date_format:H:i',
             'heure_fin_evenement' => 'nullable|date_format:H:i',
             'lieu_evenement' => 'required|string|max:255',
-            'google_maps_url_evenement' => 'required|string|max:1000',
-            'rayon_localisation_evenement' => 'required|integer|min:1|max:100000',
+            'mode_localisation_evenement' => 'required|in:manual,missions',
+            'google_maps_url_evenement' => 'nullable|string|max:1000',
+            'rayon_localisation_evenement' => 'nullable|integer|min:1|max:100000',
             'organisateur_evenement' => 'required|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
             'image_file' => 'nullable|image|max:5120',
@@ -82,7 +83,7 @@ class EvenementController extends Controller
         ]);
 
         $validated = $this->hydrateEventLocation($validated);
-    $validated = $this->hydrateEventImage($request, $validated);
+        $validated = $this->hydrateEventImage($request, $validated);
 
         $event = Evenement::create($validated);
 
@@ -96,7 +97,7 @@ class EvenementController extends Controller
     {
         $event = Evenement::find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
@@ -108,8 +109,9 @@ class EvenementController extends Controller
             'heure_debut_evenement' => 'nullable|date_format:H:i',
             'heure_fin_evenement' => 'nullable|date_format:H:i',
             'lieu_evenement' => 'sometimes|string|max:255',
-            'google_maps_url_evenement' => 'sometimes|string|max:1000',
-            'rayon_localisation_evenement' => 'sometimes|integer|min:1|max:100000',
+            'mode_localisation_evenement' => 'sometimes|in:manual,missions',
+            'google_maps_url_evenement' => 'nullable|string|max:1000',
+            'rayon_localisation_evenement' => 'nullable|integer|min:1|max:100000',
             'organisateur_evenement' => 'sometimes|string|max:255',
             'image_evenement' => 'nullable|string|max:500',
             'image_file' => 'nullable|image|max:5120',
@@ -122,7 +124,7 @@ class EvenementController extends Controller
         ]);
 
         $validated = $this->hydrateEventLocation($validated, $event);
-    $validated = $this->hydrateEventImage($request, $validated, $event);
+        $validated = $this->hydrateEventImage($request, $validated, $event);
 
         $event->update($validated);
 
@@ -136,7 +138,7 @@ class EvenementController extends Controller
     {
         $event = Evenement::find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
@@ -157,7 +159,7 @@ class EvenementController extends Controller
             ? Carbon::parse($event->date_debut_evenement)->format('Y-m-d')
             : null;
 
-        if (!$startDate) {
+        if (! $startDate) {
             return false;
         }
 
@@ -169,23 +171,63 @@ class EvenementController extends Controller
 
     private function hydrateEventLocation(array $validated, ?Evenement $event = null): array
     {
-        $mapsUrl = $validated['google_maps_url_evenement'] ?? $event?->google_maps_url_evenement;
-        $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
+        $locationMode = $validated['mode_localisation_evenement']
+            ?? $event?->mode_localisation_evenement
+            ?? 'manual';
 
-        if ($coordinates === null) {
-            abort(response()->json([
-                'message' => 'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
-                'errors' => [
-                    'google_maps_url_evenement' => [
-                        'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
-                    ],
-                ],
-            ], 422));
+        if (! in_array($locationMode, ['manual', 'missions'], true)) {
+            $locationMode = 'manual';
         }
 
-        $validated['google_maps_url_evenement'] = $mapsUrl;
-        $validated['latitude_evenement'] = $coordinates['latitude'];
-        $validated['longitude_evenement'] = $coordinates['longitude'];
+        $mapsUrl = trim((string) ($validated['google_maps_url_evenement'] ?? $event?->google_maps_url_evenement ?? ''));
+
+        if ($locationMode === 'manual') {
+            $radius = $validated['rayon_localisation_evenement'] ?? $event?->rayon_localisation_evenement;
+            if (empty($mapsUrl)) {
+                abort(response()->json([
+                    'message' => 'Le lien Google Maps du centre est obligatoire en mode manuel.',
+                    'errors' => [
+                        'google_maps_url_evenement' => ['Le lien Google Maps du centre est obligatoire en mode manuel.'],
+                    ],
+                ], 422));
+            }
+
+            if (empty($radius)) {
+                abort(response()->json([
+                    'message' => 'Le périmètre est obligatoire en mode manuel.',
+                    'errors' => [
+                        'rayon_localisation_evenement' => ['Le périmètre est obligatoire en mode manuel.'],
+                    ],
+                ], 422));
+            }
+
+            $coordinates = GoogleMapsUrl::extractCoordinates($mapsUrl);
+            if ($coordinates === null) {
+                abort(response()->json([
+                    'message' => 'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
+                    'errors' => [
+                        'google_maps_url_evenement' => [
+                            'Le lien Google Maps de l\'événement doit contenir une position exploitable.',
+                        ],
+                    ],
+                ], 422));
+            }
+
+            $validated['google_maps_url_evenement'] = $mapsUrl;
+            $validated['rayon_localisation_evenement'] = (int) $radius;
+            $validated['latitude_evenement'] = $coordinates['latitude'];
+            $validated['longitude_evenement'] = $coordinates['longitude'];
+            $validated['mode_localisation_evenement'] = 'manual';
+
+            return $validated;
+        }
+
+        $coordinates = $mapsUrl !== '' ? GoogleMapsUrl::extractCoordinates($mapsUrl) : null;
+        $validated['mode_localisation_evenement'] = 'missions';
+        $validated['rayon_localisation_evenement'] = null;
+        $validated['google_maps_url_evenement'] = $mapsUrl !== '' ? $mapsUrl : null;
+        $validated['latitude_evenement'] = $coordinates['latitude'] ?? null;
+        $validated['longitude_evenement'] = $coordinates['longitude'] ?? null;
 
         return $validated;
     }
@@ -194,7 +236,7 @@ class EvenementController extends Controller
     {
         if ($request->hasFile('image_file')) {
             $validated['image_evenement'] = $this->storeUploadedImage($request->file('image_file'), 'events');
-        } elseif (!array_key_exists('image_evenement', $validated) && $event?->image_evenement) {
+        } elseif (! array_key_exists('image_evenement', $validated) && $event?->image_evenement) {
             $validated['image_evenement'] = $event->image_evenement;
         }
 
@@ -205,11 +247,11 @@ class EvenementController extends Controller
     {
         $targetDirectory = public_path("uploads/{$directory}");
 
-        if (!File::exists($targetDirectory)) {
+        if (! File::exists($targetDirectory)) {
             File::makeDirectory($targetDirectory, 0755, true);
         }
 
-        $filename = uniqid("{$directory}_", true) . '.' . $file->getClientOriginalExtension();
+        $filename = uniqid("{$directory}_", true).'.'.$file->getClientOriginalExtension();
         $file->move($targetDirectory, $filename);
 
         return url("uploads/{$directory}/{$filename}");

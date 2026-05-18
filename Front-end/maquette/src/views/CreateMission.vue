@@ -12,11 +12,12 @@
     </header>
 
     <div class="p-3 mx-auto" style="max-width:768px">
-      <div class="card">
-        <div class="card-header">
-          <h5 class="card-title mb-0">Informations de la mission</h5>
+      <div class="card mission-form-card shadow-sm border-0">
+        <div class="card-header mission-form-header">
+          <h5 class="card-title mb-1">Informations de la mission</h5>
+          <p class="mb-0 small text-muted">Complétez les champs essentiels puis utilisez les aides rapides pour gagner du temps.</p>
         </div>
-        <div class="card-body">
+        <div class="card-body mission-form-body">
           <form @submit.prevent="handleSubmit" class="d-flex flex-column gap-3">
 
             <div>
@@ -73,13 +74,6 @@
               </div>
             </div>
 
-            <div>
-              <label class="form-label small fw-medium">Quota de bénévoles de backup</label>
-              <input v-model="formData.backupVolunteers" type="number" min="0" class="form-control" :class="fieldErrors.backupVolunteers ? 'is-invalid' : ''" placeholder="Ex: 2" />
-              <div v-if="fieldErrors.backupVolunteers" class="invalid-feedback d-block">{{ fieldErrors.backupVolunteers }}</div>
-              <div class="form-text">Nombre de bénévoles en réserve en cas d'absence</div>
-            </div>
-
             <div class="row g-3">
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de début *</label>
@@ -93,13 +87,33 @@
               </div>
             </div>
 
+            <div class="time-helper-box">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="small fw-semibold text-secondary">Créneaux rapides</span>
+                <button
+                  v-for="preset in timePresets"
+                  :key="preset.label"
+                  type="button"
+                  class="btn btn-sm btn-outline-primary rounded-pill"
+                  @click="applyTimePreset(preset)">
+                  {{ preset.label }}
+                </button>
+              </div>
+
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="badge text-bg-light border">Durée: {{ missionDurationLabel }}</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @click="adjustEndTime(-30)">Fin -30 min</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @click="adjustEndTime(30)">Fin +30 min</button>
+              </div>
+            </div>
+
             <div>
               <label class="form-label small fw-medium">Localisation *</label>
               <input v-model="formData.location" class="form-control" :class="fieldErrors.location ? 'is-invalid' : ''" placeholder="Ex: Place Neuve, Genève" required />
               <div v-if="fieldErrors.location" class="invalid-feedback d-block">{{ fieldErrors.location }}</div>
             </div>
 
-            <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
+            <div class="bg-light border rounded p-3 d-flex flex-column gap-3 section-panel section-panel--maps">
               <div class="d-flex align-items-center justify-content-between">
                 <label class="form-label small fw-medium mb-0 d-flex align-items-center gap-2">
                   <MapPin style="width:16px;height:16px" /> Point Google Maps de la mission
@@ -138,7 +152,7 @@
             </div>
 
             <!-- Photos -->
-            <div class="bg-light border rounded p-3 d-flex flex-column gap-2">
+            <div class="bg-light border rounded p-3 d-flex flex-column gap-2 section-panel section-panel--media">
               <label class="form-label small fw-medium mb-0 d-flex align-items-center gap-2">
                 <Upload style="width:16px;height:16px" /> Photos du lieu (optionnel)
               </label>
@@ -184,31 +198,137 @@
             </div>
 
             <!-- Compétences -->
-            <div class="bg-light border rounded p-3">
-              <label class="form-label small fw-medium">Compétences requises</label>
+            <div class="bg-light border rounded p-3 section-panel section-panel--skills">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <label class="form-label small fw-medium mb-0">Compétences requises</label>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  @click="isSkillsDropdownOpen = !isSkillsDropdownOpen">
+                  {{ isSkillsDropdownOpen ? 'Fermer la liste' : 'Ouvrir la liste' }}
+                </button>
+              </div>
               <div v-if="isLoadingCompetences" class="text-muted small mb-2">Chargement des compétences...</div>
               <div v-else-if="competencesError" class="text-danger small mb-2">{{ competencesError }}</div>
-              <div class="row g-2">
-                <div v-for="skill in competencesList" :key="skill.id" class="col-6 d-flex align-items-center gap-2">
-                  <input
-                    type="checkbox"
-                    class="form-check-input"
-                    :id="`skill-${skill.id}`"
-                    :checked="formData.competenceIds.includes(skill.id)"
-                    @change="toggleSkill(skill.id)"
-                  />
-                  <label :for="`skill-${skill.id}`" class="form-check-label small" style="cursor:pointer">
-                    {{ skill.name }}
-                  </label>
+
+              <div class="mb-2">
+                <input
+                  v-model="competencesSearch"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="Rechercher une compétence..."
+                  @focus="isSkillsDropdownOpen = true"
+                />
+              </div>
+
+              <div v-if="isSkillsDropdownOpen" class="skills-dropdown border rounded bg-white mb-2">
+                <button
+                  v-for="skill in filteredCompetences"
+                  :key="skill.id"
+                  type="button"
+                  class="skills-option"
+                  @click="toggleSkill(skill.id)">
+                  <span>{{ skill.name }}</span>
+                  <span v-if="formData.competenceIds.includes(skill.id)" class="badge rounded-pill text-bg-success">Ajoutée</span>
+                </button>
+                <div v-if="filteredCompetences.length === 0" class="small text-muted p-2">
+                  Aucune compétence trouvée.
                 </div>
               </div>
-              <p v-if="selectedSkillsLabels.length > 0" class="small text-muted mt-2 mb-0">
-                Sélectionnées : {{ selectedSkillsLabels.join(', ') }}
-              </p>
+
+              <div v-if="suggestedSkillsForType.length > 0" class="suggestion-box mb-2">
+                <div class="small fw-semibold mb-1">Suggestions pour le type {{ formData.type }}</div>
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                  <span
+                    v-for="skill in suggestedSkillsForType"
+                    :key="`suggested-${skill.id}`"
+                    class="badge rounded-pill text-bg-light border">
+                    {{ skill.name }}
+                  </span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-success" @click="addSuggestedSkills">
+                  Ajouter les suggestions
+                </button>
+              </div>
+
+              <div v-if="selectedSkills.length > 0" class="d-flex flex-wrap gap-1">
+                <button
+                  v-for="skill in selectedSkills"
+                  :key="`selected-${skill.id}`"
+                  type="button"
+                  class="skill-chip"
+                  @click="removeSkill(skill.id)">
+                  {{ skill.name }} ×
+                </button>
+              </div>
+              <p v-else class="small text-muted mb-0">Aucune compétence sélectionnée.</p>
+            </div>
+
+            <!-- Compétences récompensées -->
+            <div class="bg-light border rounded p-3 section-panel section-panel--rewards">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <label class="form-label small fw-medium mb-0">Compétences gagnées (points)</label>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  @click="isRewardsDropdownOpen = !isRewardsDropdownOpen">
+                  {{ isRewardsDropdownOpen ? 'Fermer la liste' : 'Ouvrir la liste' }}
+                </button>
+              </div>
+
+              <div class="mb-2">
+                <input
+                  v-model="rewardCompetencesSearch"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="Rechercher une compétence à récompenser..."
+                  @focus="isRewardsDropdownOpen = true"
+                />
+              </div>
+
+              <div v-if="isRewardsDropdownOpen" class="skills-dropdown border rounded bg-white mb-2">
+                <button
+                  v-for="skill in filteredRewardCompetences"
+                  :key="`reward-${skill.id}`"
+                  type="button"
+                  class="skills-option"
+                  @click="toggleRewardSkill(skill.id)">
+                  <span>{{ skill.name }}</span>
+                  <span v-if="rewardedSkillIds.includes(skill.id)" class="badge rounded-pill text-bg-success">Ajoutée</span>
+                </button>
+                <div v-if="filteredRewardCompetences.length === 0" class="small text-muted p-2">
+                  Aucune compétence trouvée.
+                </div>
+              </div>
+
+              <div v-if="selectedRewardSkills.length > 0" class="d-flex flex-column gap-2">
+                <div
+                  v-for="rewardSkill in selectedRewardSkills"
+                  :key="`selected-reward-${rewardSkill.id}`"
+                  class="border rounded bg-white p-2 d-flex flex-wrap align-items-center gap-2">
+                  <span class="small fw-medium">{{ rewardSkill.name }}</span>
+                  <span class="small text-muted">points</span>
+                  <input
+                    :value="rewardSkill.points"
+                    type="number"
+                    min="1"
+                    class="form-control form-control-sm"
+                    style="max-width: 120px"
+                    @input="updateRewardPoints(rewardSkill.id, $event.target.value)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger ms-auto"
+                    @click="removeRewardSkill(rewardSkill.id)">
+                    Retirer
+                  </button>
+                </div>
+              </div>
+              <p v-else class="small text-muted mb-0">Aucune compétence récompensée.</p>
             </div>
 
             <!-- Responsable -->
-            <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
+            <div class="bg-light border rounded p-3 d-flex flex-column gap-3 section-panel section-panel--owner">
               <h6 class="fw-medium mb-0">Responsable de la mission</h6>
               <div>
                 <label class="form-label small fw-medium">Nom du responsable *</label>
@@ -235,7 +355,7 @@
             </div>
 
             <!-- Options -->
-            <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
+            <div class="bg-light border rounded p-3 d-flex flex-column gap-3 section-panel section-panel--options">
               <h6 class="fw-medium mb-0">Options de la mission</h6>
               <div v-for="opt in switchOptions" :key="opt.key" class="d-flex align-items-center justify-content-between">
                 <div>
@@ -282,7 +402,7 @@ import eventService from '@/services/eventService'
 import missionService from '@/services/missionService'
 import competenceService from '@/services/competenceService'
 import userService from '@/services/userService'
-import chatService from '@/services/chatService'
+import chatApiService from '@/services/chatApiService'
 import { distanceInMeters, extractGoogleMapsCoordinates, formatRadius } from '@/utils/googleMaps'
 import { useToast } from '@/composables/useToast'
 
@@ -308,19 +428,30 @@ const formData = reactive({
   location: '', description: '', type: '', maxVolunteers: '',
   backupVolunteers: '', responsibleUserId: '', responsiblePhone: '',
   responsibleEmail: '', googleMapsUrl: '',
-  postable: true, inscription: true, public: true,
+  postable: true, public: true,
   imageUrl: '', imageFile: null, photoFiles: [],
   competenceIds: [],
+  rewardCompetences: [],
 })
 
 const photos = ref([])
 const fieldErrors = ref({})
 const submitError = ref('')
 const mainImagePreviewUrl = ref('')
+const competencesSearch = ref('')
+const isSkillsDropdownOpen = ref(false)
+const rewardCompetencesSearch = ref('')
+const isRewardsDropdownOpen = ref(false)
+
+const timePresets = [
+  { label: 'Matin', start: '08:00', end: '12:00' },
+  { label: 'Après-midi', start: '13:00', end: '17:00' },
+  { label: 'Soir', start: '18:00', end: '22:00' },
+  { label: 'Journée', start: '09:00', end: '18:00' },
+]
 
 const switchOptions = [
   { key: 'postable',    label: 'Postable',           desc: 'Les bénévoles peuvent postuler' },
-  { key: 'inscription', label: 'Inscription requise', desc: 'Inscription obligatoire pour participer' },
   { key: 'public',      label: 'Mission publique',    desc: 'Visible par tous les bénévoles' },
 ]
 
@@ -342,6 +473,52 @@ const selectedSkillsLabels = computed(() =>
     .filter((skill) => formData.competenceIds.includes(skill.id))
     .map((skill) => skill.name)
 )
+
+const selectedSkills = computed(() =>
+  competencesList.value.filter((skill) => formData.competenceIds.includes(skill.id))
+)
+
+const filteredCompetences = computed(() => {
+  const query = competencesSearch.value.trim().toLowerCase()
+  if (!query) return competencesList.value
+  return competencesList.value.filter((skill) => skill.name.toLowerCase().includes(query))
+})
+
+const filteredRewardCompetences = computed(() => {
+  const query = rewardCompetencesSearch.value.trim().toLowerCase()
+  if (!query) return competencesList.value
+  return competencesList.value.filter((skill) => skill.name.toLowerCase().includes(query))
+})
+
+const rewardedSkillIds = computed(() =>
+  (Array.isArray(formData.rewardCompetences) ? formData.rewardCompetences : [])
+    .map((entry) => Number(entry.id))
+    .filter((id) => !Number.isNaN(id))
+)
+
+const selectedRewardSkills = computed(() =>
+  (Array.isArray(formData.rewardCompetences) ? formData.rewardCompetences : [])
+    .map((entry) => {
+      const id = Number(entry.id)
+      const points = Number(entry.points || 0)
+      const skill = competencesList.value.find((item) => item.id === id)
+      return {
+        id,
+        points: points > 0 ? points : 1,
+        name: skill?.name || `Compétence #${id}`,
+      }
+    })
+    .filter((entry) => !Number.isNaN(entry.id))
+)
+
+const suggestedSkillsForType = computed(() => {
+  const type = String(formData.type || '').trim().toLowerCase()
+  if (!type) return []
+
+  return competencesList.value.filter((skill) =>
+    Array.isArray(skill.missionTypes) && skill.missionTypes.includes(type)
+  )
+})
 
 const usedEventPlaces = computed(() =>
   eventMissions.value.reduce((sum, mission) => sum + Number(mission.maxVolunteers || 0), 0)
@@ -377,6 +554,10 @@ const quotaError = computed(() => {
 })
 
 const locationPerimeterError = computed(() => {
+  if ((selectedEvent.value?.locationMode || 'manual') !== 'manual') {
+    return ''
+  }
+
   if (!selectedEvent.value?.googleMapsUrl || !selectedEvent.value?.radiusMeters || !formData.googleMapsUrl) {
     return ''
   }
@@ -393,12 +574,51 @@ const locationPerimeterError = computed(() => {
   return `La mission est hors périmètre. Distance estimée: ${Math.round(distance)} m, périmètre autorisé: ${formatRadius(selectedEvent.value.radiusMeters)}.`
 })
 
+const missionDurationLabel = computed(() => {
+  if (!formData.startTime || !formData.endTime) return 'Non définie'
+
+  const [startHour, startMinute] = formData.startTime.split(':').map(Number)
+  const [endHour, endMinute] = formData.endTime.split(':').map(Number)
+  if ([startHour, startMinute, endHour, endMinute].some(Number.isNaN)) return 'Non définie'
+
+  let duration = (endHour * 60 + endMinute) - (startHour * 60 + startMinute)
+  if (duration <= 0) duration += 24 * 60
+
+  const hours = Math.floor(duration / 60)
+  const minutes = duration % 60
+  if (!hours) return `${minutes} min`
+  if (!minutes) return `${hours}h`
+  return `${hours}h${String(minutes).padStart(2, '0')}`
+})
+
 const handleEventChange = () => {
   const selected = eventsList.value.find(e => e.id === formData.eventId)
   if (selected) {
     formData.date = selected.startDate || selected.date || ''
     formData.location = selected.location || ''
   }
+}
+
+const applyTimePreset = (preset) => {
+  formData.startTime = preset.start
+  formData.endTime = preset.end
+}
+
+const adjustEndTime = (minutesDelta) => {
+  if (!formData.startTime && !formData.endTime) return
+  const base = formData.endTime || formData.startTime
+  if (!base) return
+
+  const [hour, minute] = base.split(':').map(Number)
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return
+
+  let totalMinutes = (hour * 60) + minute + minutesDelta
+  const dayMinutes = 24 * 60
+  totalMinutes = ((totalMinutes % dayMinutes) + dayMinutes) % dayMinutes
+
+  const h = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
+  const m = String(totalMinutes % 60).padStart(2, '0')
+  formData.endTime = `${h}:${m}`
 }
 
 const toggleSkill = (competenceId) => {
@@ -411,6 +631,48 @@ const toggleSkill = (competenceId) => {
     current.push(numericId)
   } else {
     current.splice(index, 1)
+  }
+}
+
+const removeSkill = (competenceId) => {
+  const numericId = Number(competenceId)
+  if (Number.isNaN(numericId)) return
+  formData.competenceIds = formData.competenceIds.filter((id) => id !== numericId)
+}
+
+const toggleRewardSkill = (competenceId) => {
+  const numericId = Number(competenceId)
+  if (Number.isNaN(numericId)) return
+
+  const current = Array.isArray(formData.rewardCompetences) ? formData.rewardCompetences : []
+  const index = current.findIndex((entry) => Number(entry.id) === numericId)
+
+  if (index === -1) {
+    current.push({ id: numericId, points: 10 })
+  } else {
+    current.splice(index, 1)
+  }
+}
+
+const updateRewardPoints = (competenceId, value) => {
+  const numericId = Number(competenceId)
+  const numericPoints = Math.max(1, Number(value || 0))
+  const target = formData.rewardCompetences.find((entry) => Number(entry.id) === numericId)
+  if (!target) return
+  target.points = Number.isNaN(numericPoints) ? 1 : numericPoints
+}
+
+const removeRewardSkill = (competenceId) => {
+  const numericId = Number(competenceId)
+  if (Number.isNaN(numericId)) return
+  formData.rewardCompetences = formData.rewardCompetences.filter((entry) => Number(entry.id) !== numericId)
+}
+
+const addSuggestedSkills = () => {
+  for (const skill of suggestedSkillsForType.value) {
+    if (!formData.competenceIds.includes(skill.id)) {
+      formData.competenceIds.push(skill.id)
+    }
   }
 }
 
@@ -475,6 +737,9 @@ const loadCompetences = async () => {
       ? rows.map((row) => ({
         id: Number(row.id_competence),
         name: row.nom_competence,
+        missionTypes: Array.isArray(row.types_mission_suggeres)
+          ? row.types_mission_suggeres.map((t) => String(t).toLowerCase())
+          : [],
       }))
       : []
   } catch (error) {
@@ -520,7 +785,16 @@ const handleSubmit = async () => {
 
   try {
     const createdMissionPayload = await missionService.create(formData)
-    chatService.ensureMissionGroupConversation(createdMissionPayload, user?.id)
+
+    const missionId = createdMissionPayload?.id_mission ?? createdMissionPayload?.id
+    if (missionId) {
+      await chatApiService.ensureMissionConversation({
+        missionId,
+        name: `${formData.name} • ${selectedEvent.value?.name || 'Événement'}`,
+        participantIds: [user?.id].filter(Boolean),
+      })
+    }
+
     toast.success('Mission créée avec succès.')
     router.push('/manage-missions')
   } catch (error) {
@@ -540,6 +814,21 @@ watch(selectedResponsible, (responsible) => {
   formData.responsibleEmail = responsible?.email || ''
 })
 
+// Auto-resolve short Google Maps URLs
+watch(() => formData.googleMapsUrl, async (newUrl) => {
+  if (!newUrl || !String(newUrl).includes('maps.app.goo.gl')) return
+  
+  try {
+    const resolved = await missionService.resolveMapsUrl(newUrl)
+    if (resolved && resolved !== newUrl) {
+      formData.googleMapsUrl = resolved
+    }
+  } catch (error) {
+    console.warn('Failed to resolve maps URL:', error.message)
+    // Keep the original URL if resolution fails
+  }
+})
+
 onMounted(async () => {
   await Promise.all([loadEvents(), loadCompetences(), loadResponsibles()])
 })
@@ -547,4 +836,106 @@ onMounted(async () => {
 watch(formData, () => {
   if (Object.keys(fieldErrors.value).length > 0) validateForm()
 }, { deep: true })
+
+watch(() => formData.type, () => {
+  if (suggestedSkillsForType.value.length > 0) {
+    isSkillsDropdownOpen.value = true
+  }
+})
 </script>
+
+<style scoped>
+.mission-form-card {
+  border-radius: 1rem;
+}
+
+.mission-form-header {
+  border-bottom: 1px solid #e6edf2;
+  background: linear-gradient(135deg, #f6fbff 0%, #f9f7ff 100%);
+}
+
+.mission-form-body {
+  background: #fcfdff;
+}
+
+.time-helper-box {
+  border: 1px dashed #c7d9f8;
+  border-radius: 0.75rem;
+  background: #f4f8ff;
+  padding: 0.75rem;
+}
+
+.section-panel {
+  border-color: #dfe8ef !important;
+  background: #f8fafc !important;
+}
+
+.section-panel--maps {
+  border-left: 4px solid #2b7fff;
+}
+
+.section-panel--media {
+  border-left: 4px solid #f39c3d;
+}
+
+.section-panel--skills {
+  border-left: 4px solid #22a06b;
+}
+
+.section-panel--rewards {
+  border-left: 4px solid #c084fc;
+}
+
+.skills-dropdown {
+  max-height: 210px;
+  overflow: auto;
+}
+
+.skills-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: none;
+  border-bottom: 1px solid #eef2f7;
+  background: #fff;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+}
+
+.skills-option:hover {
+  background: #f6faff;
+}
+
+.suggestion-box {
+  border: 1px dashed #a8d5bf;
+  border-radius: 0.65rem;
+  padding: 0.6rem;
+  background: #f3fbf6;
+}
+
+.skill-chip {
+  border: 1px solid #c6d4ea;
+  background: #eef4ff;
+  color: #26406b;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.section-panel--owner {
+  border-left: 4px solid #5f6ad4;
+}
+
+.section-panel--options {
+  border-left: 4px solid #7a7f87;
+}
+
+@media (max-width: 576px) {
+  .time-helper-box .btn {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.78rem;
+  }
+}
+</style>

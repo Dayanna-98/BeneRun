@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-public function up(): void
+    public function up(): void
     {
         Schema::create('evenements', function (Blueprint $table) {
             $table->id('id_evenement');
@@ -31,9 +31,9 @@ public function up(): void
             $table->boolean('est_publie_evenement')->default(false);
             $table->unsignedBigInteger('cree_par_utilisateur_id');
             $table->foreign('cree_par_utilisateur_id')
-              ->references('id_utilisateur')
-              ->on('users')
-              ->cascadeOnDelete();
+                ->references('id_utilisateur')
+                ->on('users')
+                ->cascadeOnDelete();
             $table->timestamps();
         });
     }

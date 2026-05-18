@@ -25,9 +25,9 @@ return new class extends Migration
 
             // Clé étrangère
             $table->foreign('id_utilisateur')
-                  ->references('id_utilisateur')
-                  ->on('users')
-                  ->cascadeOnDelete();
+                ->references('id_utilisateur')
+                ->on('users')
+                ->cascadeOnDelete();
         });
     }
 

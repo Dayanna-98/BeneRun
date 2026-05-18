@@ -13,9 +13,31 @@ const competenceService = {
 
   removeFromUser: (userId, competenceId) => api.delete(`/users/${userId}/competences/${competenceId}`).then(r => r.data),
 
-  create: (nom) => api.post('/competences', { nom_competence: nom }).then(r => r.data),
+  create: (payload) => {
+    const body = typeof payload === 'string'
+      ? { nom_competence: payload, types_mission_suggeres: [] }
+      : {
+        nom_competence: payload?.nom_competence,
+        types_mission_suggeres: Array.isArray(payload?.types_mission_suggeres)
+          ? payload.types_mission_suggeres
+          : [],
+      }
 
-  update: (id, nom) => api.put(`/competences/${id}`, { nom_competence: nom }).then(r => r.data),
+    return api.post('/competences', body).then(r => r.data)
+  },
+
+  update: (id, payload) => {
+    const body = typeof payload === 'string'
+      ? { nom_competence: payload, types_mission_suggeres: [] }
+      : {
+        nom_competence: payload?.nom_competence,
+        types_mission_suggeres: Array.isArray(payload?.types_mission_suggeres)
+          ? payload.types_mission_suggeres
+          : [],
+      }
+
+    return api.put(`/competences/${id}`, body).then(r => r.data)
+  },
 
   delete: (id) => api.delete(`/competences/${id}`).then(r => r.data),
 }

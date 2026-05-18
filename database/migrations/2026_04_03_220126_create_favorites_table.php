@@ -19,14 +19,14 @@ return new class extends Migration
 
             // Clés étrangères
             $table->foreign('id_utilisateur')
-                  ->references('id_utilisateur')
-                  ->on('users')
-                  ->cascadeOnDelete();
+                ->references('id_utilisateur')
+                ->on('users')
+                ->cascadeOnDelete();
 
             $table->foreign('id_mission')
-                  ->references('id_mission')
-                  ->on('missions')
-                  ->cascadeOnDelete();
+                ->references('id_mission')
+                ->on('missions')
+                ->cascadeOnDelete();
         });
     }
 

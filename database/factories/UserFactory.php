@@ -2,12 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -40,8 +41,6 @@ class UserFactory extends Factory
             'possede_vehicule_utilisateur' => false,
             'taille_tshirt_utilisateur' => fake()->randomElement(['XS', 'S', 'M', 'L', 'XL']),
             'est_anonyme_utilisateur' => false,
-            'est_suspendu_utilisateur' => false,
-            'raison_suspension_utilisateur' => null,
             'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
             'nombre_missions_utilisateur' => 0,
             'remember_token' => Str::random(10),

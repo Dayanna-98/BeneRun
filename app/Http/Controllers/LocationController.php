@@ -20,7 +20,7 @@ class LocationController extends Controller
         ]);
 
         $user = $request->user();
-        $cacheKey = 'user_location_' . $user->id_utilisateur;
+        $cacheKey = 'user_location_'.$user->id_utilisateur;
 
         // Stocker en cache pour 5 minutes
         Cache::put($cacheKey, [
@@ -45,10 +45,10 @@ class LocationController extends Controller
     public function getLocation(Request $request)
     {
         $user = $request->user();
-        $cacheKey = 'user_location_' . $user->id_utilisateur;
+        $cacheKey = 'user_location_'.$user->id_utilisateur;
         $location = Cache::get($cacheKey);
 
-        if (!$location) {
+        if (! $location) {
             return response()->json([
                 'message' => 'Aucune localisation trouvée',
                 'location' => null,
@@ -73,12 +73,12 @@ class LocationController extends Controller
         $locations = [];
 
         // Récupérer toutes les localisations en cache
-        $allKeys = collect(Cache::getStore()->getPrefix() . 'user_location_*')->toArray();
-        
+        $allKeys = collect(Cache::getStore()->getPrefix().'user_location_*')->toArray();
+
         // Alternative plus efficace: utiliser Redis si disponible
         // Sinon, on peut faire une requête groupée
         foreach (range(1, 10000) as $userId) {
-            $cacheKey = 'user_location_' . $userId;
+            $cacheKey = 'user_location_'.$userId;
             $location = Cache::get($cacheKey);
             if ($location && $userId !== $user->id_utilisateur) {
                 $locations[] = $location;
@@ -97,7 +97,7 @@ class LocationController extends Controller
     public function deleteLocation(Request $request)
     {
         $user = $request->user();
-        $cacheKey = 'user_location_' . $user->id_utilisateur;
+        $cacheKey = 'user_location_'.$user->id_utilisateur;
         Cache::forget($cacheKey);
 
         return response()->json([

@@ -38,6 +38,8 @@ class DatabaseSeeder extends Seeder
     {
         $defaultPassword = Hash::make('password');
         $emmaPassword = Hash::make('Soleil1234');
+        $marcPassword = Hash::make('chocolat1');
+        $leoPassword = Hash::make('tagada2');
         $dayannaPassword = Hash::make('vanille18');
         $sofianPassword = Hash::make('fraise23');
 
@@ -227,6 +229,8 @@ class DatabaseSeeder extends Seeder
                 ...$row,
                 'password' => match ($key) {
                     'emma' => $emmaPassword,
+                    'marc' => $marcPassword,
+                    'leo' => $leoPassword,
                     'dayanna' => $dayannaPassword,
                     'sofian' => $sofianPassword,
                     default => $defaultPassword,
@@ -619,6 +623,8 @@ class DatabaseSeeder extends Seeder
     private function seedAffectations(array $users, array $missions): void
     {
         $rows = [
+            [$users['emma'], $missions['ravitaillement'], 'assigne', false, 'Suivi global superadmin.', now()->subDays(6), null, null],
+            [$users['emma'], $missions['signalisation'], 'confirme', false, 'Validation planning communication.', now()->subDays(5), now()->subDays(4), null],
             [$users['marc'], $missions['ravitaillement'], 'assigne', true, 'Responsable mission.', now()->subDays(8), null, null],
             [$users['dayanna'], $missions['ravitaillement'], 'confirme', false, 'Disponible dès 07h15.', now()->subDays(6), now()->subDays(4), null],
             [$users['leo'], $missions['ravitaillement'], 'assigne', false, 'Renfort ravitaillement.', now()->subDays(5), null, null],

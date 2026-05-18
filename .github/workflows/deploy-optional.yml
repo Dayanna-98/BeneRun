@@ -1,0 +1,45 @@
+name: Optional Deploy
+
+# Déclenché manuellement ou après succès des tests sur main
+on:
+  workflow_dispatch:  # Permet de déclencher manuellement
+  workflow_run:
+    workflows: ["Tests CI/CD"]
+    branches: [main, front-end]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} || ${{ github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to production
+        run: |
+          echo "🚀 Déploiement en production..."
+          echo "Connecte-toi à ton serveur et exécute:"
+          echo "  git pull origin main"
+          echo "  composer install --no-dev --optimize-autoloader"
+          echo "  npm install && npm run build"
+          echo "  php artisan migrate --force"
+          echo "  php artisan cache:clear"
+        
+        # Exemple avec SSH (à configurer):
+        # - name: Deploy via SSH
+        #   uses: appleboy/ssh-action@master
+        #   with:
+        #     host: ${{ secrets.HOST }}
+        #     username: ${{ secrets.SSH_USER }}
+        #     key: ${{ secrets.SSH_KEY }}
+        #     script: |
+        #       cd /var/www/benerun
+        #       git pull origin main
+        #       composer install --no-dev --optimize-autoloader
+        #       npm install && npm run build
+        #       php artisan migrate --force
+        #       php artisan cache:clear
+        #       php artisan queue:restart

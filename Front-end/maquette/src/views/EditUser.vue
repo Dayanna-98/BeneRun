@@ -97,11 +97,6 @@
                 <input v-model="editForm.address" class="form-control" />
               </div>
             </div>
-
-            <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2" @click="handleSaveInfo">
-              <Save style="width:16px;height:16px" />
-              Enregistrer les informations
-            </button>
           </div>
         </div>
 
@@ -139,7 +134,7 @@
                 <button type="button" class="btn btn-outline-secondary flex-fill" @click="router.go(-1)">Annuler</button>
                 <button type="submit" class="btn btn-primary flex-fill d-flex align-items-center justify-content-center gap-2">
                   <Save style="width:16px;height:16px" />
-                  Enregistrer
+                  Appliquer le rôle
                 </button>
               </div>
             </form>
@@ -340,39 +335,22 @@
                 <EyeOff style="width:16px;height:16px" />
                 {{ targetUser.anonymous ? "Retirer l'anonymat" : 'Rendre anonyme' }}
               </button>
-              <button class="btn btn-danger d-flex align-items-center justify-content-center gap-2"
-                @click="showSuspendDialog = true">
-                <UserX style="width:16px;height:16px" />
-                Suspendre le compte
-              </button>
             </template>
+          </div>
+        </div>
+
+        <div v-if="!targetUser.suspended" class="card">
+          <div class="card-header"><h5 class="mb-0">Actions de sauvegarde</h5></div>
+          <div class="card-body">
+            <button class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2" @click="handleSaveInfo">
+              <Save style="width:16px;height:16px" />
+              Enregistrer les informations
+            </button>
           </div>
         </div>
 
       </div>
     </template>
-
-    <!-- Modal Suspension -->
-    <Teleport to="body">
-      <div v-if="showSuspendDialog" class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Suspendre le compte ?</h5>
-            </div>
-            <div class="modal-body">
-              Êtes-vous sûr de vouloir suspendre le compte de
-              <strong>{{ targetUser?.firstName }} {{ targetUser?.lastName }}</strong> ?
-              L'utilisateur ne pourra plus accéder à la plateforme tant que le compte n'est pas réactivé.
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-outline-secondary" @click="showSuspendDialog = false">Annuler</button>
-              <button class="btn btn-danger" @click="handleSuspend">Suspendre</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- Modal Anonymisation -->
     <Teleport to="body">
@@ -487,7 +465,6 @@ onMounted(async () => {
 })
 
 const selectedRole = ref('volunteer')
-const showSuspendDialog = ref(false)
 const showAnonymizeDialog = ref(false)
 const showReactivateDialog = ref(false)
 const allCompetences = ref([])
@@ -774,28 +751,6 @@ const handleSubmit = async () => {
     router.push('/manage-users')
   } catch (error) {
     alert(error.message || 'Erreur lors de la modification du rôle')
-  }
-}
-const handleSuspend = async () => {
-  if (!targetUser.value?.id) {
-    alert('Impossible de suspendre cet utilisateur (ID manquant).')
-    return
-  }
-
-  try {
-    const response = await userService.update(targetUser.value.id, toUpdatePayload({
-      isSuspended: true,
-      suspensionReason: 'Suspendu par super-admin',
-    }))
-    if (response.user) {
-      targetUser.value = response.user
-      syncCurrentUserIfNeeded(response.user)
-    }
-    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} suspendu.`)
-    showSuspendDialog.value = false
-    router.push('/manage-users')
-  } catch (error) {
-    alert(error.message || 'Erreur lors de la suspension')
   }
 }
 const handleAnonymize = async () => {

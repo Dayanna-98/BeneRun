@@ -42,10 +42,12 @@
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de début</label>
                 <input v-model="formData.startTime" type="time" class="form-control" />
+                <div class="form-text x-small text-muted">Heure à laquelle débute la date de début</div>
               </div>
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de fin</label>
                 <input v-model="formData.endTime" type="time" class="form-control" />
+                <div class="form-text x-small text-muted">Heure à laquelle se termine la date de fin</div>
               </div>
             </div>
 
@@ -89,6 +91,34 @@
 
             <div class="bg-light border rounded p-3 d-flex flex-column gap-3">
               <div>
+                <label class="form-label small fw-medium d-block">Mode de périmètre *</label>
+                <div class="d-flex flex-column gap-2">
+                  <label class="form-check mb-0">
+                    <input
+                      v-model="formData.locationMode"
+                      class="form-check-input"
+                      type="radio"
+                      value="manual"
+                    />
+                    <span class="form-check-label">
+                      Centre + rayon manuel
+                    </span>
+                  </label>
+                  <label class="form-check mb-0">
+                    <input
+                      v-model="formData.locationMode"
+                      class="form-check-input"
+                      type="radio"
+                      value="missions"
+                    />
+                    <span class="form-check-label">
+                      Périmètre calculé depuis les points des missions liées
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="formData.locationMode === 'manual'">
                 <label class="form-label small fw-medium">Lien Google Maps du centre *</label>
                 <input
                   v-model="formData.googleMapsUrl"
@@ -101,7 +131,7 @@
                 <div class="form-text">Le lien doit contenir le point central du périmètre de l'événement.</div>
               </div>
 
-              <div>
+              <div v-if="formData.locationMode === 'manual'">
                 <label class="form-label small fw-medium">Périmètre autorisé (mètres) *</label>
                 <input
                   v-model="formData.radiusMeters"
@@ -116,10 +146,16 @@
               </div>
 
               <LeafletPreview
+                v-if="formData.locationMode === 'manual'"
                 :maps-url="formData.googleMapsUrl"
                 :radius-meters="formData.radiusMeters"
                 link-label="Ouvrir le centre dans Google Maps"
               />
+
+              <div v-else class="alert alert-info small mb-0">
+                Le périmètre sera automatiquement construit à partir des points de toutes les missions rattachées à cet événement.
+                Ajoute au moins 3 missions avec un point map pour obtenir un polygone fermé.
+              </div>
             </div>
 
             <div>
@@ -196,6 +232,7 @@ const formData = reactive({
   location: '', description: '',
   organizer: '', category: '', totalVolunteersNeeded: '', imageUrl: '',
   imageFile: null,
+  locationMode: 'manual',
   googleMapsUrl: '', radiusMeters: '1000',
   isPublished: true, isCancelled: false,
   cancellationDate: '', cancellationReason: '',

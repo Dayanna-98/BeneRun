@@ -2,51 +2,74 @@
   <div class="min-vh-100 bg-light pb-5">
 
     <!-- Header -->
-    <header class="text-white p-4 pb-5 position-relative overflow-hidden"
-      style="background: linear-gradient(135deg, #1a2230 0%, #2d3a4a 100%)">
-      <div class="position-relative" style="z-index:1">
-        <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="bg-white rounded-3 p-2 shadow">
-            <img src="@/assets/logo.png" alt="Béné'Run" style="height:40px;width:auto" />
+    <header class="dashboard-hero text-white position-relative overflow-hidden">
+      <div class="dashboard-shell position-relative" style="z-index:1">
+        <div class="row g-4 align-items-stretch">
+          <div class="col-12 col-lg-7">
+            <div class="dashboard-hero-card h-100">
+              <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="bg-white rounded-4 p-2 shadow-sm">
+                  <img src="@/assets/logo.png" alt="Béné'Run" style="height:44px;width:auto" />
+                </div>
+                <div>
+                  <div class="small text-white-50 fw-medium text-uppercase dashboard-kicker">Béné'Run</div>
+                  <div class="fw-bold text-warning">{{ user.accountType }}</div>
+                </div>
+              </div>
+
+              <h1 class="dashboard-title mb-2">Bonjour {{ user.firstName }} <span class="dashboard-wave">👋</span></h1>
+              <p class="dashboard-subtitle mb-4">
+                <span v-if="user.role === 'volunteer'">Prêt(e) à faire la différence aujourd'hui ?</span>
+                <span v-else-if="user.role === 'mission_manager'">Gérez vos missions efficacement</span>
+                <span v-else-if="user.role === 'admin'">Pilotez vos événements avec succès</span>
+                <span v-else-if="user.role === 'superadmin'">Pilotez la plateforme, les comptes et les urgences depuis un seul espace.</span>
+              </p>
+
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-light btn-sm px-3" @click="router.push('/manage-users')" v-if="user.role === 'superadmin'">
+                  Gérer les comptes
+                </button>
+                <button class="btn btn-outline-light btn-sm px-3" @click="router.push('/statistics')" v-if="user.role === 'superadmin'">
+                  Voir les statistiques
+                </button>
+                <button class="btn btn-outline-light btn-sm px-3" @click="router.push('/my-missions')" v-if="user.role !== 'superadmin'">
+                  Voir mes missions
+                </button>
+              </div>
+            </div>
           </div>
-          <div>
-            <div class="small text-white-50 fw-medium">Béné'Run</div>
-            <div class="small fw-bold text-warning">{{ user.accountType }}</div>
+
+          <div class="col-12 col-lg-5">
+            <div class="dashboard-stats-grid h-100">
+              <div class="dashboard-stat-card dashboard-stat-card-dark">
+                <div class="dashboard-stat-label">Missions</div>
+                <div class="dashboard-stat-value">{{ totalMissions }}</div>
+                <div class="dashboard-stat-note">Total suivies sur la plateforme</div>
+              </div>
+              <div class="dashboard-stat-card dashboard-stat-card-accent">
+                <div class="dashboard-stat-label">Badges</div>
+                <div class="dashboard-stat-value">{{ badges.length }}</div>
+                <div class="dashboard-stat-note">Distinctions déjà obtenues</div>
+              </div>
+              <div class="dashboard-stat-card">
+                <div class="dashboard-stat-label">En cours</div>
+                <div class="dashboard-stat-value">{{ myActiveMissions.length }}</div>
+                <div class="dashboard-stat-note">Missions actuellement actives</div>
+              </div>
+              <div class="dashboard-stat-card">
+                <div class="dashboard-stat-label">Urgences</div>
+                <div class="dashboard-stat-value">{{ user.role === 'superadmin' ? openEmergencyCount : 0 }}</div>
+                <div class="dashboard-stat-note">
+                  {{ user.role === 'superadmin' ? 'Signalements à traiter' : 'Réservé aux super-admins' }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <h1 class="fs-4 fw-bold mb-1">Bonjour {{ user.firstName }} 👋</h1>
-        <p class="text-white-50 small mb-0">
-          <span v-if="user.role === 'volunteer'">Prêt(e) à faire la différence aujourd'hui ?</span>
-          <span v-else-if="user.role === 'mission_manager'">Gérez vos missions efficacement</span>
-          <span v-else-if="user.role === 'admin'">Pilotez vos événements avec succès</span>
-          <span v-else-if="user.role === 'superadmin'">Gérez la plateforme en toute simplicité</span>
-        </p>
       </div>
     </header>
 
-    <div class="px-3 pt-3 mx-auto" style="max-width:576px">
-
-      <!-- Stats -->
-      <div class="row g-3 mb-4">
-        <div class="col-4">
-          <div class="card border-0 shadow-sm text-center p-3">
-            <div class="fs-2 fw-bold text-primary">{{ totalMissions }}</div>
-            <div class="small text-muted">Missions</div>
-          </div>
-        </div>
-        <div class="col-4">
-          <div class="card border-0 shadow-sm text-center p-3" style="background:linear-gradient(135deg,#e8f5a3,#d4e645)">
-            <div class="fs-2 fw-bold text-dark">{{ badges.length }}</div>
-            <div class="small text-dark opacity-75">Badges</div>
-          </div>
-        </div>
-        <div class="col-4">
-          <div class="card border-0 shadow-sm text-center p-3">
-            <div class="fs-2 fw-bold text-warning">{{ myActiveMissions.length }}</div>
-            <div class="small text-muted">En cours</div>
-          </div>
-        </div>
-      </div>
+    <div class="dashboard-shell pt-4">
 
       <!-- Prochaine mission -->
       <div v-if="dashLoading" class="d-flex justify-content-center py-5">
@@ -506,3 +529,119 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.dashboard-hero {
+  padding: 2rem 1rem 2.5rem;
+  background:
+    radial-gradient(circle at top left, rgba(212, 230, 69, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.12), transparent 22%),
+    linear-gradient(135deg, #16202d 0%, #243244 58%, #304153 100%);
+}
+
+.dashboard-shell {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.dashboard-hero-card {
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(9, 14, 22, 0.12), rgba(255, 255, 255, 0.03));
+  box-shadow: 0 24px 60px rgba(8, 12, 20, 0.24);
+  backdrop-filter: blur(8px);
+}
+
+.dashboard-kicker {
+  letter-spacing: 0.08em;
+}
+
+.dashboard-title {
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  font-weight: 800;
+  line-height: 1.02;
+}
+
+.dashboard-subtitle {
+  max-width: 42rem;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 1rem;
+}
+
+.dashboard-wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+}
+
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-stat-card {
+  min-height: 148px;
+  padding: 1.1rem 1.15rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #18202a;
+  box-shadow: 0 18px 40px rgba(11, 17, 26, 0.18);
+}
+
+.dashboard-stat-card-dark {
+  background: linear-gradient(135deg, #101822, #213043);
+  color: #fff;
+}
+
+.dashboard-stat-card-accent {
+  background: linear-gradient(135deg, #edf7ad, #d3e646);
+}
+
+.dashboard-stat-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.dashboard-stat-value {
+  margin-top: 0.5rem;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dashboard-stat-note {
+  margin-top: 0.65rem;
+  font-size: 0.86rem;
+  opacity: 0.72;
+}
+
+@media (max-width: 991.98px) {
+  .dashboard-hero {
+    padding-top: 1.25rem;
+    padding-bottom: 1.75rem;
+  }
+
+  .dashboard-shell {
+    width: min(100%, calc(100% - 1.25rem));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .dashboard-hero-card {
+    padding: 1.2rem;
+    border-radius: 22px;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-stat-card {
+    min-height: auto;
+  }
+}
+</style>

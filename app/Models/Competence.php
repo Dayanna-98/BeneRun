@@ -2,14 +2,25 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Competence extends Model
 {
+    use HasFactory;
+
     protected $table = 'competences';
+
     protected $primaryKey = 'id_competence';
 
-    protected $fillable = ['nom_competence',];
+    protected $fillable = [
+        'nom_competence',
+        'types_mission_suggeres',
+    ];
+
+    protected $casts = [
+        'types_mission_suggeres' => 'array',
+    ];
 
     public function missions()
     {
@@ -28,7 +39,29 @@ class Competence extends Model
             'user_competences',
             'id_competence',
             'id_utilisateur'
-        ->withTimestamps();
+        )->withPivot('niveau_competence')
+            ->withTimestamps();
     }
 
+    public function rewardedInMissions()
+    {
+        return $this->belongsToMany(
+            Mission::class,
+            'mission_reward_competences',
+            'id_competence',
+            'id_mission'
+        )
+            ->withPivot('points_gagnes')
+            ->withTimestamps();
+    }
+
+    public function userPoints()
+    {
+        return $this->hasMany(UserCompetencePoint::class, 'id_competence', 'id_competence');
+    }
+
+    public function badgeRules()
+    {
+        return $this->hasMany(BadgeCompetenceRule::class, 'id_competence', 'id_competence');
+    }
 }

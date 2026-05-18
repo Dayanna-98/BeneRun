@@ -112,15 +112,16 @@
           </div>
         </div>
 
-        <div class="card" v-if="event.googleMapsUrl">
+        <div class="card" v-if="event.locationMode === 'manual' ? !!event.googleMapsUrl : eventBoundaryPoints.length > 0">
           <div class="card-header">
             <h5 class="mb-0">Carte de l'événement</h5>
           </div>
           <div class="card-body">
             <LeafletPreview
               :maps-url="event.googleMapsUrl"
-              :radius-meters="event.radiusMeters"
-              link-label="Ouvrir la carte de l'événement dans Google Maps"
+              :radius-meters="event.locationMode === 'manual' ? event.radiusMeters : null"
+              :boundary-points="event.locationMode === 'missions' ? eventBoundaryPoints : []"
+              :link-label="event.locationMode === 'missions' ? 'Ouvrir la zone des missions dans Google Maps' : 'Ouvrir la carte de l\'événement dans Google Maps'"
             />
           </div>
         </div>
@@ -195,6 +196,7 @@ import api from '@/services/api'
 import eventService from '@/services/eventService'
 import { getCurrentUser } from '@/utils/auth'
 import LeafletPreview from '@/components/maps/LeafletPreview.vue'
+import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 
 const router = useRouter()
 const route = useRoute()
@@ -233,10 +235,18 @@ const mapMissionFromApi = (rawMission, affectationCountMap) => {
     startTime: toTime(rawMission.heure_debut_mission),
     endTime: toTime(rawMission.heure_fin_mission),
     location: rawMission.lieu_mission,
+    googleMapsUrl: rawMission.google_maps_url_mission || '',
     currentVolunteers: Number(rawMission.current_volunteers_count ?? affectationCountMap.get(missionId) ?? 0),
     maxVolunteers: Number(rawMission.nombre_benevoles_max || 0),
   }
 }
+
+const eventBoundaryPoints = computed(() =>
+  eventMissions.value
+    .map((mission) => extractGoogleMapsCoordinates(mission.googleMapsUrl))
+    .filter(Boolean)
+    .map((point) => ({ latitude: point.latitude, longitude: point.longitude }))
+)
 
 const loadEventDetails = async () => {
   isLoading.value = true

@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Postulation extends Model
 {
+    use HasFactory;
+
     protected $primaryKey = 'id_postulation';
+
     protected $fillable = [
         'id_mission',
         'id_evenement',

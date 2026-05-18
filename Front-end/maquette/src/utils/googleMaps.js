@@ -57,8 +57,12 @@ export const getMapZoomForRadius = (radiusMeters) => {
 }
 
 export const buildGoogleMapsEmbedUrl = (mapsUrl, { radiusMeters = null, fallbackCoordinates = null } = {}) => {
+  const input = String(mapsUrl || '').trim()
   const coordinates = extractGoogleMapsCoordinates(mapsUrl) || fallbackCoordinates
-  if (!coordinates) return ''
+  if (!coordinates) {
+    if (!input) return ''
+    return `https://www.google.com/maps?output=embed&q=${encodeURIComponent(input)}`
+  }
 
   const zoom = getMapZoomForRadius(radiusMeters)
   return `https://www.google.com/maps?q=${coordinates.latitude},${coordinates.longitude}&z=${zoom}&output=embed`

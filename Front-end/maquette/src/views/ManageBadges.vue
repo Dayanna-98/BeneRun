@@ -1,34 +1,50 @@
 <template>
 	<div class="min-vh-100 bg-light pb-5">
-		<header class="bg-white border-bottom sticky-top">
+		<header class="text-white sticky-top overflow-hidden"
+			style="background:linear-gradient(135deg,#1a2230 0%,#2d3a4a 100%)">
 			<div class="p-3 d-flex align-items-center justify-content-between">
 				<div class="d-flex align-items-center gap-3">
-					<button class="btn btn-link p-0 text-dark" @click="router.go(-1)">
+					<button class="btn btn-link p-0 text-white" @click="router.go(-1)">
 						<ArrowLeft style="width:24px;height:24px" />
 					</button>
-					<h1 class="fs-5 fw-semibold mb-0">Gestion des badges</h1>
+					<div class="d-flex align-items-center gap-3">
+						<div class="rounded-3 p-2 d-flex align-items-center justify-content-center"
+							style="background:rgba(255,255,255,.15);width:40px;height:40px">
+							<Award style="width:22px;height:22px;color:#f5d020" />
+						</div>
+						<div>
+							<div class="x-small" style="color:rgba(255,255,255,.5)">Administration</div>
+							<div class="fs-5 fw-bold">Badges</div>
+						</div>
+					</div>
 				</div>
-				<button v-if="canEdit" class="btn btn-primary btn-sm d-flex align-items-center gap-2" @click="openCreateModal">
-					<Plus style="width:16px;height:16px" /> Ajouter
+
+			</div>
+			<div class="px-3 pb-3 d-flex align-items-center justify-content-between gap-2">
+				<div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+					style="background:rgba(255,255,255,.12)">
+					<Award style="width:14px;height:14px;color:#f5d020" />
+					<span class="small fw-semibold">{{ badges.length }} badge{{ badges.length !== 1 ? 's' : '' }}</span>
+				</div>
+				<button v-if="canEdit"
+					class="btn btn-sm fw-semibold d-flex align-items-center gap-2 px-3 rounded-pill flex-shrink-0"
+					style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+					@click="openCreateModal">
+					<Plus style="width:14px;height:14px" /> Ajouter
 				</button>
 			</div>
 		</header>
 
 		<div class="p-3 mx-auto d-flex flex-column gap-3" style="max-width:768px">
-			<div v-if="!canEdit" class="alert alert-info mb-0">
-				Vous pouvez consulter les badges. Seul un super-administrateur peut les modifier.
+			<div v-if="!canEdit" class="rounded-3 p-3 d-flex align-items-center gap-3 small"
+				style="background:#eff6ff;border-left:4px solid #3b82f6">
+				<Award style="width:18px;height:18px;flex-shrink:0;color:#3b82f6" />
+				<span class="text-muted">Vous pouvez consulter les badges. Seul un super-administrateur peut les modifier.</span>
 			</div>
 
-			<div class="card">
-				<div class="card-body p-3 text-center">
-					<div class="fs-3 fw-bold text-warning">{{ badges.length }}</div>
-					<div class="small text-muted">Badge{{ badges.length !== 1 ? 's' : '' }}</div>
-				</div>
-			</div>
-
-			<div class="input-group">
-				<span class="input-group-text bg-white"><Search style="width:16px;height:16px;color:#6c757d" /></span>
-				<input v-model="search" type="text" class="form-control border-start-0" placeholder="Rechercher un badge..." />
+			<div class="input-group shadow-sm rounded-3 overflow-hidden">
+				<span class="input-group-text bg-white border-0 ps-3"><Search style="width:16px;height:16px;color:#9ca3af" /></span>
+				<input v-model="search" type="text" class="form-control border-0 bg-white" placeholder="Rechercher un badge, une compétence, un seuil..." />
 			</div>
 
 			<div v-if="loading" class="text-center py-4 text-muted">
@@ -37,30 +53,63 @@
 			</div>
 			<div v-else-if="loadError" class="alert alert-danger">{{ loadError }}</div>
 
-			<div v-else class="card">
-				<div class="card-header d-flex align-items-center justify-content-between">
-					<h5 class="mb-0">Tous les badges</h5>
-					<span class="badge bg-warning-subtle text-warning border border-warning-subtle">{{ filtered.length }}</span>
+			<div v-else class="card border-0 shadow-sm" style="border-radius:0.5rem;overflow:hidden">
+				<div class="d-flex align-items-center justify-content-between px-3 py-3"
+					style="background:linear-gradient(135deg,#1a2230,#2d3a4a);border-radius:0.5rem 0.5rem 0 0">
+					<span class="fw-semibold text-white d-flex align-items-center gap-2">
+						<Award style="width:16px;height:16px;color:#f5d020" /> Tous les badges
+					</span>
+					<span class="badge rounded-pill"
+						style="background:rgba(245,208,32,.2);color:#f5d020;border:1px solid rgba(245,208,32,.3)">
+						{{ filtered.length }}
+					</span>
 				</div>
-				<div v-if="filtered.length === 0" class="card-body text-center text-muted py-5">
-					<Award style="width:40px;height:40px;opacity:.3;margin-bottom:8px" />
-					<p class="mb-0">Aucun badge trouvé</p>
+				<div v-if="filtered.length === 0" class="text-center py-5 text-muted">
+					<div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+						style="width:64px;height:64px;background:#f3f4f6">
+						<Award style="width:32px;height:32px;color:#d1d5db" />
+					</div>
+					<p class="small mb-0">Aucun badge trouvé</p>
 				</div>
 				<ul v-else class="list-group list-group-flush">
-					<li v-for="b in filtered" :key="b.id_badge" class="list-group-item py-3">
+					<li v-for="b in filtered" :key="b.id_badge" class="list-group-item py-3 px-3">
 						<div class="d-flex align-items-start justify-content-between gap-3">
-							<div class="flex-fill">
-								<div class="d-flex align-items-center gap-2 mb-1">
-									<Award style="width:18px;height:18px;color:#f39c12" />
-									<span class="fw-semibold">{{ b.titre_badge }}</span>
-									<span class="badge bg-warning text-dark">{{ b.score_badge ?? 0 }} pts</span>
+							<div class="d-flex align-items-start gap-3 flex-fill">
+								<div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+									style="width:42px;height:42px;background:linear-gradient(135deg,#fef3c7,#fde68a)">
+									<Award style="width:20px;height:20px;color:#d97706" />
 								</div>
-								<div v-if="b.description_badge" class="small text-muted">{{ b.description_badge }}</div>
-								<div v-if="b.regle_auto" class="small text-muted fst-italic mt-1">📋 {{ formatRegle(b.regle_auto) }}</div>
+								<div class="flex-fill">
+									<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+										<span class="fw-semibold">{{ b.titre_badge }}</span>
+										<span class="badge rounded-pill px-2"
+											style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;font-size:.7rem">
+											{{ b.score_badge ?? 0 }} pts
+										</span>
+									</div>
+									<div v-if="b.description_badge" class="small text-muted">{{ b.description_badge }}</div>
+									<div v-if="badgeRulesTextList(b).length" class="mt-2 d-flex flex-wrap gap-1">
+										<span
+											v-for="ruleText in badgeRulesTextList(b)"
+											:key="`${b.id_badge}-${ruleText}`"
+											class="badge rounded-pill text-bg-light border">
+											{{ ruleText }}
+										</span>
+									</div>
+									<div v-if="b.regle_auto" class="x-small text-muted fst-italic mt-1">📋 {{ formatRegle(b.regle_auto) }}</div>
+								</div>
 							</div>
 							<div v-if="canEdit" class="d-flex gap-2 flex-shrink-0">
-								<button class="btn btn-outline-primary btn-sm" @click="openEditModal(b)"><Pencil style="width:14px;height:14px" /></button>
-								<button class="btn btn-outline-danger btn-sm" @click="askDelete(b)"><Trash2 style="width:14px;height:14px" /></button>
+								<button class="btn btn-sm rounded-pill px-3"
+									style="background:#eff6ff;color:#3b82f6;border:none"
+									@click="openEditModal(b)">
+									<Pencil style="width:13px;height:13px" />
+								</button>
+								<button class="btn btn-sm rounded-pill px-3"
+									style="background:#fff1f2;color:#ef4444;border:none"
+									@click="askDelete(b)">
+									<Trash2 style="width:13px;height:13px" />
+								</button>
 							</div>
 						</div>
 					</li>
@@ -69,14 +118,19 @@
 		</div>
 
 		<div v-if="showFormModal" class="modal-backdrop-custom" @click.self="closeFormModal">
-			<div class="modal-dialog-custom card shadow-lg">
-				<div class="card-header d-flex align-items-center justify-content-between">
-					<h5 class="mb-0 d-flex align-items-center gap-2">
-						<Pencil v-if="editingId" style="width:18px;height:18px" />
-						<Plus v-else style="width:18px;height:18px" />
+			<div class="modal-dialog-custom card border-0 shadow-lg">
+				<div class="d-flex align-items-center justify-content-between px-4 py-3"
+					style="background:linear-gradient(135deg,#1a2230,#2d3a4a)">
+					<h5 class="mb-0 text-white d-flex align-items-center gap-2">
+						<div class="rounded-2 p-1" style="background:rgba(255,255,255,.15)">
+							<Pencil v-if="editingId" style="width:15px;height:15px;color:#d4e645" />
+							<Plus v-else style="width:15px;height:15px;color:#d4e645" />
+						</div>
 						{{ editingId ? 'Modifier le badge' : 'Nouveau badge' }}
 					</h5>
-					<button class="btn btn-link p-0 text-secondary" @click="closeFormModal"><X style="width:20px;height:20px" /></button>
+					<button class="btn btn-link p-0" style="color:rgba(255,255,255,.6)" @click="closeFormModal">
+						<X style="width:20px;height:20px" />
+					</button>
 				</div>
 				<div class="card-body d-flex flex-column gap-3">
 					<div>
@@ -96,10 +150,50 @@
 						<label class="form-label fw-medium">Règle d'attribution automatique</label>
 						<BadgeRuleBuilder v-model="form.regle_auto" />
 					</div>
+					<div>
+						<div class="d-flex align-items-center justify-content-between mb-2">
+							<label class="form-label fw-medium mb-0">Seuils points par compétence</label>
+							<button
+								type="button"
+								class="btn btn-sm btn-outline-primary rounded-pill"
+								@click="addCompetenceRule">
+								<Plus style="width:12px;height:12px" /> Ajouter un seuil
+							</button>
+						</div>
+						<div v-if="competencesLoading" class="small text-muted">Chargement des compétences...</div>
+						<div v-else-if="competencesError" class="small text-danger">{{ competencesError }}</div>
+						<div v-else-if="form.competence_rules.length === 0" class="small text-muted">
+							Aucun seuil défini. Le badge restera manuel tant qu'aucune règle de points n'est ajoutée.
+						</div>
+						<div v-else class="d-flex flex-column gap-2">
+							<div
+								v-for="(rule, idx) in form.competence_rules"
+								:key="`form-rule-${idx}`"
+								class="border rounded-3 p-2 d-flex flex-wrap align-items-center gap-2">
+								<select v-model.number="rule.id_competence" class="form-select form-select-sm" style="max-width: 260px">
+									<option :value="null" disabled>Choisir une compétence</option>
+									<option
+										v-for="competence in competences"
+										:key="`competence-option-${competence.id_competence}`"
+										:value="competence.id_competence">
+										{{ competence.nom_competence }}
+									</option>
+								</select>
+								<span class="small text-muted">seuil</span>
+								<input v-model.number="rule.points_requis" type="number" min="1" class="form-control form-control-sm" style="max-width: 120px" />
+								<span class="small text-muted">pts</span>
+								<button type="button" class="btn btn-sm btn-outline-danger rounded-pill ms-auto" @click="removeCompetenceRule(idx)">
+									<Trash2 style="width:12px;height:12px" />
+								</button>
+							</div>
+						</div>
+					</div>
 				</div>
-				<div class="card-footer d-flex gap-2 justify-content-end">
-					<button class="btn btn-outline-secondary" @click="closeFormModal">Annuler</button>
-					<button class="btn btn-primary" @click="submitForm" :disabled="saving">
+				<div class="d-flex gap-2 justify-content-end px-4 py-3 border-top">
+					<button class="btn btn-outline-secondary btn-sm rounded-pill px-4" @click="closeFormModal">Annuler</button>
+					<button class="btn btn-sm rounded-pill px-4 fw-semibold"
+						style="background:linear-gradient(135deg,#d4e645,#a3c200);color:#1a2230;border:none"
+						@click="submitForm" :disabled="saving">
 						<span v-if="saving" class="spinner-border spinner-border-sm me-1" role="status"></span>
 						{{ editingId ? 'Enregistrer' : 'Ajouter' }}
 					</button>
@@ -108,14 +202,18 @@
 		</div>
 
 		<div v-if="deleteTarget" class="modal-backdrop-custom" @click.self="deleteTarget = null">
-			<div class="modal-dialog-custom card shadow-lg">
-				<div class="card-header"><h5 class="mb-0 text-danger">Supprimer le badge</h5></div>
-				<div class="card-body">
-					<p class="mb-0">Confirmer la suppression de <strong>{{ deleteTarget.titre_badge }}</strong> ?</p>
+			<div class="modal-dialog-custom card border-0 shadow-lg">
+				<div class="px-4 py-3 d-flex align-items-center gap-2"
+					style="background:linear-gradient(135deg,#450a0a,#7f1d1d)">
+					<Trash2 style="width:18px;height:18px;color:#fca5a5" />
+					<h5 class="mb-0 text-white">Supprimer le badge</h5>
 				</div>
-				<div class="card-footer d-flex gap-2 justify-content-end">
-					<button class="btn btn-outline-secondary" @click="deleteTarget = null">Annuler</button>
-					<button class="btn btn-danger" @click="confirmDelete" :disabled="deleting">
+				<div class="card-body p-4">
+					<p class="mb-0">Confirmer la suppression de <strong>{{ deleteTarget.titre_badge }}</strong> ? Cette action est irréversible.</p>
+				</div>
+				<div class="d-flex gap-2 justify-content-end px-4 py-3 border-top">
+					<button class="btn btn-outline-secondary btn-sm rounded-pill px-4" @click="deleteTarget = null">Annuler</button>
+					<button class="btn btn-danger btn-sm rounded-pill px-4" @click="confirmDelete" :disabled="deleting">
 						<span v-if="deleting" class="spinner-border spinner-border-sm me-1" role="status"></span>
 						Supprimer
 					</button>
@@ -133,6 +231,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Pencil, Trash2, Search, Award, X } from 'lucide-vue-next'
 import { getCurrentUser, hasPermission } from '@/utils/auth'
 import badgeService from '@/services/badgeService'
+import competenceService from '@/services/competenceService'
 import BadgeRuleBuilder from '@/components/badges/BadgeRuleBuilder.vue'
 
 const router = useRouter()
@@ -145,12 +244,15 @@ const badges = ref([])
 const loading = ref(true)
 const loadError = ref('')
 const search = ref('')
+const competences = ref([])
+const competencesLoading = ref(true)
+const competencesError = ref('')
 
 const showFormModal = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
 const formError = ref('')
-const form = ref({ titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '' })
+const form = ref({ titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '', competence_rules: [] })
 
 const deleteTarget = ref(null)
 const deleting = ref(false)
@@ -159,16 +261,25 @@ const toast = ref({ show: false, message: '', type: 'success' })
 const filtered = computed(() => {
 	const q = search.value.trim().toLowerCase()
 	if (!q) return badges.value
-	return badges.value.filter(b => (b.titre_badge || '').toLowerCase().includes(q) || (b.description_badge || '').toLowerCase().includes(q))
+	return badges.value.filter((b) => {
+		const titleMatch = (b.titre_badge || '').toLowerCase().includes(q)
+		const descriptionMatch = (b.description_badge || '').toLowerCase().includes(q)
+		const rulesMatch = badgeRulesTextList(b).some((text) => text.toLowerCase().includes(q))
+		return titleMatch || descriptionMatch || rulesMatch
+	})
 })
 
-onMounted(fetchBadges)
+onMounted(() => {
+	fetchBadges()
+	fetchCompetences()
+})
 
 async function fetchBadges() {
 	loading.value = true
 	loadError.value = ''
 	try {
-		badges.value = await badgeService.getAll()
+		const rows = await badgeService.getAll()
+		badges.value = Array.isArray(rows) ? rows.map(normalizeBadge) : []
 	} catch {
 		loadError.value = 'Impossible de charger les badges.'
 	} finally {
@@ -176,10 +287,23 @@ async function fetchBadges() {
 	}
 }
 
+async function fetchCompetences() {
+	competencesLoading.value = true
+	competencesError.value = ''
+	try {
+		const rows = await competenceService.getAll()
+		competences.value = Array.isArray(rows) ? rows : []
+	} catch {
+		competencesError.value = 'Impossible de charger les compétences.'
+	} finally {
+		competencesLoading.value = false
+	}
+}
+
 function openCreateModal() {
 	editingId.value = null
 	formError.value = ''
-	form.value = { titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '' }
+	form.value = { titre_badge: '', description_badge: '', score_badge: 0, regle_auto: '', competence_rules: [] }
 	showFormModal.value = true
 }
 
@@ -191,6 +315,7 @@ function openEditModal(badge) {
 		description_badge: badge.description_badge || '',
 		score_badge: badge.score_badge ?? 0,
 		regle_auto: badge.regle_auto || '',
+		competence_rules: normalizeRules(badge.competence_rules),
 	}
 	showFormModal.value = true
 }
@@ -206,25 +331,23 @@ async function submitForm() {
 	}
 	saving.value = true
 	try {
+		const payload = {
+			titre_badge: form.value.titre_badge.trim(),
+			description_badge: form.value.description_badge.trim() || null,
+			score_badge: form.value.score_badge ?? 0,
+			regle_auto: form.value.regle_auto.trim() || null,
+			competence_rules: normalizeRules(form.value.competence_rules),
+		}
+
 		if (editingId.value) {
-			const res = await badgeService.update(editingId.value, {
-				titre_badge: form.value.titre_badge.trim(),
-				description_badge: form.value.description_badge.trim() || null,
-				score_badge: form.value.score_badge ?? 0,
-				regle_auto: form.value.regle_auto.trim() || null,
-			})
-			const updated = res.badge ?? res
+			const res = await badgeService.update(editingId.value, payload)
+			const updated = normalizeBadge(res.badge ?? res)
 			const idx = badges.value.findIndex(b => b.id_badge === editingId.value)
 			if (idx !== -1) badges.value[idx] = updated
 			showToast('Badge mis a jour.', 'success')
 		} else {
-			const res = await badgeService.create({
-				titre_badge: form.value.titre_badge.trim(),
-				description_badge: form.value.description_badge.trim() || null,
-				score_badge: form.value.score_badge ?? 0,
-				regle_auto: form.value.regle_auto.trim() || null,
-			})
-			badges.value.push(res.badge ?? res)
+			const res = await badgeService.create(payload)
+			badges.value.push(normalizeBadge(res.badge ?? res))
 			showToast('Badge ajoute.', 'success')
 		}
 		closeFormModal()
@@ -258,6 +381,49 @@ function showToast(message, type = 'success') {
 	setTimeout(() => { toast.value.show = false }, 3000)
 }
 
+function normalizeRules(rules) {
+	if (!Array.isArray(rules)) return []
+
+	const normalized = rules
+		.map((rule) => ({
+			id_competence: Number(rule?.id_competence),
+			points_requis: Number(rule?.points_requis),
+		}))
+		.filter((rule) => Number.isInteger(rule.id_competence) && rule.id_competence > 0 && Number.isInteger(rule.points_requis) && rule.points_requis > 0)
+
+	const seen = new Set()
+	return normalized.filter((rule) => {
+		if (seen.has(rule.id_competence)) return false
+		seen.add(rule.id_competence)
+		return true
+	})
+}
+
+function normalizeBadge(badge) {
+	return {
+		...badge,
+		competence_rules: normalizeRules(badge?.competence_rules ?? badge?.competenceRules),
+	}
+}
+
+function resolveCompetenceName(competenceId) {
+	const match = competences.value.find((competence) => Number(competence.id_competence) === Number(competenceId))
+	return match?.nom_competence ?? `Compétence #${competenceId}`
+}
+
+function badgeRulesTextList(badge) {
+	const rules = normalizeRules(badge?.competence_rules ?? badge?.competenceRules)
+	return rules.map((rule) => `${resolveCompetenceName(rule.id_competence)} >= ${rule.points_requis} pts`)
+}
+
+function addCompetenceRule() {
+	form.value.competence_rules.push({ id_competence: null, points_requis: 1 })
+}
+
+function removeCompetenceRule(index) {
+	form.value.competence_rules.splice(index, 1)
+}
+
 // ─── Rule preview helper ────────────────────────────────────────────────────
 const RULE_FIELD_LABELS  = { missions_completees: 'Missions complétées', evenements_participes: 'Événements', score_total: 'Score total', role_mission: 'Rôle' }
 const RULE_OP_LABELS     = { '=': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥' }
@@ -286,17 +452,25 @@ function formatRegle(regleStr) {
 	background: rgba(0, 0, 0, 0.5);
 	z-index: 1050;
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
-	padding: 1rem;
+	overflow-y: auto;
+	padding: max(0.75rem, env(safe-area-inset-top, 0px)) 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 .modal-dialog-custom {
 	width: 100%;
 	max-width: 560px;
-	max-height: 90vh;
-	overflow-y: auto;
+	max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom, 0px));
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	border-radius: 0.75rem;
+}
+
+.modal-dialog-custom .card-body {
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
 .toast-custom {
