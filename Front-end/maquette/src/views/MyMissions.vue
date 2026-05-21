@@ -44,10 +44,7 @@
       <div v-for="mission in myActiveMissions" :key="mission.id"
         class="card overflow-hidden">
 
-        <div class="position-relative">
-          <img :src="mission.imageUrl" :alt="mission.name"
-            class="w-100 object-fit-cover" style="height:160px" />
-
+        <div class="position-relative p-3 pb-0">
           <div v-if="daysUntil(mission) > 0 && daysUntil(mission) <= 7"
             class="position-absolute" style="top:8px;left:8px">
             <span class="badge bg-warning text-dark px-3 py-2">

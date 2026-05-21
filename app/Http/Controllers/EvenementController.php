@@ -10,6 +10,15 @@ use Illuminate\Support\Facades\File;
 
 class EvenementController extends Controller
 {
+    private function endDateTimeExpression(string $driver): string
+    {
+        if ($driver === 'sqlite') {
+            return "datetime(substr(date_fin_evenement, 1, 10) || ' ' || COALESCE(heure_fin_evenement, '23:59:59'))";
+        }
+
+        return "TIMESTAMP(date_fin_evenement, COALESCE(heure_fin_evenement, '23:59:59'))";
+    }
+
     public function index(Request $request)
     {
         $query = Evenement::withCount('missions')
@@ -27,14 +36,22 @@ class EvenementController extends Controller
         }
 
         if ($request->filled('timeline')) {
-            $today = now()->startOfDay()->toDateString();
+            $now = now()->format('Y-m-d H:i:s');
+            $driver = $query->getModel()->getConnection()->getDriverName();
+            $endDateTimeSql = $this->endDateTimeExpression($driver);
 
             if ($request->query('timeline') === 'upcoming') {
-                $query->whereDate('date_fin_evenement', '>=', $today);
+                $query->whereRaw(
+                    "{$endDateTimeSql} >= ?",
+                    [$now]
+                );
             }
 
             if ($request->query('timeline') === 'past') {
-                $query->whereDate('date_fin_evenement', '<', $today);
+                $query->whereRaw(
+                    "{$endDateTimeSql} < ?",
+                    [$now]
+                );
             }
         }
 
@@ -82,6 +99,22 @@ class EvenementController extends Controller
             'cree_par_utilisateur_id' => 'required|integer|exists:users,id_utilisateur',
         ]);
 
+        if (
+            ! empty($validated['date_debut_evenement'])
+            && ! empty($validated['date_fin_evenement'])
+            && $validated['date_debut_evenement'] === $validated['date_fin_evenement']
+            && ! empty($validated['heure_debut_evenement'])
+            && ! empty($validated['heure_fin_evenement'])
+            && $validated['heure_fin_evenement'] <= $validated['heure_debut_evenement']
+        ) {
+            return response()->json([
+                'message' => 'Sur une même journée, l\'heure de fin doit être après l\'heure de début.',
+                'errors' => [
+                    'heure_fin_evenement' => ['Sur une même journée, l\'heure de fin doit être après l\'heure de début.'],
+                ],
+            ], 422);
+        }
+
         $validated = $this->hydrateEventLocation($validated);
         $validated = $this->hydrateEventImage($request, $validated);
 
@@ -122,6 +155,27 @@ class EvenementController extends Controller
             'est_publie_evenement' => 'nullable|boolean',
             'cree_par_utilisateur_id' => 'sometimes|integer|exists:users,id_utilisateur',
         ]);
+
+        $startDate = $validated['date_debut_evenement'] ?? $event->date_debut_evenement;
+        $endDate = $validated['date_fin_evenement'] ?? $event->date_fin_evenement;
+        $startTime = $validated['heure_debut_evenement'] ?? $event->heure_debut_evenement;
+        $endTime = $validated['heure_fin_evenement'] ?? $event->heure_fin_evenement;
+
+        if (
+            ! empty($startDate)
+            && ! empty($endDate)
+            && $startDate === $endDate
+            && ! empty($startTime)
+            && ! empty($endTime)
+            && $endTime <= $startTime
+        ) {
+            return response()->json([
+                'message' => 'Sur une même journée, l\'heure de fin doit être après l\'heure de début.',
+                'errors' => [
+                    'heure_fin_evenement' => ['Sur une même journée, l\'heure de fin doit être après l\'heure de début.'],
+                ],
+            ], 422);
+        }
 
         $validated = $this->hydrateEventLocation($validated, $event);
         $validated = $this->hydrateEventImage($request, $validated, $event);

@@ -14,7 +14,8 @@
     <div class="p-3 mx-auto" style="max-width:768px">
       <div class="card">
         <div class="card-header">
-          <h5 class="card-title mb-0">Informations de l'événement</h5>
+          <h5 class="card-title mb-1">Informations de l'événement</h5>
+          <p class="mb-0 x-small text-muted">Les champs marqués * sont obligatoires.</p>
         </div>
         <div class="card-body">
           <form @submit.prevent="handleSubmit" class="d-flex flex-column gap-3">
@@ -41,13 +42,18 @@
             <div class="row g-3">
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de début</label>
-                <input v-model="formData.startTime" type="time" class="form-control" />
+                <input v-model="formData.startTime" type="time" class="form-control" :class="fieldErrors.startTime ? 'is-invalid' : ''" />
+                <div v-if="fieldErrors.startTime" class="invalid-feedback d-block">{{ fieldErrors.startTime }}</div>
                 <div class="form-text x-small text-muted">Heure à laquelle débute la date de début</div>
               </div>
               <div class="col-6">
                 <label class="form-label small fw-medium">Heure de fin</label>
-                <input v-model="formData.endTime" type="time" class="form-control" />
+                <input v-model="formData.endTime" type="time" class="form-control" :class="fieldErrors.endTime ? 'is-invalid' : ''" />
+                <div v-if="fieldErrors.endTime" class="invalid-feedback d-block">{{ fieldErrors.endTime }}</div>
                 <div class="form-text x-small text-muted">Heure à laquelle se termine la date de fin</div>
+              </div>
+              <div v-if="dateTimeError" class="col-12">
+                <div class="text-danger small">{{ dateTimeError }}</div>
               </div>
             </div>
 
@@ -213,7 +219,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Save } from 'lucide-vue-next'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
@@ -243,8 +249,26 @@ const fieldErrors = ref({})
 const submitError = ref('')
 const imagePreviewUrl = ref('')
 
+const dateTimeError = computed(() => {
+  if (!formData.startDate || !formData.endDate) return ''
+  if (formData.endDate < formData.startDate) return 'La date de fin doit être après la date de début.'
+  if (
+    formData.startDate === formData.endDate
+    && formData.startTime
+    && formData.endTime
+    && formData.endTime <= formData.startTime
+  ) {
+    return 'Sur une même journée, l\'heure de fin doit être après l\'heure de début.'
+  }
+  return ''
+})
+
 const validateForm = () => {
   const errors = eventService.validateFormData(formData)
+  if (dateTimeError.value) {
+    if (!errors.endDate) errors.endDate = dateTimeError.value
+    if (!errors.endTime) errors.endTime = dateTimeError.value
+  }
   fieldErrors.value = errors
   return Object.keys(errors).length === 0
 }

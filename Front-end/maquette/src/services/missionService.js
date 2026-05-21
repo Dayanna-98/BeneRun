@@ -181,6 +181,10 @@ export const missionService = {
 
   validateFormData: (formData) => {
     const errors = {}
+    const eventStartDate = String(formData.eventStartDate || '').slice(0, 10)
+    const eventEndDate = String(formData.eventEndDate || '').slice(0, 10)
+    const eventStartTime = String(formData.eventStartTime || '').slice(0, 5)
+    const eventEndTime = String(formData.eventEndTime || '').slice(0, 5)
 
     if (!String(formData.name || '').trim()) errors.name = 'Le titre de la mission est obligatoire.'
     if (!String(formData.eventId || '').trim()) errors.eventId = 'Sélectionnez un événement.'
@@ -190,6 +194,19 @@ export const missionService = {
     if (!String(formData.endTime || '').trim()) errors.endTime = 'L\'heure de fin est obligatoire.'
     if (formData.startTime && formData.endTime && formData.endTime <= formData.startTime) {
       errors.endTime = 'L\'heure de fin doit être après l\'heure de début.'
+    }
+
+    if (formData.date && eventStartDate && formData.date < eventStartDate) {
+      errors.date = `La date de mission doit être au plus tôt le ${eventStartDate}.`
+    }
+    if (formData.date && eventEndDate && formData.date > eventEndDate) {
+      errors.date = `La date de mission doit être au plus tard le ${eventEndDate}.`
+    }
+    if (formData.date && eventStartDate && formData.date === eventStartDate && eventStartTime && formData.startTime && formData.startTime < eventStartTime) {
+      errors.startTime = `L'heure de début ne peut pas être avant ${eventStartTime} (début de l'événement).`
+    }
+    if (formData.date && eventEndDate && formData.date === eventEndDate && eventEndTime && formData.endTime && formData.endTime > eventEndTime) {
+      errors.endTime = `L'heure de fin ne peut pas dépasser ${eventEndTime} (fin de l'événement).`
     }
     if (!String(formData.location || '').trim()) errors.location = 'La localisation est obligatoire.'
     if (!String(formData.description || '').trim()) errors.description = 'La description est obligatoire.'

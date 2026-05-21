@@ -18,6 +18,15 @@ class MissionController extends Controller
 {
     public function __construct(private readonly MissionRewardService $missionRewardService) {}
 
+    private function missionEndDateTimeExpression(string $driver): string
+    {
+        if ($driver === 'sqlite') {
+            return "datetime(substr(date_mission, 1, 10) || ' ' || COALESCE(heure_fin_mission, '23:59:59'))";
+        }
+
+        return "TIMESTAMP(date_mission, COALESCE(heure_fin_mission, '23:59:59'))";
+    }
+
     public function index(Request $request)
     {
         $query = Mission::with([
@@ -57,14 +66,22 @@ class MissionController extends Controller
         }
 
         if ($request->filled('timeline')) {
-            $today = now()->startOfDay()->toDateString();
+            $now = now()->format('Y-m-d H:i:s');
+            $driver = $query->getModel()->getConnection()->getDriverName();
+            $endDateTimeSql = $this->missionEndDateTimeExpression($driver);
 
             if ($request->query('timeline') === 'upcoming') {
-                $query->whereDate('date_mission', '>=', $today);
+                $query->whereRaw(
+                    "{$endDateTimeSql} >= ?",
+                    [$now]
+                );
             }
 
             if ($request->query('timeline') === 'past') {
-                $query->whereDate('date_mission', '<', $today);
+                $query->whereRaw(
+                    "{$endDateTimeSql} < ?",
+                    [$now]
+                );
             }
         }
 
@@ -386,7 +403,8 @@ class MissionController extends Controller
             $missionCoordinates['longitude']
         );
 
-        if ($distance > (int) $event->rayon_localisation_evenement) {
+        $toleranceMeters = 75;
+        if ($distance > ((int) $event->rayon_localisation_evenement + $toleranceMeters)) {
             $validator->errors()->add(
                 'google_maps_url_mission',
                 'La mission doit se trouver à l\'intérieur du périmètre défini pour l\'événement.'

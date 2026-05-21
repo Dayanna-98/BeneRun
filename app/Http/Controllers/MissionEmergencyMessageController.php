@@ -7,11 +7,42 @@ use App\Models\Mission;
 use App\Models\MissionEmergencyMessage;
 use App\Models\MissionEmergencyMessageView;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class MissionEmergencyMessageController extends Controller
 {
+    private function normalizeMissionStatus(?string $status): string
+    {
+        return str_replace(['-', '_', ' '], '', strtolower((string) $status));
+    }
+
+    private function isMissionInProgress(Mission $mission): bool
+    {
+        $status = $this->normalizeMissionStatus($mission->statut_mission);
+        if ($status === 'encours') {
+            return true;
+        }
+
+        if (empty($mission->date_mission)) {
+            return false;
+        }
+
+        try {
+            $date = $mission->date_mission instanceof Carbon
+                ? $mission->date_mission->toDateString()
+                : Carbon::parse((string) $mission->date_mission)->toDateString();
+
+            $startAt = Carbon::parse($date.' '.((string) ($mission->heure_debut_mission ?: '00:00:00')));
+            $endAt = Carbon::parse($date.' '.((string) ($mission->heure_fin_mission ?: ($mission->heure_debut_mission ?: '23:59:59'))));
+
+            return now()->betweenIncluded($startAt, $endAt);
+        } catch (\Throwable $exception) {
+            return false;
+        }
+    }
+
     private function resolveActorFromBearerToken(Request $request): ?User
     {
         $actor = $request->user('sanctum');
@@ -107,7 +138,7 @@ class MissionEmergencyMessageController extends Controller
             return response()->json(['message' => 'Mission inexistante.'], 404);
         }
 
-        if ($mission->statut_mission !== 'En cours') {
+        if (! $this->isMissionInProgress($mission)) {
             return response()->json(['message' => 'Les urgences ne peuvent être envoyées que pendant une mission en cours.'], 422);
         }
 

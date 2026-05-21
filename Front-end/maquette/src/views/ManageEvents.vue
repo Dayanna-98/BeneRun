@@ -160,8 +160,6 @@
             @click="openDetailsDrawer(event)"
             style="cursor:pointer"
           >
-            <img :src="event.imageUrl" :alt="event.name" class="w-100 object-fit-cover" style="height:128px" />
-
             <div class="p-3">
               <div class="d-flex align-items-start justify-content-between mb-3 gap-2">
                 <div class="d-flex align-items-start gap-2 flex-fill">
@@ -459,9 +457,12 @@
       import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
       import EmptyState from '@/components/ui/EmptyState.vue'
       import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
+      import { parseLocalDateTime, normalizeDateInput } from '@/utils/dateTime'
+      import { useToast } from '@/composables/useToast'
 
       const router = useRouter()
       const user = getCurrentUser()
+      const toast = useToast()
       if (!user || !hasMinRole('admin')) router.push('/')
 
       const eventsList = ref([])
@@ -506,13 +507,13 @@
       const getEventStartDate = (event) => {
         const startDate = event.startDate || event.date
         const startTime = event.startTime || '00:00'
-        return new Date(`${startDate}T${startTime}:00`)
+        return parseLocalDateTime(startDate, startTime)
       }
 
       const getEventEndDate = (event) => {
         const endDate = event.endDate || event.startDate || event.date
         const endTime = event.endTime || '23:59'
-        return new Date(`${endDate}T${endTime}:00`)
+        return parseLocalDateTime(endDate, endTime)
       }
 
       const getRemainingSpots = (event) => Number(event.totalVolunteersNeeded || 0) - Number(event.currentVolunteers || 0)
@@ -521,9 +522,13 @@
       const getEventStatus = (event) => {
         if (event.isCancelled) return 'cancelled'
 
-        const start = getEventStartDate(event).getTime()
-        const end = getEventEndDate(event).getTime()
+        const start = getEventStartDate(event)?.getTime()
+        const end = getEventEndDate(event)?.getTime()
         const now = nowTimestamp()
+
+        if (start == null || end == null || Number.isNaN(start) || Number.isNaN(end)) {
+          return 'upcoming'
+        }
 
         if (now < start) return 'upcoming'
         if (now > end) return 'finished'
@@ -557,11 +562,11 @@
       }
 
       const timelineProgress = (event) => {
-        const start = getEventStartDate(event).getTime()
-        const end = getEventEndDate(event).getTime()
+        const start = getEventStartDate(event)?.getTime()
+        const end = getEventEndDate(event)?.getTime()
         const now = nowTimestamp()
 
-        if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0
+        if (start == null || end == null || Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0
         if (now <= start) return 0
         if (now >= end) return 100
 
@@ -611,7 +616,7 @@
 
         rows = rows.sort((a, b) => {
           if (sortBy.value === 'newest') {
-            return getEventStartDate(b).getTime() - getEventStartDate(a).getTime()
+            return (getEventStartDate(b)?.getTime() || 0) - (getEventStartDate(a)?.getTime() || 0)
           }
 
           if (sortBy.value === 'volunteers_desc') {
@@ -622,7 +627,7 @@
             return getRemainingSpots(a) - getRemainingSpots(b)
           }
 
-          return getEventStartDate(a).getTime() - getEventStartDate(b).getTime()
+          return (getEventStartDate(a)?.getTime() || 0) - (getEventStartDate(b)?.getTime() || 0)
         })
 
         return rows
@@ -745,12 +750,16 @@
 
       const formatDate = (d) => {
         if (!d) return '-'
-        return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        const parsed = parseLocalDateTime(d, '00:00')
+        if (!parsed) return '-'
+        return parsed.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
       }
 
       const formatShortDate = (d) => {
         if (!d) return '-'
-        return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+        const parsed = parseLocalDateTime(d, '00:00')
+        if (!parsed) return '-'
+        return parsed.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
       }
 
       const formatDateRange = (start, end) => {
@@ -782,16 +791,17 @@
       }[cat] || 'bg-secondary-subtle text-secondary border-secondary')
 
       const toIsoDate = (dateValue) => {
-        const date = new Date(dateValue)
-        if (Number.isNaN(date.getTime())) return ''
-        return date.toISOString().slice(0, 10)
+        return normalizeDateInput(dateValue)
       }
 
       const addDays = (dateValue, daysToAdd) => {
-        const date = new Date(dateValue)
-        if (Number.isNaN(date.getTime())) return ''
+        const date = parseLocalDateTime(dateValue, '00:00')
+        if (!date) return ''
         date.setDate(date.getDate() + daysToAdd)
-        return toIsoDate(date)
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
       }
 
       const buildEventPayload = (event, overrides = {}) => ({
@@ -853,9 +863,9 @@
           eventsList.value = eventsList.value.filter((event) => event.id !== id)
           selectedEventIds.value = selectedEventIds.value.filter((eventId) => eventId !== id)
           if (drawerEventId.value === id) closeDetailsDrawer()
-          alert('Événement supprimé avec succès')
+          toast.success('Événement supprimé avec succès.')
         } catch (error) {
-          alert(error.message || 'Erreur lors de la suppression de l\'événement')
+          toast.error(error.message || 'Erreur lors de la suppression de l\'événement.')
         }
       }
 
@@ -867,9 +877,9 @@
           const nextPayload = updater(target)
           await eventService.update(eventId, nextPayload)
           Object.assign(target, nextPayload)
-          if (successMessage) alert(successMessage)
+          if (successMessage) toast.success(successMessage)
         } catch (error) {
-          alert(error.message || 'Mise à jour impossible pour le moment.')
+          toast.error(error.message || 'Mise à jour impossible pour le moment.')
         }
       }
 
@@ -915,9 +925,9 @@
           })
 
           await loadEvents()
-          alert('Événement cloné avec succès.')
+          toast.success('Événement cloné avec succès.')
         } catch (error) {
-          alert(error.message || 'Clonage impossible pour le moment.')
+          toast.error(error.message || 'Clonage impossible pour le moment.')
         }
       }
 
@@ -958,9 +968,9 @@
         isBulkSaving.value = false
 
         if (errors.length > 0) {
-          alert(`${successMessage} (partiel). Échecs: ${errors.join(', ')}`)
+          toast.warning(`${successMessage} (partiel). Échecs: ${errors.join(', ')}`)
         } else {
-          alert(successMessage)
+          toast.success(successMessage)
         }
       }
 

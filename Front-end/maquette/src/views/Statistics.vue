@@ -244,9 +244,10 @@
 
             <div class="modal-footer">
               <button class="btn btn-outline-secondary" @click="showExportDialog = false">Annuler</button>
-              <button class="btn btn-primary d-flex align-items-center gap-2" @click="exportStatistics">
-                <Download style="width:16px;height:16px" />
-                Exporter en {{ exportFormat.toUpperCase() }}
+              <button class="btn btn-primary d-flex align-items-center gap-2" :disabled="exportLoading" @click="exportStatistics">
+                <span v-if="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <Download v-else style="width:16px;height:16px" />
+                {{ exportLoading ? 'Génération...' : `Exporter en ${exportFormat.toUpperCase()}` }}
               </button>
             </div>
 
@@ -269,8 +270,12 @@ import { getCurrentUser, isRole } from '@/utils/auth'
 import api from '@/services/api'
 import { eventService } from '@/services/eventService'
 import { missionService } from '@/services/missionService'
+import { useToast } from '@/composables/useToast'
+import { jsPDF } from 'jspdf'
+import * as XLSX from 'xlsx'
 
 const router = useRouter()
+const toast = useToast()
 
 const user = getCurrentUser()
 if (!user || !isRole(['superadmin', 'admin'])) {
@@ -328,17 +333,23 @@ const kpis = computed(() => {
 
 // ── Rôles ─────────────────────────────────────────────────────────────────────
 const ROLE_META = [
-  { key: 'bénévole',    label: 'Bénévoles',        color: '#3b82f6' },
-  { key: 'responsable', label: 'Resp. de mission',  color: '#22c55e' },
-  { key: 'admin',       label: 'Administrateurs',   color: '#a855f7' },
-  { key: 'superadmin',  label: 'Super-admins',      color: '#ef4444' },
+  { keys: ['bénévole', 'benevole', 'volunteer'], label: 'Bénévoles', color: '#3b82f6' },
+  { keys: ['responsable', 'mission_manager', 'organisateur'], label: 'Resp. de mission', color: '#22c55e' },
+  { keys: ['admin'], label: 'Administrateurs', color: '#a855f7' },
+  { keys: ['superadmin', 'super_admin'], label: 'Super-admins', color: '#ef4444' },
 ]
 
 const roleStats = computed(() => {
   const rs = rawRoleStats.value
-  const total = Object.values(rs).reduce((s, v) => s + Number(v), 0) || 1
-  return ROLE_META.map(r => {
-    const count = Number(rs[r.key] || 0)
+  const normalizedStats = Object.entries(rs || {}).reduce((acc, [rawKey, rawValue]) => {
+    const key = String(rawKey || '').toLowerCase().trim()
+    acc[key] = Number(rawValue || 0)
+    return acc
+  }, {})
+
+  const total = Object.values(normalizedStats).reduce((s, v) => s + Number(v), 0) || 1
+  return ROLE_META.map((r) => {
+    const count = r.keys.reduce((sum, roleKey) => sum + Number(normalizedStats[roleKey] || 0), 0)
     return { ...r, count, pct: Math.round((count / total) * 100) }
   })
 })
@@ -346,6 +357,7 @@ const roleStats = computed(() => {
 // ── Export dialog ─────────────────────────────────────────────────────────────
 const showExportDialog  = ref(false)
 const exportFormat      = ref('pdf')
+const exportLoading     = ref(false)
 
 const selectedDataTypes = ref({ users: true, events: true, missions: true, badges: true })
 const selectedEvents    = ref([])
@@ -357,6 +369,133 @@ const dataTypeOptions = [
   { key: 'missions', label: 'Données missions',      icon: Briefcase },
   { key: 'badges',   label: 'Données badges',        icon: Award     },
 ]
+
+const selectedEventRows = computed(() => {
+  const selectedIds = new Set(selectedEvents.value.map(String))
+  return exportEvents.value.filter((event) => selectedIds.has(String(event.id)))
+})
+
+const selectedMissionRows = computed(() => {
+  const selectedIds = new Set(selectedMissions.value.map(String))
+  return exportMissions.value.filter((mission) => selectedIds.has(String(mission.id)))
+})
+
+const buildExportSections = () => {
+  const sections = []
+  const roleRows = roleStats.value
+
+  if (selectedDataTypes.value.users) {
+    sections.push({
+      title: 'Utilisateurs',
+      columns: ['Indicateur', 'Valeur'],
+      rows: [
+        ['Total utilisateurs', String(rawKpis.value?.totalUsers ?? 0)],
+        ['Bénévoles', String(rawKpis.value?.volunteerCount ?? 0)],
+        ['Taux de complétion (%)', String(rawKpis.value?.completionRate ?? 0)],
+        ...roleRows.map((row) => [`Rôle: ${row.label}`, `${row.count} (${row.pct}%)`]),
+      ],
+    })
+  }
+
+  if (selectedDataTypes.value.events) {
+    sections.push({
+      title: 'Événements',
+      columns: ['ID', 'Nom'],
+      rows: selectedEventRows.value.map((event) => [String(event.id), event.name || 'Événement']),
+    })
+  }
+
+  if (selectedDataTypes.value.missions) {
+    sections.push({
+      title: 'Missions',
+      columns: ['ID', 'Nom', 'Événement', 'Date', 'Heure début', 'Heure fin', 'Lieu'],
+      rows: selectedMissionRows.value.map((mission) => [
+        String(mission.id),
+        mission.name || 'Mission',
+        mission.eventName || 'N/A',
+        mission.date || '',
+        mission.startTime || '',
+        mission.endTime || '',
+        mission.location || '',
+      ]),
+    })
+  }
+
+  if (selectedDataTypes.value.badges) {
+    sections.push({
+      title: 'Badges',
+      columns: ['Indicateur', 'Valeur'],
+      rows: [
+        ['Total badges disponibles', String(rawKpis.value?.totalBadges ?? 0)],
+      ],
+    })
+  }
+
+  return sections
+}
+
+const sanitizeFileName = (name) =>
+  String(name || 'export-statistiques')
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .trim()
+
+const exportAsPdf = (sections) => {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  const left = 40
+  const topStart = 54
+  const bottom = 780
+  const lineHeight = 16
+
+  let y = topStart
+
+  const addLine = (text, options = {}) => {
+    const size = options.size || 11
+    const bold = !!options.bold
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    doc.setFontSize(size)
+
+    const maxWidth = 515
+    const lines = doc.splitTextToSize(String(text || ''), maxWidth)
+    for (const line of lines) {
+      if (y > bottom) {
+        doc.addPage()
+        y = topStart
+      }
+      doc.text(line, left, y)
+      y += lineHeight
+    }
+  }
+
+  addLine('Export statistiques Béné\'Run', { size: 16, bold: true })
+  addLine(`Généré le ${new Date().toLocaleString('fr-FR')}`, { size: 10 })
+  y += 10
+
+  for (const section of sections) {
+    addLine(section.title, { size: 13, bold: true })
+    addLine(section.columns.join(' | '), { size: 10, bold: true })
+    for (const row of section.rows) {
+      addLine(row.join(' | '), { size: 10 })
+    }
+    y += 8
+  }
+
+  const fileName = `${sanitizeFileName(`statistiques-${new Date().toISOString().slice(0, 10)}`)}.pdf`
+  doc.save(fileName)
+}
+
+const exportAsExcel = (sections) => {
+  const workbook = XLSX.utils.book_new()
+
+  for (const section of sections) {
+    const rows = [section.columns, ...section.rows]
+    const worksheet = XLSX.utils.aoa_to_sheet(rows)
+    XLSX.utils.book_append_sheet(workbook, worksheet, section.title.slice(0, 31))
+  }
+
+  const fileName = `${sanitizeFileName(`statistiques-${new Date().toISOString().slice(0, 10)}`)}.xlsx`
+  XLSX.writeFile(workbook, fileName)
+}
 
 const toggleEvent   = (id) => {
   const i = selectedEvents.value.indexOf(id)
@@ -371,13 +510,49 @@ const deselectAllEvents   = () => { selectedEvents.value   = [] }
 const selectAllMissions   = () => { selectedMissions.value = exportMissions.value.map(m => m.id) }
 const deselectAllMissions = () => { selectedMissions.value = [] }
 
-const exportStatistics = () => {
-  alert(
-    `Export ${exportFormat.value.toUpperCase()}\n\n` +
-    `Événements : ${selectedEvents.value.length}\n` +
-    `Missions : ${selectedMissions.value.length}\n\n` +
-    `Le fichier ${exportFormat.value === 'pdf' ? 'PDF' : 'Excel'} sera téléchargé.`
-  )
-  showExportDialog.value = false
+const exportStatistics = async () => {
+  if (exportLoading.value) return
+
+  const selectedTypes = Object.entries(selectedDataTypes.value)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => key)
+
+  if (selectedTypes.length === 0) {
+    toast.error('Sélectionnez au moins un type de données à exporter.')
+    return
+  }
+
+  if (selectedDataTypes.value.events && selectedEvents.value.length === 0) {
+    toast.error('Sélectionnez au moins un événement.')
+    return
+  }
+
+  if (selectedDataTypes.value.missions && selectedMissions.value.length === 0) {
+    toast.error('Sélectionnez au moins une mission.')
+    return
+  }
+
+  const sections = buildExportSections().filter((section) => section.rows.length > 0)
+  if (sections.length === 0) {
+    toast.error('Aucune donnée disponible pour cet export.')
+    return
+  }
+
+  exportLoading.value = true
+  try {
+    if (exportFormat.value === 'pdf') {
+      exportAsPdf(sections)
+    } else {
+      exportAsExcel(sections)
+    }
+
+    toast.success(`Export ${exportFormat.value.toUpperCase()} lancé avec succès.`)
+    showExportDialog.value = false
+  } catch (error) {
+    console.error('Erreur lors de l\'export des statistiques:', error)
+    toast.error('Impossible de générer le fichier d\'export pour le moment.')
+  } finally {
+    exportLoading.value = false
+  }
 }
 </script>

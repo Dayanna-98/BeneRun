@@ -16,6 +16,7 @@
         <div class="card-header mission-form-header">
           <h5 class="card-title mb-1">Informations de la mission</h5>
           <p class="mb-0 small text-muted">Complétez les champs essentiels puis utilisez les aides rapides pour gagner du temps.</p>
+          <p class="mb-0 x-small text-muted mt-1">Les champs marqués * sont obligatoires.</p>
         </div>
         <div class="card-body mission-form-body">
           <form @submit.prevent="handleSubmit" class="d-flex flex-column gap-3">
@@ -31,7 +32,7 @@
               <select v-model="formData.eventId" class="form-select" :class="fieldErrors.eventId ? 'is-invalid' : ''" required @change="handleEventChange">
                 <option value="">Sélectionnez un événement...</option>
                 <option v-for="event in futureEvents" :key="event.id" :value="event.id">
-                  {{ event.name }} - {{ new Date(event.startDate || event.date).toLocaleDateString('fr-FR') }}
+                  {{ event.name }} - {{ formatDateLabel(event.startDate || event.date) }}
                 </option>
               </select>
               <div v-if="fieldErrors.eventId" class="invalid-feedback d-block">{{ fieldErrors.eventId }}</div>
@@ -85,6 +86,9 @@
                 <input v-model="formData.endTime" type="time" class="form-control" :class="fieldErrors.endTime ? 'is-invalid' : ''" required />
                 <div v-if="fieldErrors.endTime" class="invalid-feedback d-block">{{ fieldErrors.endTime }}</div>
               </div>
+                <div v-if="timeRangeError" class="col-12">
+                  <div class="text-danger small mt-1">{{ timeRangeError }}</div>
+                </div>
             </div>
 
             <div class="time-helper-box">
@@ -404,6 +408,7 @@ import competenceService from '@/services/competenceService'
 import userService from '@/services/userService'
 import chatApiService from '@/services/chatApiService'
 import { distanceInMeters, extractGoogleMapsCoordinates, formatRadius } from '@/utils/googleMaps'
+import { parseLocalDateTime } from '@/utils/dateTime'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -456,9 +461,22 @@ const switchOptions = [
 ]
 
 const futureEvents = computed(() => {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  return eventsList.value.filter(e => new Date(e.startDate || e.date) >= today)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return eventsList.value.filter((e) => {
+    const eventStart = parseLocalDateTime(e.startDate || e.date, e.startTime || '00:00')
+    if (!eventStart) return false
+    eventStart.setHours(0, 0, 0, 0)
+    return eventStart.getTime() >= today.getTime()
+  })
 })
+
+const formatDateLabel = (value) => {
+  const parsed = parseLocalDateTime(value, '00:00')
+  if (!parsed) return 'Date inconnue'
+  return parsed.toLocaleDateString('fr-FR')
+}
 
 const selectedEvent = computed(() =>
   eventsList.value.find((e) => String(e.id) === String(formData.eventId)) || null
@@ -567,11 +585,31 @@ const locationPerimeterError = computed(() => {
   if (!eventCoordinates || !missionCoordinates) return ''
 
   const distance = distanceInMeters(eventCoordinates, missionCoordinates)
-  if (distance === null || distance <= Number(selectedEvent.value.radiusMeters || 0)) {
+  const toleranceMeters = 75
+  if (distance === null || distance <= (Number(selectedEvent.value.radiusMeters || 0) + toleranceMeters)) {
     return ''
   }
 
   return `La mission est hors périmètre. Distance estimée: ${Math.round(distance)} m, périmètre autorisé: ${formatRadius(selectedEvent.value.radiusMeters)}.`
+})
+
+const timeRangeError = computed(() => {
+  if (!selectedEvent.value || !formData.date || !formData.startTime || !formData.endTime) return ''
+
+  const eventStartDate = String(selectedEvent.value.startDate || '').slice(0, 10)
+  const eventEndDate = String(selectedEvent.value.endDate || selectedEvent.value.startDate || '').slice(0, 10)
+  const eventStartTime = String(selectedEvent.value.startTime || '').slice(0, 5)
+  const eventEndTime = String(selectedEvent.value.endTime || '').slice(0, 5)
+
+  if (formData.date === eventStartDate && eventStartTime && formData.startTime < eventStartTime) {
+    return `L'heure de début doit être au moins ${eventStartTime} (début de l'événement).`
+  }
+
+  if (formData.date === eventEndDate && eventEndTime && formData.endTime > eventEndTime) {
+    return `L'heure de fin doit être au plus ${eventEndTime} (fin de l'événement).`
+  }
+
+  return ''
 })
 
 const missionDurationLabel = computed(() => {
@@ -695,8 +733,23 @@ const handleMainImageChange = (event) => {
 }
 
 const validateForm = () => {
-  const errors = missionService.validateFormData(formData)
+  const selectedEventStartDate = String(selectedEvent.value?.startDate || '').slice(0, 10)
+  const selectedEventEndDate = String(selectedEvent.value?.endDate || selectedEvent.value?.startDate || '').slice(0, 10)
+  const selectedEventStartTime = String(selectedEvent.value?.startTime || '').slice(0, 5)
+  const selectedEventEndTime = String(selectedEvent.value?.endTime || '').slice(0, 5)
+
+  const errors = missionService.validateFormData({
+    ...formData,
+    eventStartDate: selectedEventStartDate,
+    eventEndDate: selectedEventEndDate,
+    eventStartTime: selectedEventStartTime,
+    eventEndTime: selectedEventEndTime,
+  })
   if (dateRangeError.value) errors.date = dateRangeError.value
+  if (timeRangeError.value) {
+    if (!errors.startTime) errors.startTime = timeRangeError.value
+    if (!errors.endTime) errors.endTime = timeRangeError.value
+  }
   if (quotaError.value) errors.maxVolunteers = quotaError.value
   if (locationPerimeterError.value) errors.googleMapsUrl = locationPerimeterError.value
   fieldErrors.value = errors
@@ -704,13 +757,16 @@ const validateForm = () => {
 }
 
 const getCurrentLocation = () => {
-  if (!navigator.geolocation) return alert("Géolocalisation non supportée")
+  if (!navigator.geolocation) {
+    toast.error('Géolocalisation non supportée sur cet appareil.')
+    return
+  }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       formData.googleMapsUrl = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
-      alert('Position actuelle détectée !')
+      toast.success('Position actuelle détectée.')
     },
-    (err) => alert('Impossible de récupérer votre position : ' + err.message)
+    (err) => toast.error(`Impossible de récupérer votre position: ${err.message}`)
   )
 }
 

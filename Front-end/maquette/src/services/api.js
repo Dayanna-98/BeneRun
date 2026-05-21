@@ -37,7 +37,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    const requestUrl = String(error?.config?.url || '')
+    const skipAutoRedirect = [
+      '/login',
+      '/password-reset/request',
+      '/password-reset/verify',
+      '/password-reset/reset',
+    ].some((path) => requestUrl.includes(path))
+
+    if (error.response?.status === 401 && !skipAutoRedirect) {
       localStorage.removeItem('isLoggedIn')
       localStorage.removeItem('userEmail')
       localStorage.removeItem('token')

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -311,5 +312,41 @@ class UserRoleUpdateTest extends TestCase
             'id_utilisateur' => $user->id_utilisateur,
             'permissions_utilisateur' => 'messaging,favoriteMission',
         ]);
+    }
+
+    public function test_user_cannot_update_password_with_weak_value(): void
+    {
+        $user = User::factory()->create([
+            'role_utilisateur' => 'bénévole',
+            'password' => Hash::make('Ancienpass123'),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson('/api/users/'.$user->id_utilisateur, [
+            'nom_utilisateur' => $user->nom_utilisateur,
+            'prenom_utilisateur' => $user->prenom_utilisateur,
+            'email' => $user->email,
+            'role_utilisateur' => $user->role_utilisateur,
+            'telephone_utilisateur' => $user->telephone_utilisateur,
+            'adresse_utilisateur' => $user->adresse_utilisateur,
+            'date_naissance_utilisateur' => optional($user->date_naissance_utilisateur)->format('Y-m-d'),
+            'allergies_utilisateur' => $user->allergies_utilisateur,
+            'problemes_sante_utilisateur' => $user->problemes_sante_utilisateur,
+            'possede_permis_utilisateur' => $user->possede_permis_utilisateur,
+            'est_motorise_utilisateur' => $user->est_motorise_utilisateur,
+            'possede_vehicule_utilisateur' => $user->possede_vehicule_utilisateur,
+            'taille_tshirt_utilisateur' => $user->taille_tshirt_utilisateur,
+            'est_anonyme_utilisateur' => $user->est_anonyme_utilisateur,
+            'nombre_missions_utilisateur' => $user->nombre_missions_utilisateur,
+            'password' => 'abcdefghij',
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('Ancienpass123', $user->password));
     }
 }

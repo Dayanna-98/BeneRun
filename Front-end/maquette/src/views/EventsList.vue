@@ -43,21 +43,16 @@
           style="cursor:pointer"
           @click="router.push(`/event/${event.id}`)">
 
-          <!-- Image -->
-          <div class="position-relative" style="height:192px">
-            <img :src="event.imageUrl" :alt="event.name" class="w-100 h-100 object-fit-cover" />
-            <div class="position-absolute" style="top:8px;right:8px">
-              <span class="badge bg-white text-dark fw-semibold d-inline-flex align-items-center gap-1">
-                <Tag style="width:12px;height:12px" />
-                {{ event.category }}
-              </span>
-            </div>
-          </div>
-
           <!-- Content -->
           <div class="card-body d-flex flex-column gap-3">
             <div>
-              <h5 class="fw-bold mb-1">{{ event.name }}</h5>
+              <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+                <h5 class="fw-bold mb-0">{{ event.name }}</h5>
+                <span class="badge bg-white text-dark fw-semibold d-inline-flex align-items-center gap-1 border">
+                  <Tag style="width:12px;height:12px" />
+                  {{ event.category }}
+                </span>
+              </div>
               <p class="small text-muted mb-0" style="-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden">
                 {{ event.description }}
               </p>

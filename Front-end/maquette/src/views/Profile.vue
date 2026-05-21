@@ -404,9 +404,11 @@ import competenceService from '@/services/competenceService'
 import certificatService from '@/services/certificatService'
 import userService from '@/services/userService'
 import api from '@/services/api'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const user = ref(getCurrentUser())
+const toast = useToast()
 if (!user.value) router.push('/login')
 
 const activeTab     = ref('info')
@@ -822,7 +824,7 @@ const handleToggleLiveLocationSharing = async (event) => {
       ...user.value,
       liveLocationSharingEnabled: previousValue,
     }
-    alert(error.message || 'Impossible de modifier le partage de localisation.')
+    toast.error(error.message || 'Impossible de modifier le partage de localisation.')
   }
 }
 

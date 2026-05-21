@@ -33,14 +33,6 @@
 
       <div class="mx-auto" style="max-width:576px">
 
-        <!-- Image -->
-        <img
-          :src="mission.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'"
-          :alt="mission.name"
-          class="w-100 object-fit-cover"
-          style="height:224px"
-        />
-
         <div class="p-3 d-flex flex-column gap-3">
 
           <div v-if="actionSuccess" class="alert alert-success mb-0">{{ actionSuccess }}</div>
@@ -276,7 +268,7 @@
 
       <!-- Sticky footer -->
       <div class="position-sticky bottom-0 bg-white border-top p-3">
-        <div v-if="actionError" class="alert alert-danger mb-2 py-2 small">{{ actionError }}</div>
+        <div v-if="actionError" class="alert alert-danger mb-2 py-3 text-center fw-semibold">{{ actionError }}</div>
         <button
           v-if="!isActiveMission"
           class="btn btn-primary btn-lg w-100"
@@ -331,9 +323,11 @@ import MissionLiveMap from '@/components/maps/MissionLiveMap.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 import userService from '@/services/userService'
 import emergencyService from '@/services/emergencyService'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route  = useRoute()
+const toast = useToast()
 const currentUser = ref(getCurrentUser())
 
 const mission = ref(null)
@@ -543,7 +537,7 @@ const formatDate = (d) =>
 
 const sendChatMessage = () => {
   if (chatMessage.value.trim()) {
-    alert(`Message envoyé : ${chatMessage.value}`)
+    toast.success('Message envoyé.')
     chatMessage.value = ''
   }
 }
@@ -552,7 +546,7 @@ const sendEmergencyMessage = async () => {
   emergencySendFeedback.value = ''
 
   if (!emergencyCategory.value || !emergencyMessage.value.trim() || !mission.value?.id || !currentUser.value?.id) {
-    alert('Veuillez sélectionner une catégorie et écrire un message.')
+    toast.warning('Veuillez sélectionner une catégorie et écrire un message.')
     return
   }
 
@@ -579,7 +573,7 @@ const sendEmergencyMessage = async () => {
     emergencyMessage.value = ''
     emergencyCategory.value = ''
   } catch (error) {
-    alert(error.message || 'Envoi impossible pour le moment.')
+    toast.error(error.message || 'Envoi impossible pour le moment.')
   }
 }
 
@@ -627,7 +621,7 @@ const handleMissionRegistration = async () => {
   if (!currentUser.value?.id || !canCurrentUserRegister.value) return
 
   if (mission.value && Number(mission.value.currentVolunteers || 0) >= Number(mission.value.maxVolunteers || 0)) {
-    alert('Cette mission a atteint son quota. Si vous souhaitez tout de même participer, inscrivez-vous à la liste d\'attente de l\'événement associé.')
+    toast.warning('Cette mission a atteint son quota. Inscrivez-vous à la liste d\'attente de l\'événement associé.')
 
     if (mission.value.eventId) {
       router.push(`/event/${mission.value.eventId}`)
@@ -641,12 +635,12 @@ const handleMissionRegistration = async () => {
   )
 
   if (success) {
-    alert('Inscription validée')
+    toast.success('Inscription validée.')
   }
 }
 
 const handleUnregister = () => {
-  alert('Vous avez été désinscrit de la mission. Les responsables en seront informés.')
+  toast.info('Vous avez été désinscrit de la mission. Les responsables en seront informés.')
   showUnregisterDialog.value = false
   router.push('/my-missions')
 }

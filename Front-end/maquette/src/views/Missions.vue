@@ -188,37 +188,6 @@
           style="cursor:pointer"
           @click="router.push(`/mission/${mission.id}`)">
 
-          <div class="position-relative mission-card__media" style="height:180px">
-            <img
-              :src="mission.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'"
-              :alt="mission.name" class="w-100 h-100 object-fit-cover" />
-            <div class="mission-card__gradient"></div>
-            <div class="mission-card__chips">
-              <span class="badge text-bg-light border border-0">{{ mission.type }}</span>
-              <span class="badge" :class="spotsLeft(mission) <= 3 ? 'text-bg-warning' : 'text-bg-dark'">
-                {{ spotsLeft(mission) > 0 ? `${spotsLeft(mission)} place${spotsLeft(mission) > 1 ? 's' : ''}` : 'Complet' }}
-              </span>
-            </div>
-            <div class="position-absolute d-flex gap-2" style="top:8px;right:8px">
-              <button class="btn rounded-circle p-2 shadow"
-                :class="favorites.includes(mission.id) ? 'btn-danger' : 'btn-light'"
-                style="opacity:.9"
-                @click.stop="toggleFavorite(mission.id)">
-                <Heart :style="favorites.includes(mission.id) ? 'fill:white' : ''"
-                  style="width:20px;height:20px" />
-              </button>
-              <button class="btn btn-light rounded-circle p-2 shadow" style="opacity:.9"
-                @click.stop="alert('Partager la mission')">
-                <Share2 style="width:20px;height:20px" />
-              </button>
-            </div>
-            <div v-if="!canApply(mission)"
-              class="position-absolute w-100 h-100 d-flex align-items-center justify-content-center"
-              style="top:0;left:0;background:rgba(0,0,0,.6)">
-              <span class="badge bg-danger fs-6">{{ getUnavailableReason(mission) }}</span>
-            </div>
-          </div>
-
           <div class="card-body d-flex flex-column gap-3">
             <div>
               <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
@@ -229,6 +198,27 @@
                 <span class="mission-card__date-badge">
                   {{ formatMissionDay(mission.date) }}
                 </span>
+              </div>
+              <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+                <div class="d-flex flex-wrap gap-2">
+                  <span class="badge text-bg-light border">{{ mission.type }}</span>
+                  <span class="badge" :class="spotsLeft(mission) <= 3 ? 'text-bg-warning' : 'text-bg-dark'">
+                    {{ spotsLeft(mission) > 0 ? `${spotsLeft(mission)} place${spotsLeft(mission) > 1 ? 's' : ''}` : 'Complet' }}
+                  </span>
+                  <span v-if="!canApply(mission)" class="badge bg-danger">{{ getUnavailableReason(mission) }}</span>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn rounded-circle p-2 shadow-sm"
+                    :class="favorites.includes(mission.id) ? 'btn-danger' : 'btn-light'"
+                    @click.stop="toggleFavorite(mission.id)">
+                    <Heart :style="favorites.includes(mission.id) ? 'fill:white' : ''"
+                      style="width:20px;height:20px" />
+                  </button>
+                  <button class="btn btn-light rounded-circle p-2 shadow-sm"
+                    @click.stop="toast.info('Partage de mission à venir.')">
+                    <Share2 style="width:20px;height:20px" />
+                  </button>
+                </div>
               </div>
               <div class="d-flex align-items-center gap-2 mission-card__event-link">
                 <Calendar style="width:16px;height:16px;color:#6b7280" />
@@ -255,7 +245,7 @@
               </div>
               <div class="d-flex align-items-center gap-2">
                 <Clock style="width:16px;height:16px" />
-                <span>{{ new Date(mission.date).toLocaleDateString('fr-FR') }} • {{ mission.startTime }} - {{ mission.endTime }}</span>
+                <span>{{ formatMissionDateTime(mission) }}</span>
               </div>
               <div class="d-flex align-items-center gap-2">
                 <Users style="width:16px;height:16px" />
@@ -312,9 +302,12 @@ import api from '@/services/api'
 import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
+import { parseLocalDateTime } from '@/utils/dateTime'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
+const toast = useToast()
 const searchQuery      = ref('')
 const timelineFilter   = ref('upcoming')
 const filterType       = ref('all')
@@ -403,9 +396,16 @@ const isMissionPast = (mission) => {
     return true
   }
 
-  const missionEndDate = new Date(`${mission.date}T${mission.endTime || '23:59'}:00`)
+  const missionEndDate = parseLocalDateTime(mission.date, mission.endTime || mission.startTime || '23:59')
+  if (!missionEndDate) return false
   return missionEndDate.getTime() < Date.now()
 }
+
+const getMissionStartDateTime = (mission) =>
+  parseLocalDateTime(mission.date, mission.startTime || '00:00')
+
+const getMissionEndDateTime = (mission) =>
+  parseLocalDateTime(mission.date, mission.endTime || mission.startTime || '23:59')
 
 const loadMissions = async () => {
   isLoading.value = true
@@ -493,20 +493,25 @@ const urgentMissionCount = computed(() =>
 )
 
 const filteredMissions = computed(() => {
-  const today     = new Date()
-  const nextWeek  = new Date(today); nextWeek.setDate(today.getDate() + 7)
-  const nextMonth = new Date(today); nextMonth.setMonth(today.getMonth() + 1)
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  const nextWeekEnd = new Date(todayEnd)
+  nextWeekEnd.setDate(nextWeekEnd.getDate() + 7)
+  const nextMonthEnd = new Date(todayEnd)
+  nextMonthEnd.setMonth(nextMonthEnd.getMonth() + 1)
+
   return missions.value.filter(m => {
     const q = searchQuery.value.toLowerCase()
     const matchSearch = [m.name, m.eventName, m.location].some(f => f.toLowerCase().includes(q))
     const matchType   = filterType.value === 'all' || m.type === filterType.value
     const ev          = events.value.find(e => e.id === m.eventId)
     const matchCat    = filterCategory.value === 'all' || ev?.category === filterCategory.value
-    const d           = new Date(m.date)
+    const d = getMissionStartDateTime(m)
     let matchDate     = true
-    if (filterDate.value === 'today')  matchDate = d.toDateString() === today.toDateString()
-    if (filterDate.value === 'week')   matchDate = d >= today && d <= nextWeek
-    if (filterDate.value === 'month')  matchDate = d >= today && d <= nextMonth
+    if (filterDate.value === 'today')  matchDate = !!d && d >= todayStart && d <= todayEnd
+    if (filterDate.value === 'week')   matchDate = !!d && d >= todayStart && d <= nextWeekEnd
+    if (filterDate.value === 'month')  matchDate = !!d && d >= todayStart && d <= nextMonthEnd
 
     const isPast = isMissionPast(m)
     const matchTimeline = timelineFilter.value === 'all'
@@ -526,8 +531,18 @@ const filteredMissions = computed(() => {
 
 const sortedMissions = computed(() => {
   const rows = [...filteredMissions.value]
+
+  const getSortTimestamp = (mission) => {
+    const missionStart = getMissionStartDateTime(mission)
+    return missionStart ? missionStart.getTime() : Number.MAX_SAFE_INTEGER
+  }
+
   if (sortBy.value === 'date_asc') {
-    return rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    return rows.sort((a, b) => {
+      const left = getSortTimestamp(a)
+      const right = getSortTimestamp(b)
+      return left - right
+    })
   }
   if (sortBy.value === 'spots_desc') {
     return rows.sort((a, b) => spotsLeft(b) - spotsLeft(a))
@@ -535,7 +550,14 @@ const sortedMissions = computed(() => {
   if (sortBy.value === 'spots_asc') {
     return rows.sort((a, b) => spotsLeft(a) - spotsLeft(b))
   }
-  return rows
+
+  // "Pertinence": missions à venir d'abord, puis ordre chronologique.
+  return rows.sort((a, b) => {
+    const aPast = isMissionPast(a)
+    const bPast = isMissionPast(b)
+    if (aPast !== bPast) return aPast ? 1 : -1
+    return getSortTimestamp(a) - getSortTimestamp(b)
+  })
 })
 
 const visibleMissions = computed(() => sortedMissions.value.slice(0, visibleCount.value))
@@ -555,10 +577,17 @@ const getUnavailableReason = (m) => {
 const formatMissionDay = (dateValue) => {
   if (!dateValue) return 'À définir'
 
-  const date = new Date(dateValue)
+  const date = parseLocalDateTime(dateValue, '00:00')
+  if (!date) return 'À définir'
   const day = date.toLocaleDateString('fr-FR', { day: '2-digit' })
   const month = date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
   return `${day} ${month}`
+}
+
+const formatMissionDateTime = (mission) => {
+  const date = getMissionStartDateTime(mission)
+  if (!date) return `${mission.startTime || '--:--'} - ${mission.endTime || '--:--'}`
+  return `${date.toLocaleDateString('fr-FR')} • ${mission.startTime || '--:--'} - ${mission.endTime || '--:--'}`
 }
 
 const toggleFavorite = async (id) => {
@@ -581,7 +610,7 @@ const toggleFavorite = async (id) => {
     ))
   } catch (error) {
     console.error('Erreur lors de la mise à jour des favoris:', error)
-    alert('Impossible de mettre à jour les favoris pour le moment.')
+    toast.error('Impossible de mettre à jour les favoris pour le moment.')
   }
 }
 const clearFilters = () => {

@@ -125,6 +125,9 @@ export const eventService = {
     if (!startDate) errors.startDate = 'La date de début est obligatoire.'
     if (!endDate) errors.endDate = 'La date de fin est obligatoire.'
     if (startDate && endDate && endDate < startDate) errors.endDate = 'La date de fin doit être après la date de début.'
+    if (startDate && endDate && startDate === endDate && formData.startTime && formData.endTime && formData.endTime <= formData.startTime) {
+      errors.endTime = 'Sur une même journée, l\'heure de fin doit être après l\'heure de début.'
+    }
     if (!String(formData.location || '').trim()) errors.location = 'Le lieu est obligatoire.'
     if (!String(formData.description || '').trim()) errors.description = 'La description est obligatoire.'
     if (!String(formData.organizer || '').trim()) errors.organizer = 'L\'organisateur est obligatoire.'

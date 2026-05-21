@@ -59,6 +59,18 @@ class UserAuthFlowTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
+    public function test_register_requires_password_with_letter_number_and_minimum_length(): void
+    {
+        $this->postJson('/api/users', [
+            'nom_utilisateur' => 'Test',
+            'prenom_utilisateur' => 'Inscription',
+            'email' => 'register-password@example.com',
+            'password' => 'abcdefghij',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+    }
+
     public function test_me_requires_authentication(): void
     {
         $this->getJson('/api/me')
