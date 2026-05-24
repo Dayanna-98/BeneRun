@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
@@ -54,7 +55,12 @@ class DatabaseSeeder extends Seeder
             ->get();
 
         if ($rows->isEmpty()) {
-            throw new \RuntimeException('Aucun utilisateur trouvé. Créez au moins un compte avant de lancer ce seeder.');
+            $this->seedUsers();
+
+            $rows = DB::table('users')
+                ->select('id_utilisateur', 'role_utilisateur')
+                ->orderBy('id_utilisateur')
+                ->get();
         }
 
         $all = $rows->pluck('id_utilisateur')->values()->all();
@@ -67,6 +73,16 @@ class DatabaseSeeder extends Seeder
 
         $admins = $rows
             ->filter(fn ($row) => $this->normalizeRoleForSeed($row->role_utilisateur) === 'admin')
+            ->pluck('id_utilisateur')
+            ->values()
+            ->all();
+
+        $responsables = $rows
+            ->filter(function ($row) {
+                $role = $this->normalizeRoleForSeed($row->role_utilisateur);
+
+                return in_array($role, ['responsable', 'missionmanager', 'organisateur'], true);
+            })
             ->pluck('id_utilisateur')
             ->values()
             ->all();
@@ -103,7 +119,7 @@ class DatabaseSeeder extends Seeder
             'emma' => $pick($superadmins, 0, $all),
             'alexandre' => $pick($superadmins, 1, $all),
             'sofian' => $pick($admins, 0, $all),
-            'marc' => $pick($managers, 0, $all),
+            'marc' => $pick($responsables, 0, $managers !== [] ? $managers : $all),
             'dayanna' => $pick($volunteers, 0, $all),
             'leo' => $pick($volunteers, 1, $all),
             'nina' => $pick($volunteers, 2, $all),
@@ -113,7 +129,79 @@ class DatabaseSeeder extends Seeder
 
     private function seedUsers(): array
     {
-        throw new \RuntimeException('seedUsers() est désactivé pour préserver les données personnelles des utilisateurs existants.');
+        $rows = [
+            [
+                'nom_utilisateur' => 'Eghdoud',
+                'prenom_utilisateur' => 'Emma',
+                'email' => 'emmazeghdoud@gmail.com',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'superadmin',
+            ],
+            [
+                'nom_utilisateur' => 'Martin',
+                'prenom_utilisateur' => 'Alexandre',
+                'email' => 'alexandre.martin@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'superadmin',
+            ],
+            [
+                'nom_utilisateur' => 'Bensaid',
+                'prenom_utilisateur' => 'Sofian',
+                'email' => 'sofian.bensaid@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'admin',
+            ],
+            [
+                'nom_utilisateur' => 'Dubois',
+                'prenom_utilisateur' => 'Marc',
+                'email' => 'marc.dubois@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'responsable',
+            ],
+            [
+                'nom_utilisateur' => 'Silva',
+                'prenom_utilisateur' => 'Dayanna',
+                'email' => 'dayanna.silva@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'bénévole',
+            ],
+            [
+                'nom_utilisateur' => 'Morel',
+                'prenom_utilisateur' => 'Leo',
+                'email' => 'leo.morel@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'bénévole',
+            ],
+            [
+                'nom_utilisateur' => 'Nguyen',
+                'prenom_utilisateur' => 'Nina',
+                'email' => 'nina.nguyen@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'bénévole',
+            ],
+            [
+                'nom_utilisateur' => 'Petit',
+                'prenom_utilisateur' => 'Zoe',
+                'email' => 'zoe.petit@benerun.test',
+                'password' => Hash::make('Soleil1234'),
+                'role_utilisateur' => 'bénévole',
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            DB::table('users')->insert([
+                ...$row,
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return DB::table('users')
+            ->select('id_utilisateur')
+            ->orderBy('id_utilisateur')
+            ->pluck('id_utilisateur')
+            ->all();
     }
 
     private function seedCompetences(): array

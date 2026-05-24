@@ -399,6 +399,17 @@
       </div>
     </Teleport>
 
+    <BootstrapConfirmModal
+      v-model="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :cancel-label="confirmDialog.cancelLabel"
+      :confirm-variant="confirmDialog.confirmVariant"
+      @confirm="handleConfirmDialogConfirm"
+      @cancel="handleConfirmDialogCancel"
+    />
+
   </div>
 </template>
 
@@ -412,10 +423,18 @@ import competenceService from '@/services/competenceService'
 import badgeService from '@/services/badgeService'
 import certificatService from '@/services/certificatService'
 import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const {
+  confirmDialog,
+  askConfirmation,
+  handleConfirmDialogConfirm,
+  handleConfirmDialogCancel,
+} = useConfirmDialog()
 const currentUser = getCurrentUser()
 if (!currentUser || !isRole('superadmin')) router.push('/')
 
@@ -683,7 +702,15 @@ const saveCertificate = async (certificateId) => {
 
 const removeCertificate = async (certificateId) => {
   if (!targetUser.value?.id) return
-  if (!confirm('Supprimer ce certificat ?')) return
+
+  const confirmed = await askConfirmation({
+    title: 'Supprimer ce certificat ?',
+    message: 'Cette action est définitive.',
+    confirmLabel: 'Supprimer',
+    confirmVariant: 'danger',
+  })
+
+  if (!confirmed) return
 
   certError.value = ''
   certSaving.value = true

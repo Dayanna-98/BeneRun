@@ -74,8 +74,10 @@ Route::apiResource('/evenements', EvenementController::class); // ->middleware('
 Route::apiResource('/missions', MissionController::class); // ->middleware('auth:sanctum');
 Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignResponsable']);
 Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
-Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
-Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
+    Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
+});
 Route::middleware('auth:sanctum')->group(function () {
     // Favoris
     Route::get('/favorites', [FavoriteController::class, 'index']);

@@ -442,6 +442,17 @@
         </div>
       </div>
     </Teleport>
+
+    <BootstrapConfirmModal
+      v-model="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :cancel-label="confirmDialog.cancelLabel"
+      :confirm-variant="confirmDialog.confirmVariant"
+      @confirm="handleConfirmDialogConfirm"
+      @cancel="handleConfirmDialogCancel"
+    />
   </div>
 </template>
 
@@ -459,10 +470,18 @@
       import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
       import { parseLocalDateTime, normalizeDateInput } from '@/utils/dateTime'
       import { useToast } from '@/composables/useToast'
+      import { useConfirmDialog } from '@/composables/useConfirmDialog'
+      import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
       const router = useRouter()
       const user = getCurrentUser()
       const toast = useToast()
+      const {
+        confirmDialog,
+        askConfirmation,
+        handleConfirmDialogConfirm,
+        handleConfirmDialogCancel,
+      } = useConfirmDialog()
       if (!user || !hasMinRole('admin')) router.push('/')
 
       const eventsList = ref([])
@@ -856,7 +875,14 @@
       const canDeleteEvent = (event) => getEventStatus(event) === 'upcoming'
 
       const handleDeleteEvent = async (id) => {
-        if (!confirm('Supprimer cet événement ? Les missions associées seront également supprimées.')) return
+        const confirmed = await askConfirmation({
+          title: 'Supprimer cet événement ?',
+          message: 'Les missions associées seront également supprimées.',
+          confirmLabel: 'Supprimer',
+          confirmVariant: 'danger',
+        })
+
+        if (!confirmed) return
 
         try {
           await eventService.delete(id)
@@ -996,7 +1022,14 @@
       }
 
       const bulkCancel = async () => {
-        if (!confirm('Annuler les événements sélectionnés ?')) return
+        const confirmed = await askConfirmation({
+          title: 'Annuler les événements sélectionnés ?',
+          message: 'Les événements choisis seront marqués comme annulés.',
+          confirmLabel: 'Annuler les événements',
+          confirmVariant: 'warning',
+        })
+
+        if (!confirmed) return
         const today = toIsoDate(new Date())
 
         await applyBulkUpdate(

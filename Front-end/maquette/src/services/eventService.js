@@ -174,7 +174,7 @@ export const eventService = {
 
     if (!error.response) {
       return {
-        message: 'Serveur API inaccessible. Vérifiez que Laravel tourne sur http://localhost:8000.',
+        message: 'Serveur API inaccessible. Vérifiez que le service backend est bien démarré.',
       }
     }
     return error.response.data || { message: fallbackMessage }

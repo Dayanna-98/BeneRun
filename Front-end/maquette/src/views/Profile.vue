@@ -387,6 +387,17 @@
         </div>
       </div>
 
+      <BootstrapConfirmModal
+        v-model="confirmDialog.open"
+        :title="confirmDialog.title"
+        :message="confirmDialog.message"
+        :confirm-label="confirmDialog.confirmLabel"
+        :cancel-label="confirmDialog.cancelLabel"
+        :confirm-variant="confirmDialog.confirmVariant"
+        @confirm="handleConfirmDialogConfirm"
+        @cancel="handleConfirmDialogCancel"
+      />
+
     </div>
   </div>
 </template>
@@ -405,10 +416,18 @@ import certificatService from '@/services/certificatService'
 import userService from '@/services/userService'
 import api from '@/services/api'
 import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
 const router = useRouter()
 const user = ref(getCurrentUser())
 const toast = useToast()
+const {
+  confirmDialog,
+  askConfirmation,
+  handleConfirmDialogConfirm,
+  handleConfirmDialogCancel,
+} = useConfirmDialog()
 if (!user.value) router.push('/login')
 
 const activeTab     = ref('info')
@@ -781,21 +800,35 @@ const submitCertificate = async () => {
 }
 
 const handleLogout = async () => {
-  if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
-    try {
-      await userService.logout()
-    } catch {
-      // Always clear local session, even if API logout fails.
-    }
-    authLogout()
-    router.push('/login')
+  const confirmed = await askConfirmation({
+    title: 'Se déconnecter ?',
+    message: 'Voulez-vous vraiment vous déconnecter ? ',
+    confirmLabel: 'Se déconnecter',
+    confirmVariant: 'danger',
+  })
+
+  if (!confirmed) return
+
+  try {
+    await userService.logout()
+  } catch {
+    // Always clear local session, even if API logout fails.
   }
+  authLogout()
+  router.push('/login')
 }
 
-const handleChangePassword = () => {
-  if (confirm('Voulez-vous changer votre mot de passe ?')) {
-    router.push('/reset-password')
-  }
+const handleChangePassword = async () => {
+  const confirmed = await askConfirmation({
+    title: 'Changer le mot de passe ?',
+    message: 'Voulez-vous changer votre mot de passe ? ',
+    confirmLabel: 'Continuer',
+    confirmVariant: 'primary',
+  })
+
+  if (!confirmed) return
+
+  router.push('/reset-password')
 }
 
 const handleEditProfile = () => {

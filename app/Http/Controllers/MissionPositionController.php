@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Affectation;
 use App\Models\MissionPosition;
 use Illuminate\Http\Request;
 
@@ -14,8 +15,19 @@ class MissionPositionController extends Controller
      */
     public function index($missionId)
     {
+        $user = request()->user();
+        if (! $user || ! $this->isActiveParticipantForMission((int) $user->id_utilisateur, (int) $missionId)) {
+            return response()->json(['message' => 'Accès refusé à cette mission.'], 403);
+        }
+
+        $activeParticipantIds = Affectation::query()
+            ->where('id_mission', (int) $missionId)
+            ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
+            ->pluck('id_utilisateur');
+
         $positions = MissionPosition::with('utilisateur:id_utilisateur,prenom_utilisateur,nom_utilisateur')
             ->where('id_mission', $missionId)
+            ->whereIn('id_utilisateur', $activeParticipantIds)
             ->where('updated_at', '>=', now()->subMinutes(30))
             ->get()
             ->map(fn ($p) => [
@@ -35,16 +47,21 @@ class MissionPositionController extends Controller
      */
     public function store(Request $request, $missionId)
     {
+        $user = $request->user();
+        if (! $user || ! $this->isActiveParticipantForMission((int) $user->id_utilisateur, (int) $missionId)) {
+            return response()->json(['message' => 'Accès refusé à cette mission.'], 403);
+        }
+
         $validated = $request->validate([
-            'id_utilisateur' => 'required|integer|exists:users,id_utilisateur',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
+            'id_utilisateur' => 'prohibited',
         ]);
 
         MissionPosition::updateOrCreate(
             [
                 'id_mission' => (int) $missionId,
-                'id_utilisateur' => (int) $validated['id_utilisateur'],
+                'id_utilisateur' => (int) $user->id_utilisateur,
             ],
             [
                 'latitude' => $validated['latitude'],
@@ -53,5 +70,14 @@ class MissionPositionController extends Controller
         );
 
         return response()->json(['message' => 'Position mise à jour'], 200);
+    }
+
+    private function isActiveParticipantForMission(int $userId, int $missionId): bool
+    {
+        return Affectation::query()
+            ->where('id_mission', $missionId)
+            ->where('id_utilisateur', $userId)
+            ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
+            ->exists();
     }
 }

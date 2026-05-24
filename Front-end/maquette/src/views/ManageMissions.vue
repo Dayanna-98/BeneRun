@@ -240,6 +240,17 @@
       </div>
 
     </div>
+
+    <BootstrapConfirmModal
+      v-model="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :cancel-label="confirmDialog.cancelLabel"
+      :confirm-variant="confirmDialog.confirmVariant"
+      @confirm="handleConfirmDialogConfirm"
+      @cancel="handleConfirmDialogCancel"
+    />
   </div>
 </template>
 
@@ -255,10 +266,18 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 import { parseLocalDateTime } from '@/utils/dateTime'
 import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
 const router = useRouter()
 const user = getCurrentUser()
 const toast = useToast()
+const {
+  confirmDialog,
+  askConfirmation,
+  handleConfirmDialogConfirm,
+  handleConfirmDialogCancel,
+} = useConfirmDialog()
 if (!user || !hasMinRole('organizer')) router.push('/')
 
 const missions = ref([])
@@ -348,14 +367,21 @@ const loadData = async () => {
 }
 
 const handleDeleteMission = async (id) => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) {
-    try {
-      await missionService.delete(id)
-      missions.value = missions.value.filter(m => m.id !== id)
-      toast.success('Mission supprimée avec succès.')
-    } catch (error) {
-      toast.error(error.message || 'Erreur lors de la suppression de la mission.')
-    }
+  const confirmed = await askConfirmation({
+    title: 'Supprimer cette mission ?',
+    message: 'Cette action est définitive.',
+    confirmLabel: 'Supprimer',
+    confirmVariant: 'danger',
+  })
+
+  if (!confirmed) return
+
+  try {
+    await missionService.delete(id)
+    missions.value = missions.value.filter(m => m.id !== id)
+    toast.success('Mission supprimée avec succès.')
+  } catch (error) {
+    toast.error(error.message || 'Erreur lors de la suppression de la mission.')
   }
 }
 
@@ -365,7 +391,14 @@ const handleTogglePostable = async (mission) => {
     ? `Activer les inscriptions pour "${mission.name}" ?`
     : `Fermer les inscriptions pour "${mission.name}" ?`
 
-  if (!confirm(confirmationMessage)) return
+  const confirmed = await askConfirmation({
+    title: 'Confirmer le changement',
+    message: confirmationMessage,
+    confirmLabel: 'Valider',
+    confirmVariant: 'warning',
+  })
+
+  if (!confirmed) return
 
   try {
     await missionService.update(mission.id, {
@@ -386,7 +419,14 @@ const handleToggleVisibility = async (mission) => {
     ? `Rendre la mission "${mission.name}" publique ?`
     : `Passer la mission "${mission.name}" en privée ?`
 
-  if (!confirm(confirmationMessage)) return
+  const confirmed = await askConfirmation({
+    title: 'Confirmer le changement',
+    message: confirmationMessage,
+    confirmLabel: 'Valider',
+    confirmVariant: 'primary',
+  })
+
+  if (!confirmed) return
 
   try {
     await missionService.update(mission.id, {

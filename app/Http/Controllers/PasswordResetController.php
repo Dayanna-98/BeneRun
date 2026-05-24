@@ -88,8 +88,13 @@ class PasswordResetController extends Controller
                 'error' => $exception->getMessage(),
             ]);
 
+            $message = 'Impossible d\'envoyer l\'email de réinitialisation pour le moment. Vérifiez la configuration SMTP.';
+            if (app()->isLocal() || config('app.debug')) {
+                $message .= ' Détail: '.$exception->getMessage();
+            }
+
             return response()->json([
-                'message' => 'Impossible d\'envoyer l\'email de réinitialisation pour le moment. Vérifiez la configuration SMTP.',
+                'message' => $message,
             ], 500);
         }
 
