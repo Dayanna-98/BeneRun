@@ -412,7 +412,7 @@ const toast = useToast()
 if (!user.value) router.push('/login')
 
 const activeTab     = ref('info')
-const permissions   = ref({ ...(user.value?.permissions || {}) })
+const permissions   = ref({ ...user.value?.permissions })
 const userBadges    = ref([])
 const badges        = computed(() => userBadges.value)
 const certificates  = ref([])
@@ -439,7 +439,7 @@ const messagingError = ref('')
 const refreshCurrentUser = async () => {
   const freshUser = await userService.getMe()
   user.value = freshUser
-  permissions.value = { ...(freshUser?.permissions || {}) }
+  permissions.value = { ...freshUser?.permissions }
   setCurrentUser(freshUser)
 }
 

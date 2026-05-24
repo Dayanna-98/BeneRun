@@ -499,11 +499,19 @@ const exportAsExcel = (sections) => {
 
 const toggleEvent   = (id) => {
   const i = selectedEvents.value.indexOf(id)
-  i === -1 ? selectedEvents.value.push(id) : selectedEvents.value.splice(i, 1)
+  if (i === -1) {
+    selectedEvents.value.push(id)
+  } else {
+    selectedEvents.value.splice(i, 1)
+  }
 }
 const toggleMission = (id) => {
   const i = selectedMissions.value.indexOf(id)
-  i === -1 ? selectedMissions.value.push(id) : selectedMissions.value.splice(i, 1)
+  if (i === -1) {
+    selectedMissions.value.push(id)
+  } else {
+    selectedMissions.value.splice(i, 1)
+  }
 }
 const selectAllEvents     = () => { selectedEvents.value   = exportEvents.value.map(e => e.id) }
 const deselectAllEvents   = () => { selectedEvents.value   = [] }

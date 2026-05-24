@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 // We mock the auth util so tests don't depend on localStorage user format

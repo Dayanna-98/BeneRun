@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { getCurrentUser } from '@/utils/auth'
 import { TUTORIAL_CONTENT, getNewStepsForRole } from '@/data/tutorialContent'
 

@@ -80,7 +80,7 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach((to, from) => {
+router.beforeEach((to) => {
   const token = localStorage.getItem('token')
   const user = getCurrentUser()
   const isLoggedIn = !!token && !!user

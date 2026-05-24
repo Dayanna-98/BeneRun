@@ -65,5 +65,5 @@ jobs:
         continue-on-error: true
 
       - name: Run ESLint (no fix, report only)
-        run: npx eslint . --cache false
+        run: npx eslint . --no-cache
         continue-on-error: true
