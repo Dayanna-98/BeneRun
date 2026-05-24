@@ -6,9 +6,9 @@ use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\Postulation;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 
 class PostulationController extends Controller
@@ -501,4 +501,3 @@ class PostulationController extends Controller
         return $startA <= $endB && $startB <= $endA;
     }
 }
-
