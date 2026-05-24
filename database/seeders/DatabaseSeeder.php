@@ -7,6 +7,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -55,12 +56,7 @@ class DatabaseSeeder extends Seeder
             ->get();
 
         if ($rows->isEmpty()) {
-            $this->seedUsers();
-
-            $rows = DB::table('users')
-                ->select('id_utilisateur', 'role_utilisateur')
-                ->orderBy('id_utilisateur')
-                ->get();
+            throw new RuntimeException('Aucun utilisateur trouvé.');
         }
 
         $all = $rows->pluck('id_utilisateur')->values()->all();
