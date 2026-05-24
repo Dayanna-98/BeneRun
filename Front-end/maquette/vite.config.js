@@ -20,4 +20,18 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/tests/setup.js'],
+    include: ['src/tests/**/*.spec.js'],
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/composables/**', 'src/data/tutorialContent.js'],
+    },
+  },
 })

@@ -4,15 +4,24 @@ import { useRoute, useRouter } from 'vue-router'
 import { UserRound, Heart } from 'lucide-vue-next'
 import BottomNav from '@/components/ui/BottomNav.vue'
 import NotificationBell from '@/components/notifications/NotificationBell.vue'
+import TutorialGuide from '@/components/tutorial/TutorialGuide.vue'
+import TutorialButton from '@/components/tutorial/TutorialButton.vue'
+import { useTutorial } from '@/composables/useTutorial'
 
 const route = useRoute()
 const router = useRouter()
 const isLoggedIn = ref(!!localStorage.getItem('token'))
+const { checkRoleChange } = useTutorial()
 
 // Écoute les changements de token dans localStorage
 onMounted(() => {
   // Vérifie au chargement
   isLoggedIn.value = !!localStorage.getItem('token')
+
+  // Détection de changement de rôle (affiche guide automatiquement si le rôle a changé)
+  if (isLoggedIn.value) {
+    checkRoleChange()
+  }
 
   // Écoute les changements de storage (depuis d'autres onglets)
   window.addEventListener('storage', () => {
@@ -62,6 +71,7 @@ const isDashboardRoute = computed(() => route.path === '/')
     <div v-if="showLayout" class="app-shell__aurora app-shell__aurora--two" />
     <div v-if="showProfileQuickAccess" class="quick-actions">
       <NotificationBell />
+      <TutorialButton />
       <button
         v-if="showFavoritesQuickAccess"
         type="button"
@@ -83,6 +93,7 @@ const isDashboardRoute = computed(() => route.path === '/')
       <RouterView />
     </main>
     <BottomNav v-if="showLayout" />
+    <TutorialGuide />
   </div>
 </template>
 

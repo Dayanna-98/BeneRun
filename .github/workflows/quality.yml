@@ -36,4 +36,32 @@ jobs:
       
       - name: Run Composer security audit
         run: composer audit --locked
+
+          frontend-lint:
+            runs-on: ubuntu-latest
+            defaults:
+              run:
+                working-directory: Front-end/maquette
+
+            steps:
+              - name: Checkout code
+                uses: actions/checkout@v4
+
+              - name: Setup Node.js
+                uses: actions/setup-node@v4
+                with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: Front-end/maquette/package-lock.json
+
+              - name: Install NPM dependencies
+                run: npm ci
+
+              - name: Run oxlint
+                run: npx oxlint .
+                continue-on-error: true
+
+              - name: Run ESLint (no fix, report only)
+                run: npx eslint . --cache false
+                continue-on-error: true
         continue-on-error: true

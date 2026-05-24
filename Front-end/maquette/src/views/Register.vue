@@ -187,7 +187,7 @@ const handleRegister = async () => {
     if (loginResponse.user && loginResponse.token) {
       persistAuthSession({ user: loginResponse.user, token: loginResponse.token })
       toast.success('Compte créé avec succès.')
-      router.push('/')
+      router.push('/welcome')
       return
     }
 

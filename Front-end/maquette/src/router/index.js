@@ -5,6 +5,7 @@ import { getCurrentUser, isRole } from '@/utils/auth'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import ResetPassword from '@/views/ResetPassword.vue'
+import Welcome from '@/views/Welcome.vue'
 
 // Pages protégées
 import Dashboard from '@/views/Dashboard.vue'
@@ -39,6 +40,7 @@ const routes = [
   { path: '/login', component: Login },
   { path: '/register', component: Register },
   { path: '/reset-password', component: ResetPassword },
+  { path: '/welcome', component: Welcome, meta: { requiresAuth: true } },
 
   // Routes protégées
   { path: '/', component: Dashboard, meta: { requiresAuth: true } },
@@ -96,6 +98,12 @@ router.beforeEach((to, from) => {
   // Si déjà sur login/register et connecté → dashboard
   if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
     return '/'
+  }
+
+  // La page /welcome est réservée aux utilisateurs connectés (guard déjà géré par requiresAuth)
+  // On n'autorise pas un utilisateur non connecté à l'accéder
+  if (to.path === '/welcome' && !isLoggedIn) {
+    return '/login'
   }
 
   return true
