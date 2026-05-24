@@ -1,329 +1,177 @@
 # Front-end BeneRun (maquette)
 
-Guide complet pour installer, lancer et depanner le front-end Vue.js, incluant la nouvelle messagerie (API persistante + WebSocket Reverb).
+Guide debutant pour installer et lancer le front-end Vue du projet.
 
-Ce dossier correspond a l'application front-end situee dans:
+Ce dossier contient uniquement l'interface utilisateur.
+Le backend Laravel doit aussi etre lance pour que les donnees s'affichent.
 
-`BeneRun/Front-end/maquette`
+## 1. Prerequis
 
-## 1) A quoi sert ce projet
+Installez ces outils:
 
-Ce front-end est une application Vue 3 (Vite) qui communique avec l'API Laravel du projet BeneRun.
+1. Node.js (version 20.19+ ou 22.12+)
+2. npm (installe avec Node.js)
+3. PHP 8.2+
+4. Composer
+5. XAMPP ou WAMP (MySQL)
+6. Git
 
-Technos principales:
+Liens d'installation (Windows):
 
-- Vue 3
-- Vite
-- Vue Router
-- Pinia
-- Bootstrap 5
-- Axios
-- Laravel Echo
-- Pusher JS (client WebSocket compatible Reverb)
+1. Node.js: https://nodejs.org/
+2. Composer: https://getcomposer.org/download/
+3. XAMPP: https://www.apachefriends.org/fr/index.html
+4. WampServer: https://www.wampserver.com/
+5. Git: https://git-scm.com/download/win
 
-## 2) Prerequis obligatoires
+Verification rapide:
 
-Avant de commencer, installez:
-
-1. Git
-2. Node.js (version compatible avec le projet)
-3. npm (installe automatiquement avec Node.js)
-4. PHP (compatible Laravel 12)
-5. Composer
-
-Version Node requise par le projet:
-
-- `^20.19.0` ou `>=22.12.0`
-
-Verification rapide dans un terminal:
-
-```bash
+~~~powershell
 node -v
 npm -v
 php -v
 composer -V
-```
+~~~
 
-Si la version Node est trop ancienne, mettez Node a jour avant d'aller plus loin.
+## 2. Ouvrir le bon dossier
 
-## 3) Recuperer le projet
+Dans PowerShell:
 
-Si vous n'avez pas encore le code:
+~~~powershell
+cd "C:\Users\votre_nom\Documents\BeneRun\BeneRun\Front-end\maquette"
+~~~
 
-```bash
-git clone <url-du-repo>
-cd BeneRun
-```
+Important:
 
-Si le projet est deja sur votre machine, placez-vous a la racine du repository `BeneRun`.
+- Les commandes `npm` se font ici, dans `Front-end\maquette`.
+- Les commandes `php artisan ...` se font dans `BeneRun\BeneRun`.
 
-## 4) Aller dans le bon dossier (important)
+## 3. Configurer le .env frontend
 
-Commandes backend Laravel: a lancer dans la racine `BeneRun`.
-Commandes frontend Vite: a lancer dans `Front-end/maquette`.
+Si `.env` n'existe pas, creez-le:
 
-Exemple PowerShell (Windows):
+~~~powershell
+Copy-Item .env.example .env
+~~~
 
-```powershell
-Set-Location "c:\Users\...\BeneRun"
-Set-Location ".\Front-end\maquette"
-```
+Valeurs attendues:
 
-Exemple macOS/Linux:
-
-```bash
-cd BeneRun
-cd Front-end/maquette
-```
-
-## 5) Configurer le fichier d'environnement front
-
-Le fichier `.env` dans `Front-end/maquette` contient les variables Vite.
-
-Si besoin, creez-le depuis `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Contenu attendu (par defaut):
-
-```env
+~~~env
 VITE_API_BASE_URL=http://localhost:8000/api
 VITE_REVERB_APP_KEY=benerun-local-key
 VITE_REVERB_HOST=127.0.0.1
 VITE_REVERB_PORT=8080
 VITE_REVERB_SCHEME=http
-```
+~~~
 
-## 6) Commandes a faire pour avoir les bonnes dependances
+## 4. Installer les dependances front
 
-La messagerie a maintenant des dependances frontend ET backend. Faites ces commandes dans cet ordre.
-
-### 6.1 Backend (racine `BeneRun`)
-
-```bash
-composer install
-php artisan migrate --force
-php artisan optimize:clear
-```
-
-Si vous etes sur une ancienne branche sans les nouvelles deps lockees, vous pouvez utiliser:
-
-```bash
-composer require laravel/sanctum laravel/reverb
-```
-
-### 6.2 Frontend (`Front-end/maquette`)
-
-```bash
+~~~powershell
 npm install
-```
+~~~
 
-Si vous etes sur une ancienne branche sans les nouvelles deps lockees, vous pouvez utiliser:
+Important pour que tout tourne correctement:
 
-```bash
-npm install laravel-echo pusher-js
-```
+1. Dans `BeneRun\BeneRun`, faites aussi `composer install`
+2. Dans `BeneRun\BeneRun`, faites aussi `npm install`
+3. Puis dans `BeneRun\BeneRun\Front-end\maquette`, faites `npm install`
 
-Alternative CI (install propre et reproductible):
+Sans ces 3 installations, vous pouvez avoir des erreurs au demarrage.
 
-```bash
-npm ci
-```
+## 5. Lancer l'application complete
 
-## 7) Lancer l'application en developpement (messagerie incluse)
+Le front depend du backend. Il faut 3 terminaux ouverts.
 
-La messagerie temps reel a besoin de 3 processus.
+### Terminal 1 - API Laravel
 
-### Terminal 1 - API Laravel (racine `BeneRun`)
+Dans `BeneRun\BeneRun`:
 
-```bash
+~~~powershell
 php artisan serve
-```
+~~~
 
-### Terminal 2 - Serveur WebSocket (racine `BeneRun`)
+### Terminal 2 - Reverb (messagerie temps reel)
 
-```bash
+Dans `BeneRun\BeneRun`:
+
+~~~powershell
 php artisan reverb:start
-```
+~~~
 
-### Terminal 3 - Frontend (`Front-end/maquette`)
+### Terminal 3 - Frontend Vue
 
-```bash
+Dans `BeneRun\BeneRun\Front-end\maquette`:
+
+~~~powershell
 npm run dev
-```
+~~~
 
-URL front par defaut:
+URL front:
 
-- `http://localhost:5173`
+- http://localhost:5173
 
-## 8) Commandes utiles
+## 6. Verification rapide
 
-Depuis `Front-end/maquette`:
+Si tout est OK:
 
-```bash
-npm run dev      # Lance le serveur de developpement
-npm run build    # Genere le build de production (dossier dist/)
-npm run preview  # Previsualise localement le build produit
-npm run lint     # Lance Oxlint + ESLint (avec auto-fix)
-npm run format   # Formate le code avec Prettier
-```
+1. Le navigateur ouvre http://localhost:5173
+2. Le terminal front affiche que Vite est pret
+3. Le backend repond sur http://127.0.0.1:8000
 
-Depuis la racine `BeneRun`:
+## 7. Commandes utiles
 
-```bash
-php artisan serve
-php artisan reverb:start
-php artisan migrate
-php artisan optimize:clear
-```
+Dans `Front-end\maquette`:
 
-## 9) Installation complete de zero (copier/coller)
-
-Option A - Vous partez de rien:
-
-```bash
-git clone <url-du-repo>
-cd BeneRun
-composer install
-php artisan migrate --force
-php artisan optimize:clear
-
-cd Front-end/maquette
-cp .env.example .env
-npm install
-```
-
-Puis lancez:
-
-```bash
-# terminal 1
-cd BeneRun
-php artisan serve
-
-# terminal 2
-cd BeneRun
-php artisan reverb:start
-
-# terminal 3
-cd BeneRun/Front-end/maquette
+~~~powershell
 npm run dev
-```
-
-Option B - Le repo est deja clone:
-
-```bash
-cd BeneRun
-composer install
-php artisan migrate --force
-php artisan optimize:clear
-
-cd Front-end/maquette
-npm install
-```
-
-Option C - Verifier que le build de production passe:
-
-```bash
-cd BeneRun/Front-end/maquette
-npm ci
 npm run build
 npm run preview
-```
+npm run lint
+npm run test
+~~~
 
-## 10) Depannage rapide
+Dans `BeneRun\BeneRun`:
 
-### Erreur: `node` ou `npm` non reconnu
-
-Cause probable: Node.js non installe ou PATH non recharge.
-
-Solution:
-
-1. Installer/reinstaller Node.js.
-2. Fermer puis rouvrir le terminal.
-3. Refaire `node -v` et `npm -v`.
-
-### Erreur au `npm install`
-
-Cause probable: version Node incompatible.
-
-Solution:
-
-1. Verifier `node -v`.
-2. Installer une version compatible (`20.19+` ou `22.12+`).
-3. Relancer `npm install`.
-
-### Le front demarre mais rien ne charge
-
-Cause probable: API Laravel non demarree ou mauvaise URL API.
-
-Solution:
-
-1. Lancer `php artisan serve` depuis la racine `BeneRun`.
-2. Verifier `VITE_API_BASE_URL` dans `.env`.
-3. Redemarrer le front (`npm run dev`).
-
-### La messagerie ne se met pas a jour en direct
-
-Cause probable: Reverb non lance ou variable WebSocket incorrecte.
-
-Solution:
-
-1. Lancer `php artisan reverb:start`.
-2. Verifier `VITE_REVERB_*` dans `Front-end/maquette/.env`.
-3. Verifier `BROADCAST_CONNECTION=reverb` et `REVERB_*` dans `BeneRun/.env`.
-4. Lancer `php artisan optimize:clear` puis redemarrer les 3 processus.
-
-### Erreur SQL `chat_conversations` inexistante
-
-Cause probable: migration chat non appliquee.
-
-Solution:
-
-```bash
-cd BeneRun
+~~~powershell
+php artisan serve
+php artisan reverb:start
 php artisan migrate --force
-```
+~~~
 
-### Erreur 401/403 sur `/broadcasting/auth`
+## 8. Depannage simple
 
-Cause probable: utilisateur non authentifie ou token invalide.
+### `node` ou `npm` non reconnu
 
-Solution:
+1. Reinstallez Node.js.
+2. Fermez et rouvrez le terminal.
+3. Refaites `node -v` et `npm -v`.
 
-1. Se reconnecter dans l'app.
-2. Verifier que le token est present dans le storage.
-3. Verifier que l'utilisateur est bien membre de la conversation privee cible.
+### Le front s'ouvre mais reste vide
 
-## 11) Rappels importants
+1. Verifiez que `php artisan serve` tourne.
+2. Verifiez `VITE_API_BASE_URL` dans `.env`.
+3. Relancez `npm run dev`.
 
-- Lancez les commandes front dans `Front-end/maquette`.
-- Lancez les commandes Laravel dans la racine `BeneRun`.
-- Pour la messagerie temps reel, `php artisan reverb:start` est obligatoire.
+### La messagerie ne se met pas a jour
 
-## 12) Arborescence utile (resume)
+1. Verifiez que `php artisan reverb:start` tourne.
+2. Verifiez les variables `VITE_REVERB_*` dans le `.env` frontend.
+3. Verifiez les variables `REVERB_*` dans le `.env` backend.
 
-```text
-Front-end/maquette/
-  .env
-  .env.example
-  package.json
-  vite.config.js
-  src/services/chatApiService.js
-  src/services/realtime.js
-  src/views/Messaging.vue
-  src/
-  public/
-  dist/
-```
+### `php` non reconnu dans terminal
 
-## 13) Support
+Si vous utilisez XAMPP:
 
-Si une etape echoue, partagez:
+~~~powershell
+& "c:\xampp3\php\php.exe" artisan serve
+~~~
+
+## 9. Si vous etes bloque
+
+Envoyez ces 3 informations:
 
 1. La commande executee
 2. Le message d'erreur complet
 3. Le resultat de `node -v`, `npm -v`, `php -v`
 
-Avec ces infos, le diagnostic est generalement rapide.
+Avec ces infos, le probleme est en general vite identifie.

@@ -1,233 +1,282 @@
 # BeneRun
-Application de gestion des bénévoles pour les courses de l'association Béné'Run.
-L'installation se fait en deux étapes : 
-    l'installation de l'environnement du back-end et du front-end.
-    
-# Démarches à suivre pour l'installation du back-end du projet en local
-Avant toute chose, pour l'installation et l'utilisation du projet il est nécessaire de rejoindre le repository sur GitHub et d'avoir sur son poste : 
-    - Un compte GitHub pour rejoindre le repository GitHub
-    - Visual Studio Code
-    - XAMPP ou WAMPP
-    - POSTMAN
 
-1. Cloner le repository en copiant l'URL. Dans un invite de commande ou le terminal de Visual Studio Code se placer à l'emplacement où l'on souhaite cloner le projet et exécuter la commande : 
-    git clone https://github.com/Dayanna-98/BeneRun.git
+Application de gestion des benevoles pour l'association Béné'Run.
 
-2. Après le clonage, ouvrir le projet et se placer à la racine du projet. Dans un invite de commande ou le terminal de Visual Studio Code exécuter la commande : 
-    cd BeneRun
+Ce guide est volontairement tres detaille pour une personne debutante.
+Si vous suivez chaque etape dans l'ordre, vous pourrez installer et lancer l'application en local.
 
-3. Installer les dépendances du projet Composer dans un invite de commande ou le terminal de Visual Studio Code en exécutant la commande :
-    composer install
+## 1. Ce que vous allez lancer
 
-4. Copier le fichier .env dans un invite de commande ou le terminal de Visual Studio Code en exécutant la commande :
-    cp .env.example .env
+L'application locale a besoin de 3 programmes en meme temps:
 
-Important sur les fichiers d'environnement :
-  - .env contient la configuration locale reelle (mots de passe, cles API, SMTP, etc.).
-  - .env ne doit pas etre versionne dans Git.
-  - .env.example est un modele partage sans secrets pour que chaque personne recree son .env.
-  - Ne pas supprimer .env.example: il sert de reference d'installation et de CI/CD.
+1. API Laravel (backend) sur http://127.0.0.1:8000
+2. Serveur WebSocket Reverb (messagerie temps reel) sur le port 8080
+3. Application Vue (frontend) sur http://localhost:5173
 
-5. Générer la clé Laravel dans un invite de commande ou le terminal de Visual Studio Code en exécutant la commande :
-    php artisan key:generate
+## 2. Prerequis (a installer une seule fois)
 
-6. Dans le fichier .env :
-    Tout en haut à la ligne : APP_KEY= insérer votre votre key générée
-    et dans la partie connexion à la BDD mettre : 
+Sur Windows, installez:
 
-    DB_CONNECTION=mysql
-    DB_HOST=127.0.0.1
-    DB_PORT=le port sur quel notre XAMPP OU WAMPP tourne
-    DB_DATABASE=benerun
-    DB_USERNAME=root
-    DB_PASSWORD=
+1. Git
+2. Visual Studio Code
+3. XAMPP ou WAMP (pour MySQL)
+4. PHP 8.2 ou plus
+5. Composer
+6. Node.js (version 20.19+ ou 22.12+)
 
-Cette partie est à configurer selon les paramètres et configuration de chacun. La DB_CONNECTION et DB_DATABASE doivent toutefois être comme indiquées ci-dessus. 
+Checklist concrete des installations Windows:
 
-Configuration email (mot de passe oublie) :
-  Pour envoyer de vrais emails, configurez un SMTP de production dans .env :
-  MAIL_MAILER=smtp
-  MAIL_SCHEME=tls
-  MAIL_HOST=votre-hote-smtp
-  MAIL_PORT=587
-  MAIL_USERNAME=votre-identifiant-smtp
-  MAIL_PASSWORD=votre-mot-de-passe-smtp
-  MAIL_FROM_ADDRESS=no-reply@votre-domaine
-  MAIL_FROM_NAME="BeneRun"
+1. Installez Git (https://git-scm.com/download/win)
+2. Installez Visual Studio Code (https://code.visualstudio.com/)
+3. Installez XAMPP (https://www.apachefriends.org/fr/index.html) ou WampServer (https://www.wampserver.com/)
+4. Installez Node.js LTS 22.x (https://nodejs.org/)
+5. Installez Composer (https://getcomposer.org/download/)
+6. Verifiez que PHP est disponible dans le terminal (sinon utilisez le binaire XAMPP comme indique plus bas)
 
-  Variables de lien de reinitialisation :
-  FRONTEND_URL=http://localhost:5173
-  FRONTEND_RESET_PASSWORD_URL_TEMPLATE=
+Verification rapide dans PowerShell:
 
-  FRONTEND_RESET_PASSWORD_URL_TEMPLATE est optionnelle.
-  Si definie, utilisez les placeholders {token} et {email}.
-  Exemple : https://app.votre-domaine/reset-password?token={token}&email={email}
+~~~powershell
+git --version
+php -v
+composer -V
+node -v
+npm -v
+~~~
 
-  Apres modification de .env :
-  php artisan config:clear
+Si une commande n'est pas reconnue, l'outil n'est pas encore installe (ou pas dans le PATH).
 
-7. Créer la BDD en local dans PHPMyAdmin dans un invite de commande ou le terminal de VS Code en exécutant la commande :
-    php artisan migrate    
+## 3. Recuperer le projet
 
-8. Lancer le serveur Laravel dans un invite de commande ou le terminal de VS Code en exécutant la commande : 
-    php artisan serve
+Si vous n'avez pas encore le code:
 
-9. Vérifier que l'application est accessible en cliquant sur l'URL indiquée.
+~~~powershell
+cd "C:\Users\votre_nom\Documents"
+git clone https://github.com/Dayanna-98/BeneRun.git
+cd "BeneRun\BeneRun"
+~~~
 
-Documentation API (Scramble) :
+Important:
 
-L’API est documentée automatiquement grâce à Scramble (dedoc/scramble), une alternative moderne à Swagger permettant une génération plus stable et compatible avec Laravel.
+- Le dossier de travail pour Laravel est `BeneRun\BeneRun`.
+- Le dossier frontend est `BeneRun\BeneRun\Front-end\maquette`.
 
-📌 Accès à la documentation :
-Après lancement du serveur Laravel (php artisan serve) :
+## 4. Demarrer la base de donnees (XAMPP/WAMP)
 
-http://127.0.0.1:8000/docs/api#/
+1. Ouvrez XAMPP/WAMP.
+2. Demarrez MySQL.
+3. Verifiez que le port correspond a `DB_PORT` (3306 par defaut).
 
-📌 Installation (si nécessaire)
-Après un git pull, chaque développeur doit installer les dépendances pour activer Scramble :
+Astuce:
+Si toutes les routes API repondent en erreur 500, le service MySQL est souvent arrete.
 
+## 5. Configurer le backend Laravel
+
+Placez-vous dans le dossier backend:
+
+~~~powershell
+cd "C:\Users\votre_nom\Documents\BeneRun\BeneRun"
+~~~
+
+### 5.1 Installer les dependances PHP
+
+~~~powershell
 composer install
+~~~
 
-Il doit également vérifier que le fichier de configuration Scramble est bien présent :
+### 5.1 bis Installer les dependances Node du backend
 
-config/scramble.php
+Le dossier backend contient aussi un `package.json` (assets Laravel/Vite).
 
-📌 Régénérer la documentation :
+~~~powershell
+npm install
+~~~
 
-php artisan scramble:analyze
+### 5.2 Creer le fichier .env
 
-Scramble fournit automatiquement :
+~~~powershell
+Copy-Item .env.example .env
+~~~
 
-la liste des endpoints
-les paramètres attendus(query,body,path)
-les réponses JSON
-les schémas des modèles Laravel
-une interface interactive
+### 5.3 Generer la cle Laravel
 
-# Démarches à suivre pour l'installation du front-end du projet en local
-Il est nécéssaire de disposer de : 
- - Node.js v18 ou supérieur
- - npm v9 ou supérieur
-Un éditeur de code (recommandé : VS Code)
+~~~powershell
+php artisan key:generate
+~~~
 
-1. Cloner le projet avec la commande :
-   git clone https://github.com/votre-repo/maquette.git
+Si la commande `php` ne fonctionne pas mais que vous utilisez XAMPP:
 
-3. Se placer dans le dossier "maquette" en exécutant la commande :
-   cd maquette
+~~~powershell
+& "c:\xampp3\php\php.exe" artisan key:generate
+~~~
 
-2. Installer les dépendances nécessaires en éxécutant la commande
-   npm install
+### 5.4 Verifier les variables importantes dans .env
 
-4. Lancer le serveur de développement
-   npm run dev
+Le fichier `BeneRun\.env` doit au minimum contenir:
 
-L'application sera disponible sur http://localhost:5173
+~~~env
+APP_URL=http://localhost:8000
 
-Dépendances principales
-Package	Version	Rôle
-vue	^3.x	Framework principal
-vue-router	^4.x	Gestion des routes
-pinia	^2.x	Gestion d'état (store)
-axios	^1.x	Requêtes HTTP vers l'API Laravel
-bootstrap	^5.x	UI / styles
-lucide-vue-next	latest	Icônes
-Installer manuellement si besoin :
-npm install vue-router pinia axios bootstrap lucide-vue-next
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=benerun
+DB_USERNAME=root
+DB_PASSWORD=
 
-Structure du projet
-src/
-├── assets/
-│   ├── css/
-│   │   ├── index.css       # CSS global (importe fonts + theme)
-│   │   └── theme.css       # Variables et surcharges Bootstrap
-│   ├── fonts/
-│   │   └── fonts.css       # Déclarations @font-face
-│   └── logo.png
-├── components/
-│   ├── figma/              # Composants issus de la maquette Figma
-│   └── ui/                 # Composants UI réutilisables (Button, Card, etc.)
-├── composables/            # Logique réutilisable (useAuth, etc.)
-├── data/
-│   └── mockData.js         # Données fictives pour le développement
-├── router/
-│   └── index.js            # Définition des routes + navigation guards
-├── services/
-│   └── api.js              # Instance Axios + intercepteurs
-├── stores/                 # Stores Pinia
-├── utils/
-│   └── auth.js             # Helpers d'authentification
-├── views/                  # Pages (une par route)
-│   ├── Login.vue
-│   ├── Profile.vue
-│   └── ...
-├── App.vue
-└── main.js
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=benerun-local
+REVERB_APP_KEY=benerun-local-key
+REVERB_APP_SECRET=benerun-local-secret
+REVERB_HOST=127.0.0.1
+REVERB_PORT=8080
+REVERB_SCHEME=http
 
+FRONTEND_URL=http://localhost:5173
+~~~
 
-const api = axios.create({
-  baseURL: 'http://localhost:8000/api', // ← adapter selon votre environnement
-  headers: { 'Content-Type': 'application/json' }
-})
+### 5.5 Creer les tables de la base
 
-// Ajout automatique du token JWT
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+~~~powershell
+php artisan migrate --force
+php artisan optimize:clear
+~~~
 
-// Redirection si token expiré
-api.interceptors.response.use(
-  res => res,
-  err => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
-    }
-    return Promise.reject(err)
-  }
-)
+## 6. Configurer le frontend Vue
 
-export default api
+Ouvrez un terminal dans le dossier frontend:
 
-Authentification
+~~~powershell
+cd "C:\Users\votre_nom\Documents\BeneRun\BeneRun\Front-end\maquette"
+~~~
 
-L'application utilise JWT (token Bearer) stocké dans localStorage.
+### 6.1 Creer le .env frontend
 
-Le token est ajouté automatiquement à chaque requête via l'intercepteur Axios
-Les routes protégées utilisent meta: { requiresAuth: true } dans le router
-En cas de 401, l'utilisateur est redirigé vers /login
+~~~powershell
+Copy-Item .env.example .env
+~~~
 
-Le backend Laravel doit exposer une API REST avec authentification JWT (ex: laravel/sanctum en mode API token ou tymon/jwt-auth).
+Contenu attendu:
 
-Routes principales
-Chemin	Vue	Protégée
-/login	Login.vue	Non
-/profile	Profile.vue	Oui
-/missions	Missions.vue	Oui
-/events	Events.vue	Oui
-Build pour la production
+~~~env
+VITE_API_BASE_URL=http://localhost:8000/api
+VITE_REVERB_APP_KEY=benerun-local-key
+VITE_REVERB_HOST=127.0.0.1
+VITE_REVERB_PORT=8080
+VITE_REVERB_SCHEME=http
+~~~
+
+### 6.2 Installer les dependances Node
+
+~~~powershell
+npm install
+~~~
+
+Important:
+
+- Vous aurez donc 2 installations npm au total:
+1. `npm install` dans `BeneRun\BeneRun`
+2. `npm install` dans `BeneRun\BeneRun\Front-end\maquette`
+
+## 7. Lancer l'application (3 terminaux)
+
+Vous devez laisser les 3 commandes ouvertes.
+
+### Terminal A - API Laravel
+
+Depuis `BeneRun\BeneRun`:
+
+~~~powershell
+php artisan serve
+~~~
+
+### Terminal B - WebSocket Reverb
+
+Depuis `BeneRun\BeneRun`:
+
+~~~powershell
+php artisan reverb:start
+~~~
+
+### Terminal C - Frontend Vue
+
+Depuis `BeneRun\BeneRun\Front-end\maquette`:
+
+~~~powershell
+npm run dev
+~~~
+
+Ensuite, ouvrez dans votre navigateur:
+
+- http://localhost:5173
+
+## 8. Verification rapide
+
+Si tout est correct:
+
+1. La page frontend s'ouvre sur http://localhost:5173
+2. L'API repond sur http://127.0.0.1:8000
+3. La doc API est visible sur http://127.0.0.1:8000/docs/api#/
+
+## 9. Problemes frequents et solutions
+
+### 9.1 `php` n'est pas reconnu
+
+Utilisez le binaire XAMPP directement:
+
+~~~powershell
+& "c:\xampp3\php\php.exe" artisan serve
+~~~
+
+### 9.2 Erreurs SQL ou API 500
+
+1. Verifiez que MySQL est demarre dans XAMPP/WAMP
+2. Verifiez les valeurs `DB_*` dans `.env`
+3. Relancez:
+
+~~~powershell
+php artisan migrate --force
+php artisan optimize:clear
+~~~
+
+### 9.3 Le frontend ne charge pas les donnees
+
+1. Verifiez que `php artisan serve` est actif
+2. Verifiez `VITE_API_BASE_URL=http://localhost:8000/api`
+3. Relancez le frontend `npm run dev`
+
+### 9.4 La messagerie temps reel ne marche pas
+
+1. Verifiez que `php artisan reverb:start` tourne
+2. Verifiez les variables `REVERB_*` dans le backend
+3. Verifiez les variables `VITE_REVERB_*` dans le frontend
+
+## 10. Commandes utiles
+
+Backend (dans `BeneRun\BeneRun`):
+
+~~~powershell
+php artisan serve
+php artisan reverb:start
+php artisan migrate --force
+php artisan test
+~~~
+
+Frontend (dans `BeneRun\BeneRun\Front-end\maquette`):
+
+~~~powershell
+npm run dev
 npm run build
+npm run preview
+npm run lint
+~~~
 
+## 11. Aide
 
-Les fichiers compilés seront dans le dossier dist/.
+En cas de blocage, partagez:
 
-Pour prévisualiser le build :
- - npm run preview
+1. La commande executee
+2. Le message d'erreur complet
+3. Le resultat de `php -v`, `composer -V`, `node -v`, `npm -v`
 
-Commandes utiles
-npm run dev        # Démarrer en développement
-npm run build      # Build production
-npm run preview    # Prévisualiser le build
-
-Connexion au backend Laravel
-Démarrer le serveur Laravel : php artisan serve
-S'assurer que CORS est configuré dans config/cors.php pour autoriser http://localhost:5173
-Adapter baseURL dans src/services/api.js
-Notes de développement
-Les données dans src/data/mockData.js sont fictives — à remplacer par les appels API réels
-Les composants dans src/components/ui/ sont des adaptations Bootstrap des composants Radix UI originaux
-Le projet utilise la Composition API de Vue 3 avec <script setup>
-Pas de TypeScript — le projet utilise JavaScript pur
+Avec ces 3 informations, le diagnostic est beaucoup plus rapide.
 
