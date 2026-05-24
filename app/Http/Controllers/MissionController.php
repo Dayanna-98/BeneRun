@@ -52,6 +52,10 @@ class MissionController extends Controller
             $query->where('visibilite_mission', $request->visibilite_mission);
         }
 
+        if ($request->filled('responsable_id')) {
+            $query->where('responsable_utilisateur_id', (int) $request->responsable_id);
+        }
+
         if ($request->filled('search')) {
             $search = trim((string) $request->query('search'));
 

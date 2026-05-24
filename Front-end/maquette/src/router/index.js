@@ -19,6 +19,7 @@ import Messaging from '@/views/Messaging.vue'
 import MissionDetails from '@/views/MissionDetails.vue'
 import Favorites from '@/views/Favorites.vue'
 import ManageMissions from '@/views/ManageMissions.vue'
+import MyManagedMissions from '@/views/MyManagedMissions.vue'
 import CreateMission from '@/views/CreateMission.vue'
 import EditMission from '@/views/EditMission.vue'
 import ManageEvents from '@/views/ManageEvents.vue'
@@ -52,6 +53,7 @@ const routes = [
   { path: '/mission/:id', component: MissionDetails, meta: { requiresAuth: true } },
   { path: '/favorites', component: Favorites, meta: { requiresAuth: true } },
   { path: '/manage-missions', component: ManageMissions, meta: { requiresAuth: true } },
+  { path: '/my-managed-missions', component: MyManagedMissions, meta: { requiresAuth: true } },
   { path: '/manage-missions/create', component: CreateMission, meta: { requiresAuth: true } },
   { path: '/manage-missions/edit/:id', component: EditMission, meta: { requiresAuth: true } },
   { path: '/manage-events', component: ManageEvents, meta: { requiresAuth: true } },

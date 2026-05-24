@@ -177,7 +177,7 @@
             </button>
           </div>
           <div class="p-3">
-            <button class="btn btn-primary w-100" @click="router.push('/manage-missions')">Toutes mes missions</button>
+            <button class="btn btn-primary w-100" @click="router.push('/my-managed-missions')">Toutes mes missions</button>
           </div>
         </div>
       </div>

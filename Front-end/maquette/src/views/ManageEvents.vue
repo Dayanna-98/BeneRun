@@ -234,13 +234,13 @@
               </div>
 
               <div class="d-flex flex-wrap gap-2 mt-3">
-                <button class="btn btn-outline-primary btn-sm d-flex align-items-center gap-2" @click.stop="openWaitingListForEvent(event)">
+                <button class="btn btn-outline-primary btn-sm d-flex align-items-center gap-2" :disabled="getEventStatus(event) !== 'upcoming'" @click.stop="openWaitingListForEvent(event)">
                   <Users style="width:14px;height:14px" /> Liste d'attente
                 </button>
                 <button class="btn btn-outline-secondary btn-sm" @click.stop="toggleEventVisibility(event)">
                   {{ event.isPublished ? 'Passer privée' : 'Rendre publique' }}
                 </button>
-                <button class="btn btn-outline-warning btn-sm" @click.stop="toggleEventRegistrations(event)">
+                <button class="btn btn-outline-warning btn-sm" :disabled="getEventStatus(event) !== 'upcoming'" @click.stop="toggleEventRegistrations(event)">
                   {{ isOpenForRegistrations(event) ? 'Fermer inscriptions' : 'Ouvrir inscriptions' }}
                 </button>
               </div>
@@ -298,10 +298,10 @@
             <button class="btn btn-outline-secondary" @click="toggleEventVisibility(drawerEvent)">
               {{ drawerEvent.isPublished ? 'Passer privée' : 'Rendre publique' }}
             </button>
-            <button class="btn btn-outline-warning" @click="toggleEventRegistrations(drawerEvent)">
+            <button class="btn btn-outline-warning" :disabled="getEventStatus(drawerEvent) !== 'upcoming'" @click="toggleEventRegistrations(drawerEvent)">
               {{ isOpenForRegistrations(drawerEvent) ? 'Fermer inscriptions' : 'Ouvrir inscriptions' }}
             </button>
-            <button class="btn btn-outline-primary" @click="openWaitingListForEvent(drawerEvent)">Ouvrir la liste d'attente</button>
+            <button class="btn btn-outline-primary" :disabled="getEventStatus(drawerEvent) !== 'upcoming'" @click="openWaitingListForEvent(drawerEvent)">Ouvrir la liste d'attente</button>
           </div>
         </div>
       </aside>
@@ -946,7 +946,7 @@
         selectedEventIds.value = []
       }
 
-      const applyBulkUpdate = async (updater, successMessage) => {
+      const applyBulkUpdate = async (updater, successMessage, predicate = null) => {
         if (selectedEventIds.value.length === 0) return
         isBulkSaving.value = true
 
@@ -955,6 +955,7 @@
         for (const eventId of selectedEventIds.value) {
           const target = eventsList.value.find((event) => event.id === eventId)
           if (!target) continue
+          if (predicate && !predicate(target)) continue
 
           try {
             const payload = updater(target)
@@ -989,7 +990,8 @@
             cancellationDate: '',
             cancellationReason: '',
           }),
-          value ? 'Inscriptions ouvertes sur la sélection.' : 'Inscriptions fermées sur la sélection.'
+          value ? 'Inscriptions ouvertes sur la sélection.' : 'Inscriptions fermées sur la sélection.',
+          (event) => getEventStatus(event) === 'upcoming'
         )
       }
 

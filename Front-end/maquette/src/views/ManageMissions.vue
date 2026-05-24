@@ -206,6 +206,8 @@
               <button
                 class="btn btn-sm"
                 :class="mission.postable ? 'btn-outline-warning' : 'btn-outline-success'"
+                :disabled="!canDeleteMission(mission)"
+                :title="!canDeleteMission(mission) ? 'Modification interdite : mission en cours ou passée' : ''"
                 @click="handleTogglePostable(mission)"
               >
                 {{ mission.postable ? 'Fermer les inscriptions' : 'Activer postable' }}

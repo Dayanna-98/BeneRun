@@ -322,6 +322,7 @@ import { getCurrentUser, setCurrentUser } from '@/utils/auth'
 import MissionLiveMap from '@/components/maps/MissionLiveMap.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 import userService from '@/services/userService'
+import { parseLocalDateTime } from '@/utils/dateTime'
 import emergencyService from '@/services/emergencyService'
 import { useToast } from '@/composables/useToast'
 
@@ -470,8 +471,15 @@ const isActiveMission = computed(() =>
   && !!mission.value.isParticipant
 )
 
+const isMissionPast = computed(() => {
+  if (!mission.value) return false
+  const end = parseLocalDateTime(mission.value.date, mission.value.endTime || '23:59')
+  return end ? end.getTime() < Date.now() : false
+})
+
 const canCurrentUserRegister = computed(() => {
   if (!mission.value || !currentUser.value?.id) return false
+  if (isMissionPast.value) return false
   if (!mission.value.postable) return false
   return !mission.value.isParticipant && !mission.value.registrationStatus
 })
@@ -479,6 +487,7 @@ const canCurrentUserRegister = computed(() => {
 const registrationButtonLabel = computed(() => {
   if (isSubmittingRegistration.value) return 'Inscription en cours...'
   if (mission.value?.isParticipant) return 'Vous participez déjà à cette mission'
+  if (isMissionPast.value) return 'Mission terminée'
   if (mission.value?.registrationStatus === 'en_attente') return 'Inscription déjà envoyée'
   if (mission.value?.registrationStatus === 'accepte') return 'Vous êtes déjà inscrit à cette mission'
   if (mission.value && mission.value.postable === false) return 'Inscriptions fermées pour cette mission'

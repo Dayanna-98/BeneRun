@@ -85,13 +85,16 @@
               </div>
             </div>
 
+            <div v-if="isEventPast" class="alert alert-secondary small mb-0">
+              Cet événement est terminé. Les inscriptions sont closes.
+            </div>
             <div class="d-grid gap-2">
               <button
                 class="btn btn-primary"
                 :disabled="isSubmittingEventSignup || !canSignupEvent"
                 @click="handleEventSignup"
               >
-                {{ isSubmittingEventSignup ? 'Inscription en cours...' : "S'inscrire à l'événement" }}
+                {{ isSubmittingEventSignup ? 'Inscription en cours...' : (isEventPast ? 'Événement terminé' : "S'inscrire à l'événement") }}
               </button>
               <button class="btn btn-outline-primary" @click="goToEventMissions">
                 Voir/s'inscrire aux missions
@@ -183,6 +186,7 @@ import { ArrowLeft, MapPin, Calendar, Users, Briefcase, AlertTriangle, Clock, Ex
 import api from '@/services/api'
 import eventService from '@/services/eventService'
 import { getCurrentUser } from '@/utils/auth'
+import { parseLocalDateTime } from '@/utils/dateTime'
 import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 
@@ -284,10 +288,19 @@ const completionPercentage = computed(() => {
   )
 })
 
+const isEventPast = computed(() => {
+  if (!event.value) return false
+  const endDate = event.value.endDate || event.value.startDate || event.value.date
+  const endTime = event.value.endTime || '23:59'
+  const end = parseLocalDateTime(endDate, endTime)
+  return end ? end.getTime() < Date.now() : false
+})
+
 const canSignupEvent = computed(() =>
   !!currentUser.value?.id
   && !!event.value
   && !event.value.isCancelled
+  && !isEventPast.value
 )
 
 const spotsLeft = (mission) => mission.maxVolunteers - mission.currentVolunteers
@@ -304,7 +317,6 @@ const formatMissionDate = (date) => {
 
 const formatEventPeriod = (targetEvent) => {
   if (!targetEvent) return ''
-
   const from = targetEvent.startDate || targetEvent.date
   const to = targetEvent.endDate || from
   const fromLabel = formatMissionDate(from)

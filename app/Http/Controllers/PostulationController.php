@@ -8,6 +8,7 @@ use App\Models\Mission;
 use App\Models\Postulation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 
 class PostulationController extends Controller
@@ -168,6 +169,17 @@ class PostulationController extends Controller
 
     public function inscrireEvenement(Request $request, $idEvenement)
     {
+        $event = Evenement::select('id_evenement', 'date_fin_evenement', 'heure_fin_evenement')->find((int) $idEvenement);
+        if ($event && $event->date_fin_evenement) {
+            $endDate = Carbon::parse((string) $event->date_fin_evenement)->format('Y-m-d');
+            $endTime = $event->heure_fin_evenement ?: '23:59:59';
+            if (Carbon::parse("{$endDate} {$endTime}")->isPast()) {
+                return response()->json([
+                    'message' => 'Inscription impossible : cet événement est terminé.',
+                ], 422);
+            }
+        }
+
         $payload = array_merge($request->all(), [
             'id_evenement' => (int) $idEvenement,
             'id_mission' => null,
@@ -310,7 +322,7 @@ class PostulationController extends Controller
             : null;
 
         if ($missionId !== null) {
-            $mission = Mission::select('id_mission', 'id_evenement', 'inscription_requise')->find($missionId);
+            $mission = Mission::select('id_mission', 'id_evenement', 'inscription_requise', 'date_mission', 'heure_fin_mission')->find($missionId);
             if ($mission) {
                 if (! $mission->inscription_requise) {
                     abort(response()->json([
@@ -481,3 +493,11 @@ class PostulationController extends Controller
         return $startA <= $endB && $startB <= $endA;
     }
 }
+                $missionDate = $mission->date_mission ? Carbon::parse((string) $mission->date_mission)->format('Y-m-d') : null;
+                $missionEndTime = $mission->heure_fin_mission ?: '23:59:59';
+                if ($missionDate && Carbon::parse("{$missionDate} {$missionEndTime}")->isPast()) {
+                    abort(response()->json([
+                        'message' => 'Les inscriptions sont closes : cette mission est terminée.',
+                    ], 422));
+                }
+
