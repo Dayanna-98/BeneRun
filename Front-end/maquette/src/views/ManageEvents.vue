@@ -990,7 +990,7 @@
             cancellationDate: '',
             cancellationReason: '',
           }),
-          value ? 'Inscriptions ouvertes sur la sélection.' : 'Inscriptions fermées sur la sélection.',
+          value ? 'Inscriptions ouvertes sur la sélection (événements à venir uniquement).' : 'Inscriptions fermées sur la sélection (événements à venir uniquement).',
           (event) => getEventStatus(event) === 'upcoming'
         )
       }

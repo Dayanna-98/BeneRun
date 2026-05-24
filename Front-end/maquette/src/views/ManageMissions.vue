@@ -206,8 +206,8 @@
               <button
                 class="btn btn-sm"
                 :class="mission.postable ? 'btn-outline-warning' : 'btn-outline-success'"
-                :disabled="!canDeleteMission(mission)"
-                :title="!canDeleteMission(mission) ? 'Modification interdite : mission en cours ou passée' : ''"
+                :disabled="isMissionPast(mission)"
+                :title="isMissionPast(mission) ? 'Mission terminée' : ''"
                 @click="handleTogglePostable(mission)"
               >
                 {{ mission.postable ? 'Fermer les inscriptions' : 'Activer postable' }}
@@ -215,6 +215,8 @@
               <button
                 class="btn btn-sm"
                 :class="mission.visibility === 'public' ? 'btn-outline-secondary' : 'btn-outline-info'"
+                :disabled="isMissionPast(mission)"
+                :title="isMissionPast(mission) ? 'Mission terminée' : ''"
                 @click="handleToggleVisibility(mission)"
               >
                 {{ mission.visibility === 'public' ? 'Passer en privée' : 'Activer publique' }}
@@ -305,6 +307,10 @@ const loadMoreMissions = () => {
 const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreMissions.value, onLoadMore: loadMoreMissions })
 
 const getMissionStartDate = (mission) => parseLocalDateTime(mission.date, mission.startTime || '00:00')
+const isMissionPast = (mission) => {
+  const end = parseLocalDateTime(mission.date, mission.endTime || '23:59')
+  return end ? end.getTime() < Date.now() : false
+}
 const canDeleteMission = (mission) => {
   const start = getMissionStartDate(mission)
   return start ? start.getTime() > Date.now() : false

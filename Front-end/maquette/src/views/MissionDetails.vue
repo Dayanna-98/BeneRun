@@ -269,8 +269,9 @@
       <!-- Sticky footer -->
       <div class="position-sticky bottom-0 bg-white border-top p-3">
         <div v-if="actionError" class="alert alert-danger mb-2 py-3 text-center fw-semibold">{{ actionError }}</div>
+        <div v-if="!isActiveMission && isMissionPast" class="alert alert-secondary mb-2 py-3 text-center fw-semibold">Cette mission est terminée.</div>
         <button
-          v-if="!isActiveMission"
+          v-if="!isActiveMission && !isMissionPast"
           class="btn btn-primary btn-lg w-100"
           :disabled="isSubmittingRegistration || !canCurrentUserRegister"
           @click="handleMissionRegistration">

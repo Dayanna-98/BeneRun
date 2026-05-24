@@ -330,6 +330,14 @@ class PostulationController extends Controller
                     ], 422));
                 }
 
+                $missionDate = $mission->date_mission ? Carbon::parse((string) $mission->date_mission)->format('Y-m-d') : null;
+                $missionEndTime = $mission->heure_fin_mission ?: '23:59:59';
+                if ($missionDate && Carbon::parse("{$missionDate} {$missionEndTime}")->isPast()) {
+                    abort(response()->json([
+                        'message' => 'Les inscriptions sont closes : cette mission est terminée.',
+                    ], 422));
+                }
+
                 $validated['id_evenement'] = (int) $mission->id_evenement;
 
                 if ($eventId !== null && $eventId !== (int) $mission->id_evenement) {
@@ -493,11 +501,4 @@ class PostulationController extends Controller
         return $startA <= $endB && $startB <= $endA;
     }
 }
-                $missionDate = $mission->date_mission ? Carbon::parse((string) $mission->date_mission)->format('Y-m-d') : null;
-                $missionEndTime = $mission->heure_fin_mission ?: '23:59:59';
-                if ($missionDate && Carbon::parse("{$missionDate} {$missionEndTime}")->isPast()) {
-                    abort(response()->json([
-                        'message' => 'Les inscriptions sont closes : cette mission est terminée.',
-                    ], 422));
-                }
 
