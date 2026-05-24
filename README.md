@@ -22,6 +22,12 @@ Avant toute chose, pour l'installation et l'utilisation du projet il est nécess
 4. Copier le fichier .env dans un invite de commande ou le terminal de Visual Studio Code en exécutant la commande :
     cp .env.example .env
 
+Important sur les fichiers d'environnement :
+  - .env contient la configuration locale reelle (mots de passe, cles API, SMTP, etc.).
+  - .env ne doit pas etre versionne dans Git.
+  - .env.example est un modele partage sans secrets pour que chaque personne recree son .env.
+  - Ne pas supprimer .env.example: il sert de reference d'installation et de CI/CD.
+
 5. Générer la clé Laravel dans un invite de commande ou le terminal de Visual Studio Code en exécutant la commande :
     php artisan key:generate
 
@@ -37,6 +43,28 @@ Avant toute chose, pour l'installation et l'utilisation du projet il est nécess
     DB_PASSWORD=
 
 Cette partie est à configurer selon les paramètres et configuration de chacun. La DB_CONNECTION et DB_DATABASE doivent toutefois être comme indiquées ci-dessus. 
+
+Configuration email (mot de passe oublie) :
+  Pour envoyer de vrais emails, configurez un SMTP de production dans .env :
+  MAIL_MAILER=smtp
+  MAIL_SCHEME=tls
+  MAIL_HOST=votre-hote-smtp
+  MAIL_PORT=587
+  MAIL_USERNAME=votre-identifiant-smtp
+  MAIL_PASSWORD=votre-mot-de-passe-smtp
+  MAIL_FROM_ADDRESS=no-reply@votre-domaine
+  MAIL_FROM_NAME="BeneRun"
+
+  Variables de lien de reinitialisation :
+  FRONTEND_URL=http://localhost:5173
+  FRONTEND_RESET_PASSWORD_URL_TEMPLATE=
+
+  FRONTEND_RESET_PASSWORD_URL_TEMPLATE est optionnelle.
+  Si definie, utilisez les placeholders {token} et {email}.
+  Exemple : https://app.votre-domaine/reset-password?token={token}&email={email}
+
+  Apres modification de .env :
+  php artisan config:clear
 
 7. Créer la BDD en local dans PHPMyAdmin dans un invite de commande ou le terminal de VS Code en exécutant la commande :
     php artisan migrate    

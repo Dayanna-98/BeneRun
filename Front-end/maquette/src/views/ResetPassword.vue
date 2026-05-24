@@ -108,7 +108,7 @@
                     v-model="newPassword"
                     type="password"
                     class="form-control ps-5"
-                    placeholder="Au moins 8 caractères"
+                    placeholder="Au moins 10 caracteres"
                     :disabled="isLoading"
                     required
                   />

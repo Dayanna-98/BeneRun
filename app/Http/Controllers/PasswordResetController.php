@@ -58,11 +58,20 @@ class PasswordResetController extends Controller
 
         $frontendBaseUrl = rtrim((string) (
             env('FRONTEND_URL')
-            ?: $request->headers->get('origin')
             ?: config('app.url')
         ), '/');
 
-        $resetLink = $frontendBaseUrl.'/reset-password?token='.$token.'&email='.urlencode($validated['email']);
+        $resetPath = '/reset-password';
+        $resetLink = $frontendBaseUrl.$resetPath.'?token='.$token.'&email='.urlencode($validated['email']);
+
+        $resetTemplate = env('FRONTEND_RESET_PASSWORD_URL_TEMPLATE');
+        if (is_string($resetTemplate) && trim($resetTemplate) !== '') {
+            $resetLink = str_replace(
+                ['{token}', '{email}'],
+                [$token, urlencode($validated['email'])],
+                $resetTemplate
+            );
+        }
 
         try {
             Mail::send('emails.reset-password', [
