@@ -42,6 +42,8 @@ Route::post('/maps/resolve', [MapsController::class, 'resolve'])->middleware('th
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);
     Route::get('/me', [UserController::class, 'me']);
+    Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:notifications-read');
+    Route::post('/notifications/read', [NotificationController::class, 'markRead'])->middleware('throttle:notifications-read');
 
     // Messagerie persistante
     Route::get('/conversations', [ChatConversationController::class, 'index']);
@@ -74,7 +76,6 @@ Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignRes
 Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
 Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
 Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
-Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:notifications-read');
 Route::middleware('auth:sanctum')->group(function () {
     // Favoris
     Route::get('/favorites', [FavoriteController::class, 'index']);

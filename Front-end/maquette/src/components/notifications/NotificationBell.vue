@@ -46,7 +46,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
 import notificationService from '@/services/notificationService'
-import { getCurrentUser } from '@/utils/auth'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -56,16 +55,9 @@ const isOpen = ref(false)
 const isLoading = ref(false)
 const items = ref([])
 const sessionSeenIds = ref(new Set())
-const currentUser = getCurrentUser()
-const storageKey = `benerun_notifications_seen_at_${currentUser?.id || 'guest'}`
-const lastSeenAt = ref(localStorage.getItem(storageKey) || '')
 let pollTimer = null
 
-const unreadCount = computed(() => {
-  if (!lastSeenAt.value) return items.value.length
-  const seenAt = new Date(lastSeenAt.value).getTime()
-  return items.value.filter((item) => new Date(item.created_at).getTime() > seenAt).length
-})
+const unreadCount = computed(() => items.value.filter((item) => !item?.is_read).length)
 
 const formatWhen = (value) => {
   if (!value) return 'à l’instant'
@@ -73,21 +65,48 @@ const formatWhen = (value) => {
   return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-const markAllAsRead = () => {
-  const nowIso = new Date().toISOString()
-  lastSeenAt.value = nowIso
-  localStorage.setItem(storageKey, nowIso)
+const markAllAsRead = async () => {
+  const unreadIds = items.value
+    .filter((item) => !item?.is_read)
+    .map((item) => item?.id)
+    .filter(Boolean)
+
+  if (!unreadIds.length) return
+
+  const previous = [...items.value]
+  items.value = items.value.map((item) => ({ ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }))
+
+  try {
+    await notificationService.markAsRead(unreadIds)
+  } catch {
+    items.value = previous
+  }
 }
 
-const openItem = (item) => {
-  markAllAsRead()
+const markItemAsRead = async (item) => {
+  if (!item?.id || item?.is_read) return
+
+  items.value = items.value.map((entry) =>
+    entry.id === item.id
+      ? { ...entry, is_read: true, read_at: new Date().toISOString() }
+      : entry
+  )
+
+  try {
+    await notificationService.markAsRead([item.id])
+  } catch {
+    await fetchNotifications()
+  }
+}
+
+const openItem = async (item) => {
+  await markItemAsRead(item)
   isOpen.value = false
   if (item.href) router.push(item.href)
 }
 
 const toggleOpen = () => {
   isOpen.value = !isOpen.value
-  if (isOpen.value) markAllAsRead()
 }
 
 const handleDocumentClick = (event) => {
@@ -97,7 +116,6 @@ const handleDocumentClick = (event) => {
 }
 
 const fetchNotifications = async () => {
-  if (!currentUser) return
   isLoading.value = items.value.length === 0
 
   try {
@@ -105,7 +123,7 @@ const fetchNotifications = async () => {
     for (const item of nextItems) {
       if (!sessionSeenIds.value.has(item.id)) {
         sessionSeenIds.value.add(item.id)
-        if (lastSeenAt.value && new Date(item.created_at).getTime() > new Date(lastSeenAt.value).getTime()) {
+        if (!item?.is_read) {
           toast.info(item.title)
         }
       }

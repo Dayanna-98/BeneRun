@@ -3,39 +3,155 @@
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
+use App\Models\NotificationRead;
 use App\Models\Postulation;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class NotificationController extends Controller
 {
     public function index(Request $request)
     {
-        $userId = (int) $request->query('user_id', 0);
-        $role = strtolower((string) ($request->header('X-User-Role') ?: $request->query('role', 'volunteer')));
+        $actor = $this->resolveActorFromBearerToken($request);
+        if (! $actor) {
+            return response()->json(['message' => 'Non authentifie'], 401);
+        }
+
+        $userId = (int) $actor->id_utilisateur;
+        $role = $this->normalizeRole((string) $actor->role_utilisateur);
 
         $notifications = collect();
 
-        if (in_array($role, ['organizer', 'mission_manager', 'admin', 'superadmin'], true)) {
+        if ($this->isManagerRole($role)) {
             $notifications = $notifications->merge($this->pendingPostulationNotifications());
         }
 
-        if ($userId > 0) {
-            $notifications = $notifications
-                ->merge($this->postulationStatusNotifications($userId))
-                ->merge($this->affectationNotifications($userId));
-        }
+        $notifications = $notifications
+            ->merge($this->postulationStatusNotifications($userId))
+            ->merge($this->affectationNotifications($userId));
 
         $items = $notifications
             ->sortByDesc('created_at')
             ->values()
             ->take(20)
-            ->all();
+            ->values();
+
+        $readKeys = $items->pluck('id')
+            ->filter(fn ($id) => is_string($id) && $id !== '')
+            ->values();
+
+        $readsByKey = NotificationRead::query()
+            ->where('id_utilisateur', $userId)
+            ->whereIn('notification_key', $readKeys)
+            ->get(['notification_key', 'read_at'])
+            ->keyBy('notification_key');
+
+        $enriched = $items->map(function (array $item) use ($readsByKey): array {
+            $read = $readsByKey->get((string) ($item['id'] ?? ''));
+
+            return [
+                ...$item,
+                'is_read' => $read !== null,
+                'read_at' => $read?->read_at?->toIso8601String(),
+            ];
+        })->values();
+
+        $unreadCount = $enriched->filter(fn (array $item) => ! ((bool) ($item['is_read'] ?? false)))->count();
 
         return response()->json([
-            'data' => $items,
-            'count' => count($items),
+            'data' => $enriched,
+            'count' => $enriched->count(),
+            'unread_count' => $unreadCount,
         ]);
+    }
+
+    public function markRead(Request $request)
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
+        if (! $actor) {
+            return response()->json(['message' => 'Non authentifie'], 401);
+        }
+
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|string|max:255',
+        ]);
+
+        $keys = collect($validated['ids'])
+            ->map(fn ($id) => trim((string) $id))
+            ->filter(fn ($id) => $id !== '')
+            ->unique()
+            ->values();
+
+        if ($keys->isEmpty()) {
+            return response()->json([
+                'message' => 'Aucune notification fournie.',
+            ], 422);
+        }
+
+        $now = now();
+
+        NotificationRead::query()->upsert(
+            $keys->map(fn ($key) => [
+                'id_utilisateur' => (int) $actor->id_utilisateur,
+                'notification_key' => $key,
+                'read_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all(),
+            ['id_utilisateur', 'notification_key'],
+            ['read_at', 'updated_at']
+        );
+
+        return response()->json([
+            'message' => 'Notifications marquees comme lues.',
+            'count' => $keys->count(),
+        ]);
+    }
+
+    private function resolveActorFromBearerToken(Request $request): ?User
+    {
+        $actor = $request->user('sanctum');
+        if ($actor instanceof User) {
+            return $actor;
+        }
+
+        $token = $request->bearerToken();
+        if (! $token) {
+            return null;
+        }
+
+        $accessToken = PersonalAccessToken::findToken($token);
+        $tokenable = $accessToken?->tokenable;
+
+        return $tokenable instanceof User ? $tokenable : null;
+    }
+
+    private function normalizeRole(string $role): string
+    {
+        $normalized = strtolower(trim($role));
+        $normalized = str_replace(
+            ['é', 'è', 'ê', 'ë', 'à', 'â', 'ä', 'î', 'ï', 'ô', 'ö', 'ù', 'û', 'ü', 'ç'],
+            ['e', 'e', 'e', 'e', 'a', 'a', 'a', 'i', 'i', 'o', 'o', 'u', 'u', 'u', 'c'],
+            $normalized
+        );
+
+        return str_replace(['-', '_', ' '], '', $normalized);
+    }
+
+    private function isManagerRole(string $normalizedRole): bool
+    {
+        return in_array($normalizedRole, [
+            'organizer',
+            'organisateur',
+            'missionmanager',
+            'manager',
+            'responsable',
+            'admin',
+            'superadmin',
+        ], true);
     }
 
     private function pendingPostulationNotifications(): Collection
