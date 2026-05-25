@@ -130,3 +130,37 @@ jobs:
             echo "✗ Missing build output (public/build or Front-end/maquette/dist)"
             exit 1
           fi
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Front-end/maquette
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Front-end/maquette/package-lock.json
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Run Vitest unit tests
+        run: npm test
+
+      - name: Run Vitest with coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: Front-end/maquette/coverage/lcov.info
+          flags: frontend
+          token: ${{ secrets.CODECOV_TOKEN }}

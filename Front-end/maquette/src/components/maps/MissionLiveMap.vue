@@ -252,7 +252,6 @@ const pushPosition = async (lat, lng) => {
   if (!props.missionId || !props.currentUserId) return
   try {
     await api.post(`/missions/${props.missionId}/positions`, {
-      id_utilisateur: Number(props.currentUserId),
       latitude: lat,
       longitude: lng,
     })

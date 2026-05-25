@@ -7,6 +7,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,7 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->truncateTables();
 
-        $users = $this->seedUsers();
+        $users = $this->resolveSeedUsersFromExisting();
         $competences = $this->seedCompetences();
         $events = $this->seedEvents($users);
         $missions = $this->seedMissions($users, $events);
@@ -34,215 +35,169 @@ class DatabaseSeeder extends Seeder
         $this->seedEmergencyMessages($users, $events, $missions);
     }
 
+    private function normalizeRoleForSeed(?string $role): string
+    {
+        $normalized = strtr(strtolower((string) $role), [
+            'é' => 'e',
+            'è' => 'e',
+            'ê' => 'e',
+            'à' => 'a',
+            'ù' => 'u',
+        ]);
+
+        return str_replace(['-', '_', ' '], '', $normalized);
+    }
+
+    private function resolveSeedUsersFromExisting(): array
+    {
+        $rows = DB::table('users')
+            ->select('id_utilisateur', 'role_utilisateur')
+            ->orderBy('id_utilisateur')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            throw new RuntimeException('Aucun utilisateur trouvé.');
+        }
+
+        $all = $rows->pluck('id_utilisateur')->values()->all();
+
+        $superadmins = $rows
+            ->filter(fn ($row) => $this->normalizeRoleForSeed($row->role_utilisateur) === 'superadmin')
+            ->pluck('id_utilisateur')
+            ->values()
+            ->all();
+
+        $admins = $rows
+            ->filter(fn ($row) => $this->normalizeRoleForSeed($row->role_utilisateur) === 'admin')
+            ->pluck('id_utilisateur')
+            ->values()
+            ->all();
+
+        $responsables = $rows
+            ->filter(function ($row) {
+                $role = $this->normalizeRoleForSeed($row->role_utilisateur);
+
+                return in_array($role, ['responsable', 'missionmanager', 'organisateur'], true);
+            })
+            ->pluck('id_utilisateur')
+            ->values()
+            ->all();
+
+        $managers = $rows
+            ->filter(function ($row) {
+                $role = $this->normalizeRoleForSeed($row->role_utilisateur);
+
+                return in_array($role, ['responsable', 'missionmanager', 'organisateur', 'admin', 'superadmin'], true);
+            })
+            ->pluck('id_utilisateur')
+            ->values()
+            ->all();
+
+        $volunteers = $rows
+            ->filter(function ($row) {
+                $role = $this->normalizeRoleForSeed($row->role_utilisateur);
+
+                return in_array($role, ['benevole', 'volunteer'], true);
+            })
+            ->pluck('id_utilisateur')
+            ->values()
+            ->all();
+
+        $pick = static function (array $preferred, int $index, array $fallback): int {
+            if ($preferred !== []) {
+                return (int) ($preferred[$index % count($preferred)]);
+            }
+
+            return (int) ($fallback[$index % count($fallback)]);
+        };
+
+        return [
+            'emma' => $pick($superadmins, 0, $all),
+            'alexandre' => $pick($superadmins, 1, $all),
+            'sofian' => $pick($admins, 0, $all),
+            'marc' => $pick($responsables, 0, $managers !== [] ? $managers : $all),
+            'dayanna' => $pick($volunteers, 0, $all),
+            'leo' => $pick($volunteers, 1, $all),
+            'nina' => $pick($volunteers, 2, $all),
+            'zoe' => $pick($volunteers, 3, $all),
+        ];
+    }
+
     private function seedUsers(): array
     {
-        $defaultPassword = Hash::make('password');
-        $emmaPassword = Hash::make('Soleil1234');
-        $marcPassword = Hash::make('chocolat1');
-        $leoPassword = Hash::make('tagada2');
-        $dayannaPassword = Hash::make('vanille18');
-        $sofianPassword = Hash::make('fraise23');
-
         $rows = [
-            'emma' => [
-                'nom_utilisateur' => 'Rougeron',
+            [
+                'nom_utilisateur' => 'Eghdoud',
                 'prenom_utilisateur' => 'Emma',
-                'email' => 'emma.rougeron@benerun.test',
+                'email' => 'emmazeghdoud@gmail.com',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'superadmin',
-                'telephone_utilisateur' => '0791112233',
-                'adresse_utilisateur' => 'Rue du Rhone 14, Geneve',
-                'date_naissance_utilisateur' => '1999-08-17',
-                'allergies_utilisateur' => 'arachides',
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => true,
-                'est_motorise_utilisateur' => true,
-                'possede_vehicule_utilisateur' => true,
-                'taille_tshirt_utilisateur' => 'M',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => false,
-                'latitude_localisation_directe_utilisateur' => null,
-                'longitude_localisation_directe_utilisateur' => null,
-                'date_localisation_directe_utilisateur' => null,
-                'permissions_utilisateur' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
-                'nombre_missions_utilisateur' => 6,
             ],
-            'alexandre' => [
-                'nom_utilisateur' => 'Rousseau',
+            [
+                'nom_utilisateur' => 'Martin',
                 'prenom_utilisateur' => 'Alexandre',
-                'email' => 'alexandre.rousseau@benerun.test',
+                'email' => 'alexandre.martin@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'superadmin',
-                'telephone_utilisateur' => '0793334455',
-                'adresse_utilisateur' => 'Avenue de France 10, Geneve',
-                'date_naissance_utilisateur' => '1994-04-02',
-                'allergies_utilisateur' => null,
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => true,
-                'est_motorise_utilisateur' => true,
-                'possede_vehicule_utilisateur' => true,
-                'taille_tshirt_utilisateur' => 'L',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => false,
-                'latitude_localisation_directe_utilisateur' => null,
-                'longitude_localisation_directe_utilisateur' => null,
-                'date_localisation_directe_utilisateur' => null,
-                'permissions_utilisateur' => 'createSkills,createBadges,issueCertificate,createAccount,assignPermissions',
-                'nombre_missions_utilisateur' => 10,
             ],
-            'sofian' => [
-                'nom_utilisateur' => 'Madani',
+            [
+                'nom_utilisateur' => 'Bensaid',
                 'prenom_utilisateur' => 'Sofian',
-                'email' => 'sofian.madani@benerun.test',
+                'email' => 'sofian.bensaid@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'admin',
-                'telephone_utilisateur' => '0795556677',
-                'adresse_utilisateur' => 'Rue de Lausanne 8, Geneve',
-                'date_naissance_utilisateur' => '1992-12-11',
-                'allergies_utilisateur' => null,
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => true,
-                'est_motorise_utilisateur' => true,
-                'possede_vehicule_utilisateur' => false,
-                'taille_tshirt_utilisateur' => 'M',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => false,
-                'latitude_localisation_directe_utilisateur' => null,
-                'longitude_localisation_directe_utilisateur' => null,
-                'date_localisation_directe_utilisateur' => null,
-                'permissions_utilisateur' => 'createEvent,editEvent,createMission,editMission',
-                'nombre_missions_utilisateur' => 8,
             ],
-            'marc' => [
-                'nom_utilisateur' => 'Duval',
+            [
+                'nom_utilisateur' => 'Dubois',
                 'prenom_utilisateur' => 'Marc',
-                'email' => 'marc.manager@benerun.test',
+                'email' => 'marc.dubois@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'responsable',
-                'telephone_utilisateur' => '0782223344',
-                'adresse_utilisateur' => 'Chemin des Sports 3, Carouge',
-                'date_naissance_utilisateur' => '1988-06-09',
-                'allergies_utilisateur' => null,
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => true,
-                'est_motorise_utilisateur' => true,
-                'possede_vehicule_utilisateur' => true,
-                'taille_tshirt_utilisateur' => 'XL',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => true,
-                'latitude_localisation_directe_utilisateur' => 46.2021205,
-                'longitude_localisation_directe_utilisateur' => 6.1499801,
-                'date_localisation_directe_utilisateur' => now()->subMinutes(6),
-                'permissions_utilisateur' => 'createMission,editMission,deleteMission,contactMissionMembers',
-                'nombre_missions_utilisateur' => 5,
             ],
-            'dayanna' => [
-                'nom_utilisateur' => 'Tenecela',
+            [
+                'nom_utilisateur' => 'Silva',
                 'prenom_utilisateur' => 'Dayanna',
-                'email' => 'dayanna.tenecela@benerun.test',
+                'email' => 'dayanna.silva@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
-                'telephone_utilisateur' => '0771234567',
-                'adresse_utilisateur' => 'Boulevard Carl-Vogt 21, Geneve',
-                'date_naissance_utilisateur' => '2000-03-14',
-                'allergies_utilisateur' => 'gluten',
-                'problemes_sante_utilisateur' => 'asthme leger',
-                'possede_permis_utilisateur' => false,
-                'est_motorise_utilisateur' => false,
-                'possede_vehicule_utilisateur' => false,
-                'taille_tshirt_utilisateur' => 'S',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => true,
-                'latitude_localisation_directe_utilisateur' => 46.2020500,
-                'longitude_localisation_directe_utilisateur' => 6.1497600,
-                'date_localisation_directe_utilisateur' => now()->subMinutes(2),
-                'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
-                'nombre_missions_utilisateur' => 2,
             ],
-            'leo' => [
+            [
                 'nom_utilisateur' => 'Morel',
                 'prenom_utilisateur' => 'Leo',
-                'email' => 'leo.benevole@benerun.test',
+                'email' => 'leo.morel@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
-                'telephone_utilisateur' => '0762221188',
-                'adresse_utilisateur' => 'Rue des Eaux-Vives 31, Geneve',
-                'date_naissance_utilisateur' => '1998-09-25',
-                'allergies_utilisateur' => null,
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => true,
-                'est_motorise_utilisateur' => true,
-                'possede_vehicule_utilisateur' => false,
-                'taille_tshirt_utilisateur' => 'M',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => false,
-                'latitude_localisation_directe_utilisateur' => null,
-                'longitude_localisation_directe_utilisateur' => null,
-                'date_localisation_directe_utilisateur' => null,
-                'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
-                'nombre_missions_utilisateur' => 4,
             ],
-            'nina' => [
-                'nom_utilisateur' => 'Borel',
+            [
+                'nom_utilisateur' => 'Nguyen',
                 'prenom_utilisateur' => 'Nina',
-                'email' => 'nina.suspendue@benerun.test',
+                'email' => 'nina.nguyen@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
-                'telephone_utilisateur' => '0769988776',
-                'adresse_utilisateur' => 'Route de Florissant 12, Geneve',
-                'date_naissance_utilisateur' => '1997-01-19',
-                'allergies_utilisateur' => 'lactose',
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => false,
-                'est_motorise_utilisateur' => false,
-                'possede_vehicule_utilisateur' => false,
-                'taille_tshirt_utilisateur' => 'M',
-                'est_anonyme_utilisateur' => false,
-                'partage_localisation_directe_utilisateur' => false,
-                'latitude_localisation_directe_utilisateur' => null,
-                'longitude_localisation_directe_utilisateur' => null,
-                'date_localisation_directe_utilisateur' => null,
-                'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
-                'nombre_missions_utilisateur' => 1,
             ],
-            'zoe' => [
-                'nom_utilisateur' => 'Rey',
+            [
+                'nom_utilisateur' => 'Petit',
                 'prenom_utilisateur' => 'Zoe',
-                'email' => 'zoe.anonyme@benerun.test',
+                'email' => 'zoe.petit@benerun.test',
+                'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
-                'telephone_utilisateur' => '0784455667',
-                'adresse_utilisateur' => 'Rue de Carouge 55, Geneve',
-                'date_naissance_utilisateur' => '2001-11-07',
-                'allergies_utilisateur' => null,
-                'problemes_sante_utilisateur' => null,
-                'possede_permis_utilisateur' => false,
-                'est_motorise_utilisateur' => false,
-                'possede_vehicule_utilisateur' => false,
-                'taille_tshirt_utilisateur' => 'XS',
-                'est_anonyme_utilisateur' => true,
-                'partage_localisation_directe_utilisateur' => true,
-                'latitude_localisation_directe_utilisateur' => 46.2022800,
-                'longitude_localisation_directe_utilisateur' => 6.1501500,
-                'date_localisation_directe_utilisateur' => now()->subMinutes(4),
-                'permissions_utilisateur' => 'manageSkills,manageCertificates,favoriteMission',
-                'nombre_missions_utilisateur' => 3,
             ],
         ];
 
-        $ids = [];
-
-        foreach ($rows as $key => $row) {
-            $ids[$key] = DB::table('users')->insertGetId([
+        foreach ($rows as $row) {
+            DB::table('users')->insert([
                 ...$row,
-                'password' => match ($key) {
-                    'emma' => $emmaPassword,
-                    'marc' => $marcPassword,
-                    'leo' => $leoPassword,
-                    'dayanna' => $dayannaPassword,
-                    'sofian' => $sofianPassword,
-                    default => $defaultPassword,
-                },
                 'email_verified_at' => now(),
-                'remember_token' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ], 'id_utilisateur');
+            ]);
         }
 
-        return $ids;
+        return DB::table('users')
+            ->select('id_utilisateur')
+            ->orderBy('id_utilisateur')
+            ->pluck('id_utilisateur')
+            ->all();
     }
 
     private function seedCompetences(): array
@@ -822,9 +777,6 @@ class DatabaseSeeder extends Seeder
             'competences',
             'missions',
             'evenements',
-            'users',
-            'password_reset_tokens',
-            'sessions',
         ];
 
         foreach ($tables as $table) {

@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
@@ -17,6 +20,7 @@
     "axios": "^1.13.6",
     "bootstrap": "^5.3.8",
     "chart.js": "^4.5.1",
+    "jspdf": "^4.2.1",
     "laravel-echo": "^2.3.4",
     "leaflet": "^1.9.4",
     "lucide-vue-next": "^0.577.0",
@@ -27,21 +31,26 @@
     "vue-chartjs": "^5.3.3",
     "vue-router": "^5.0.4",
     "vue-toastification": "^2.0.0-rc.5",
+    "xlsx": "^0.18.5",
     "yup": "^1.7.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.7",
+    "@vue/test-utils": "^2.4.10",
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.50.0",
     "eslint-plugin-vue": "~10.8.0",
     "globals": "^17.3.0",
+    "jsdom": "^29.1.1",
     "npm-run-all2": "^8.0.4",
     "oxlint": "~1.50.0",
     "prettier": "3.8.1",
     "vite": "^7.3.1",
-    "vite-plugin-vue-devtools": "^8.0.6"
+    "vite-plugin-vue-devtools": "^8.0.6",
+    "vitest": "^4.1.7"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

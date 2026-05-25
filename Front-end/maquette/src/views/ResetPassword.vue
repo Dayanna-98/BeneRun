@@ -23,12 +23,13 @@
           </div>
           <div class="card-body">
             <form @submit.prevent="requestReset" class="d-flex flex-column gap-3">
+              <p class="x-small text-muted text-center mb-0">Les champs marqués * sont obligatoires.</p>
               <p class="small text-muted text-center mb-0">
                 Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
               </p>
 
               <div>
-                <label class="form-label small fw-medium">Email</label>
+                <label class="form-label small fw-medium">Email *</label>
                 <div class="position-relative">
                   <Mail class="position-absolute text-muted"
                     style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
@@ -97,8 +98,9 @@
               Ce lien est invalide ou a expiré. Veuillez <router-link to="/reset-password">demander une nouvelle réinitialisation</router-link>.
             </div>
             <form v-else @submit.prevent="resetPassword" class="d-flex flex-column gap-3">
+              <p class="x-small text-muted mb-0">Les champs marqués * sont obligatoires.</p>
               <div>
-                <label class="form-label small fw-medium">Nouveau mot de passe</label>
+                <label class="form-label small fw-medium">Nouveau mot de passe *</label>
                 <div class="position-relative">
                   <Lock class="position-absolute text-muted"
                     style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
@@ -106,16 +108,16 @@
                     v-model="newPassword"
                     type="password"
                     class="form-control ps-5"
-                    placeholder="Au moins 8 caractères"
+                    placeholder="Au moins 10 caracteres"
                     :disabled="isLoading"
                     required
                   />
                 </div>
-                <small class="text-muted d-block mt-1">Minimum 8 caractères</small>
+                <small class="text-muted d-block mt-1">{{ PASSWORD_HINT }}</small>
               </div>
 
               <div>
-                <label class="form-label small fw-medium">Confirmer le mot de passe</label>
+                <label class="form-label small fw-medium">Confirmer le mot de passe *</label>
                 <div class="position-relative">
                   <Lock class="position-absolute text-muted"
                     style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
@@ -176,6 +178,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Mail, CheckCircle, Lock } from 'lucide-vue-next'
 import api from '@/services/api'
+import { PASSWORD_HINT, validatePasswordStrength } from '@/utils/passwordPolicy'
 
 const router = useRouter()
 const route = useRoute()
@@ -243,8 +246,9 @@ const resetPassword = async () => {
     return
   }
 
-  if (newPassword.value.length < 8) {
-    error.value = 'Le mot de passe doit contenir au moins 8 caractères'
+  const passwordError = validatePasswordStrength(newPassword.value)
+  if (passwordError) {
+    error.value = passwordError
     return
   }
 

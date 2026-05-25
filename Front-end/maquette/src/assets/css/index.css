@@ -1,2 +1,15 @@
 @import '../fonts/fonts.css';
 @import './theme.css';
+
+.benerun-toast {
+	min-width: 320px;
+	max-width: 680px;
+	border-radius: 14px;
+	font-size: 1rem;
+	font-weight: 600;
+	box-shadow: 0 10px 26px rgba(15, 23, 42, 0.2);
+}
+
+.benerun-toast-body {
+	line-height: 1.45;
+}

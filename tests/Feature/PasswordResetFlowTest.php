@@ -194,6 +194,33 @@ class PasswordResetFlowTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
+    public function test_reset_password_rejects_password_without_number_or_letter(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'complexity@example.com',
+            'password' => Hash::make('Ancienpass123'),
+        ]);
+        $rawToken = 'complexity-token';
+
+        DB::table('password_resets')->insert([
+            'email' => $user->email,
+            'token' => Hash::make($rawToken),
+            'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/password-reset/reset', [
+            'email' => $user->email,
+            'token' => $rawToken,
+            'password' => 'abcdefghij',
+            'password_confirmation' => 'abcdefghij',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('Ancienpass123', $user->password));
+    }
+
     public function test_reset_password_returns_404_when_email_does_not_exist(): void
     {
         $this->postJson('/api/password-reset/reset', [

@@ -399,6 +399,17 @@
       </div>
     </Teleport>
 
+    <BootstrapConfirmModal
+      v-model="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :cancel-label="confirmDialog.cancelLabel"
+      :confirm-variant="confirmDialog.confirmVariant"
+      @confirm="handleConfirmDialogConfirm"
+      @cancel="handleConfirmDialogCancel"
+    />
+
   </div>
 </template>
 
@@ -411,9 +422,19 @@ import userService from '@/services/userService'
 import competenceService from '@/services/competenceService'
 import badgeService from '@/services/badgeService'
 import certificatService from '@/services/certificatService'
+import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
 const router = useRouter()
 const route = useRoute()
+const toast = useToast()
+const {
+  confirmDialog,
+  askConfirmation,
+  handleConfirmDialogConfirm,
+  handleConfirmDialogCancel,
+} = useConfirmDialog()
 const currentUser = getCurrentUser()
 if (!currentUser || !isRole('superadmin')) router.push('/')
 
@@ -681,7 +702,15 @@ const saveCertificate = async (certificateId) => {
 
 const removeCertificate = async (certificateId) => {
   if (!targetUser.value?.id) return
-  if (!confirm('Supprimer ce certificat ?')) return
+
+  const confirmed = await askConfirmation({
+    title: 'Supprimer ce certificat ?',
+    message: 'Cette action est définitive.',
+    confirmLabel: 'Supprimer',
+    confirmVariant: 'danger',
+  })
+
+  if (!confirmed) return
 
   certError.value = ''
   certSaving.value = true
@@ -717,7 +746,7 @@ const toUpdatePayload = (extra = {}) => ({
 
 const handleSaveInfo = async () => {
   if (!targetUser.value?.id) {
-    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    toast.error('Impossible de modifier cet utilisateur (ID manquant).')
     return
   }
 
@@ -729,15 +758,15 @@ const handleSaveInfo = async () => {
       syncEditForm()
       syncCurrentUserIfNeeded(response.user)
     }
-    alert('Informations utilisateur mises à jour')
+    toast.success('Informations utilisateur mises à jour.')
   } catch (error) {
-    alert(error.message || 'Erreur lors de la mise à jour')
+    toast.error(error.message || 'Erreur lors de la mise à jour.')
   }
 }
 
 const handleSubmit = async () => {
   if (!targetUser.value?.id) {
-    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    toast.error('Impossible de modifier cet utilisateur (ID manquant).')
     return
   }
 
@@ -747,15 +776,15 @@ const handleSubmit = async () => {
       targetUser.value = response.user
       syncCurrentUserIfNeeded(response.user)
     }
-    alert(`Rôle de ${targetUser.value.firstName} ${targetUser.value.lastName} mis à jour avec succès !`)
+    toast.success(`Rôle de ${targetUser.value.firstName} ${targetUser.value.lastName} mis à jour avec succès.`)
     router.push('/manage-users')
   } catch (error) {
-    alert(error.message || 'Erreur lors de la modification du rôle')
+    toast.error(error.message || 'Erreur lors de la modification du rôle.')
   }
 }
 const handleAnonymize = async () => {
   if (!targetUser.value?.id) {
-    alert('Impossible de modifier cet utilisateur (ID manquant).')
+    toast.error('Impossible de modifier cet utilisateur (ID manquant).')
     return
   }
 
@@ -767,15 +796,15 @@ const handleAnonymize = async () => {
       targetUser.value = response.user
       syncCurrentUserIfNeeded(response.user)
     }
-    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} ${targetUser.value.anonymous ? 'rendu anonyme' : 'désanonymisé'}.`)
+    toast.success(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} ${targetUser.value.anonymous ? 'rendu anonyme' : 'désanonymisé'}.`)
     showAnonymizeDialog.value = false
   } catch (error) {
-    alert(error.message || 'Erreur lors de l\'anonymisation')
+    toast.error(error.message || 'Erreur lors de l\'anonymisation.')
   }
 }
 const handleReactivate = async () => {
   if (!targetUser.value?.id) {
-    alert('Impossible de réactiver cet utilisateur (ID manquant).')
+    toast.error('Impossible de réactiver cet utilisateur (ID manquant).')
     return
   }
 
@@ -788,10 +817,10 @@ const handleReactivate = async () => {
       targetUser.value = response.user
       syncCurrentUserIfNeeded(response.user)
     }
-    alert(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} réactivé.`)
+    toast.success(`Utilisateur ${targetUser.value.firstName} ${targetUser.value.lastName} réactivé.`)
     showReactivateDialog.value = false
   } catch (error) {
-    alert(error.message || 'Erreur lors de la réactivation')
+    toast.error(error.message || 'Erreur lors de la réactivation.')
   }
 }
 

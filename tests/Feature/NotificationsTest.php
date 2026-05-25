@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Affectation;
 use App\Models\Mission;
+use App\Models\NotificationRead;
 use App\Models\Postulation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,19 +31,15 @@ class NotificationsTest extends TestCase
         ]);
     }
 
-    // PUBLIC NOTIFICATION TESTS
-    public function test_notifications_index_without_params_returns_empty()
+    public function test_notifications_index_requires_authentication(): void
     {
         $response = $this->getJson('/api/notifications');
 
-        $response->assertStatus(200);
-        $response->assertJson([
-            'data' => [],
-            'count' => 0,
-        ]);
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Unauthenticated.');
     }
 
-    public function test_notifications_with_superadmin_role_shows_pending_postulations()
+    public function test_authenticated_superadmin_sees_pending_postulations(): void
     {
         $mission = Mission::factory()->create();
         Postulation::factory()->count(3)->create([
@@ -50,187 +47,103 @@ class NotificationsTest extends TestCase
             'statut_postulation' => 'en_attente',
         ]);
 
-        $response = $this->getJson('/api/notifications?role=superadmin');
+        $response = $this->actingAs($this->superAdmin, 'sanctum')
+            ->getJson('/api/notifications');
 
-        $response->assertStatus(200);
-        $response->assertJsonStructure([
-            'data' => [
-                '*' => ['id', 'type', 'level', 'title'],
-            ],
-            'count',
-        ]);
-        $response->assertJsonPath('data.0.type', 'pending_postulation');
+        $response->assertOk()
+            ->assertJsonPath('count', 3)
+            ->assertJsonPath('unread_count', 3)
+            ->assertJsonPath('data.0.type', 'pending_postulation')
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => ['id', 'type', 'level', 'title', 'is_read', 'read_at'],
+                ],
+                'count',
+                'unread_count',
+            ]);
     }
 
-    public function test_notifications_with_organizer_role_shows_pending_postulations()
+    public function test_benevole_does_not_see_global_pending_postulations_but_sees_own_updates(): void
     {
         $mission = Mission::factory()->create();
+
         Postulation::factory()->count(2)->create([
             'id_mission' => $mission->id_mission,
             'statut_postulation' => 'en_attente',
         ]);
 
-        $response = $this->getJson('/api/notifications?role=organizer');
-
-        $response->assertStatus(200);
-        $response->assertJsonPath('count', 2);
-    }
-
-    public function test_notifications_with_admin_role_shows_pending_postulations()
-    {
-        Mission::factory()->create();
-        Postulation::factory()->count(1)->create([
-            'statut_postulation' => 'en_attente',
-        ]);
-
-        $response = $this->getJson('/api/notifications?role=admin');
-
-        $response->assertStatus(200);
-        $response->assertJsonPath('data.0.type', 'pending_postulation');
-    }
-
-    public function test_notifications_with_volunteer_role_ignores_pending_postulations()
-    {
-        Mission::factory()->create();
-        Postulation::factory()->count(3)->create([
-            'statut_postulation' => 'en_attente',
-        ]);
-
-        $response = $this->getJson('/api/notifications?role=benevole');
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'data' => [],
-            'count' => 0,
-        ]);
-    }
-
-    public function test_notifications_with_user_id_shows_postulation_status()
-    {
-        $mission = Mission::factory()->create();
-        $postulation = Postulation::factory()->create([
+        Postulation::factory()->create([
             'id_utilisateur' => $this->normalUser->id_utilisateur,
             'id_mission' => $mission->id_mission,
             'statut_postulation' => 'accepte',
         ]);
 
-        $response = $this->getJson('/api/notifications?user_id='.$this->normalUser->id_utilisateur);
-
-        $response->assertStatus(200);
-        $response->assertJsonPath('data.0.type', 'postulation_status');
-    }
-
-    public function test_notifications_with_user_id_shows_affectation_notifications()
-    {
-        $mission = Mission::factory()->create();
         Affectation::factory()->create([
             'id_utilisateur' => $this->normalUser->id_utilisateur,
             'id_mission' => $mission->id_mission,
             'statut_affectation' => 'assigne',
         ]);
 
-        $response = $this->getJson('/api/notifications?user_id='.$this->normalUser->id_utilisateur);
+        $response = $this->actingAs($this->normalUser, 'sanctum')
+            ->getJson('/api/notifications');
 
-        $response->assertStatus(200);
-        $response->assertJsonPath('data.0.type', 'affectation');
-    }
-
-    public function test_notifications_limits_pending_to_10_items()
-    {
-        $mission = Mission::factory()->create();
-        Postulation::factory()->count(30)->create([
-            'id_mission' => $mission->id_mission,
-            'statut_postulation' => 'en_attente',
-        ]);
-
-        $response = $this->getJson('/api/notifications?role=superadmin');
-
-        $response->assertStatus(200);
-        // Pending postulations are limited to 10 items
-        $response->assertJsonPath('count', 10);
-    }
-
-    public function test_notifications_sorted_by_date_descending()
-    {
-        $mission = Mission::factory()->create();
-        $first = Postulation::factory()->create([
-            'id_mission' => $mission->id_mission,
-            'statut_postulation' => 'en_attente',
-            'date_postulation' => now()->subDays(10),
-        ]);
-        $second = Postulation::factory()->create([
-            'id_mission' => $mission->id_mission,
-            'statut_postulation' => 'en_attente',
-            'date_postulation' => now(),
-        ]);
-
-        $response = $this->getJson('/api/notifications?role=superadmin');
-
-        $response->assertStatus(200);
-        // Most recent should be first
-        $this->assertIsArray($response->json('data'));
-    }
-
-    public function test_notifications_with_header_role_superadmin()
-    {
-        Mission::factory()->create();
-        Postulation::factory()->create([
-            'statut_postulation' => 'en_attente',
-        ]);
-
-        $response = $this->getJson('/api/notifications', [
-            'X-User-Role' => 'superadmin',
-        ]);
-
-        $response->assertStatus(200);
-        $response->assertJsonPath('data.0.type', 'pending_postulation');
-    }
-
-    public function test_notifications_query_role_organizer()
-    {
-        Mission::factory()->create();
-        Postulation::factory()->create([
-            'statut_postulation' => 'en_attente',
-        ]);
-
-        $response = $this->getJson('/api/notifications?role=organizer');
-
-        $response->assertStatus(200);
-        $response->assertJsonPath('data.0.type', 'pending_postulation');
-    }
-
-    public function test_notifications_combined_admin_and_user_notifications()
-    {
-        $mission = Mission::factory()->create();
-
-        // Admin sees pending postulation
-        Postulation::factory()->create([
-            'statut_postulation' => 'en_attente',
-        ]);
-
-        // User also sees their own postulation status
-        $userPostulation = Postulation::factory()->create([
-            'id_utilisateur' => $this->normalUser->id_utilisateur,
-            'id_mission' => $mission->id_mission,
-            'statut_postulation' => 'accepte',
-        ]);
-
-        $response = $this->getJson(
-            '/api/notifications?role=superadmin&user_id='.$this->normalUser->id_utilisateur
+        $response->assertOk();
+        $this->assertCount(2, $response->json('data'));
+        $this->assertEqualsCanonicalizing(
+            ['affectation', 'postulation_status'],
+            collect($response->json('data'))->pluck('type')->all()
         );
-
-        $response->assertStatus(200);
-        $response->assertJsonPath('count', 2);
     }
 
-    public function test_notifications_empty_when_no_data()
+    public function test_mark_read_requires_authentication(): void
     {
-        $response = $this->getJson('/api/notifications?user_id='.$this->normalUser->id_utilisateur);
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'data' => [],
-            'count' => 0,
+        $response = $this->postJson('/api/notifications/read', [
+            'ids' => ['pending-postulation-1'],
         ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Unauthenticated.');
+    }
+
+    public function test_authenticated_user_can_mark_notifications_as_read(): void
+    {
+        $mission = Mission::factory()->create();
+
+        Postulation::factory()->create([
+            'id_mission' => $mission->id_mission,
+            'statut_postulation' => 'en_attente',
+        ]);
+
+        $feed = $this->actingAs($this->superAdmin, 'sanctum')
+            ->getJson('/api/notifications')
+            ->assertOk();
+
+        $notificationId = (string) $feed->json('data.0.id');
+
+        $this->actingAs($this->superAdmin, 'sanctum')
+            ->postJson('/api/notifications/read', [
+                'ids' => [$notificationId],
+            ])
+            ->assertOk()
+            ->assertJsonPath('count', 1);
+
+        $this->assertDatabaseHas('notification_reads', [
+            'id_utilisateur' => $this->superAdmin->id_utilisateur,
+            'notification_key' => $notificationId,
+        ]);
+
+        $stored = NotificationRead::query()
+            ->where('id_utilisateur', $this->superAdmin->id_utilisateur)
+            ->where('notification_key', $notificationId)
+            ->first();
+
+        $this->assertNotNull($stored?->read_at);
+
+        $this->actingAs($this->superAdmin, 'sanctum')
+            ->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $notificationId)
+            ->assertJsonPath('data.0.is_read', true)
+            ->assertJsonPath('unread_count', 0);
     }
 }

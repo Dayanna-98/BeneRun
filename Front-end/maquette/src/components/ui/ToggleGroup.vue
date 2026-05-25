@@ -42,7 +42,11 @@ const emit = defineEmits(['update:modelValue'])
 const toggle = (value) => {
   const current = [...props.modelValue]
   const i = current.indexOf(value)
-  i === -1 ? current.push(value) : current.splice(i, 1)
+  if (i === -1) {
+    current.push(value)
+  } else {
+    current.splice(i, 1)
+  }
   emit('update:modelValue', current)
 }
 

@@ -206,6 +206,8 @@
               <button
                 class="btn btn-sm"
                 :class="mission.postable ? 'btn-outline-warning' : 'btn-outline-success'"
+                :disabled="isMissionPast(mission)"
+                :title="isMissionPast(mission) ? 'Mission terminée' : ''"
                 @click="handleTogglePostable(mission)"
               >
                 {{ mission.postable ? 'Fermer les inscriptions' : 'Activer postable' }}
@@ -213,6 +215,8 @@
               <button
                 class="btn btn-sm"
                 :class="mission.visibility === 'public' ? 'btn-outline-secondary' : 'btn-outline-info'"
+                :disabled="isMissionPast(mission)"
+                :title="isMissionPast(mission) ? 'Mission terminée' : ''"
                 @click="handleToggleVisibility(mission)"
               >
                 {{ mission.visibility === 'public' ? 'Passer en privée' : 'Activer publique' }}
@@ -236,6 +240,17 @@
       </div>
 
     </div>
+
+    <BootstrapConfirmModal
+      v-model="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :cancel-label="confirmDialog.cancelLabel"
+      :confirm-variant="confirmDialog.confirmVariant"
+      @confirm="handleConfirmDialogConfirm"
+      @cancel="handleConfirmDialogCancel"
+    />
   </div>
 </template>
 
@@ -249,9 +264,20 @@ import { getCurrentUser, hasMinRole } from '@/utils/auth'
 import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
+import { parseLocalDateTime } from '@/utils/dateTime'
+import { useToast } from '@/composables/useToast'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
 const router = useRouter()
 const user = getCurrentUser()
+const toast = useToast()
+const {
+  confirmDialog,
+  askConfirmation,
+  handleConfirmDialogConfirm,
+  handleConfirmDialogCancel,
+} = useConfirmDialog()
 if (!user || !hasMinRole('organizer')) router.push('/')
 
 const missions = ref([])
@@ -276,8 +302,8 @@ const filteredMissions = computed(() => {
     const matchEvent = !selectedEventId.value || mission.eventId === selectedEventId.value
     const matchSearch = !normalizedMissionSearch.value || [mission.name, mission.eventName, mission.location]
       .some((value) => String(value || '').toLowerCase().includes(normalizedMissionSearch.value))
-    const missionEndDate = new Date(`${mission.date}T${mission.endTime || '23:59'}:00`)
-    const isPast = missionEndDate.getTime() < Date.now()
+    const missionEndDate = parseLocalDateTime(mission.date, mission.endTime || '23:59')
+    const isPast = missionEndDate ? missionEndDate.getTime() < Date.now() : false
     const matchTimeline = timelineFilter.value === 'all'
       ? true
       : timelineFilter.value === 'past'
@@ -299,8 +325,15 @@ const loadMoreMissions = () => {
 }
 const { sentinelRef } = useInfiniteScroll({ canLoadMore: () => hasMoreMissions.value, onLoadMore: loadMoreMissions })
 
-const getMissionStartDate = (mission) => new Date(`${mission.date}T${mission.startTime || '00:00'}:00`)
-const canDeleteMission = (mission) => getMissionStartDate(mission).getTime() > Date.now()
+const getMissionStartDate = (mission) => parseLocalDateTime(mission.date, mission.startTime || '00:00')
+const isMissionPast = (mission) => {
+  const end = parseLocalDateTime(mission.date, mission.endTime || '23:59')
+  return end ? end.getTime() < Date.now() : false
+}
+const canDeleteMission = (mission) => {
+  const start = getMissionStartDate(mission)
+  return start ? start.getTime() > Date.now() : false
+}
 
 const availableCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
 const fullCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
@@ -312,7 +345,7 @@ const activeQuickFiltersCount = computed(() =>
 )
 
 const formatDate = (d) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  (parseLocalDateTime(d, '00:00') || new Date()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
 const loadData = async () => {
   isLoading.value = true
@@ -334,14 +367,21 @@ const loadData = async () => {
 }
 
 const handleDeleteMission = async (id) => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) {
-    try {
-      await missionService.delete(id)
-      missions.value = missions.value.filter(m => m.id !== id)
-      alert('Mission supprimée avec succès')
-    } catch (error) {
-      alert(error.message || 'Erreur lors de la suppression de la mission')
-    }
+  const confirmed = await askConfirmation({
+    title: 'Supprimer cette mission ?',
+    message: 'Cette action est définitive.',
+    confirmLabel: 'Supprimer',
+    confirmVariant: 'danger',
+  })
+
+  if (!confirmed) return
+
+  try {
+    await missionService.delete(id)
+    missions.value = missions.value.filter(m => m.id !== id)
+    toast.success('Mission supprimée avec succès.')
+  } catch (error) {
+    toast.error(error.message || 'Erreur lors de la suppression de la mission.')
   }
 }
 
@@ -351,7 +391,14 @@ const handleTogglePostable = async (mission) => {
     ? `Activer les inscriptions pour "${mission.name}" ?`
     : `Fermer les inscriptions pour "${mission.name}" ?`
 
-  if (!confirm(confirmationMessage)) return
+  const confirmed = await askConfirmation({
+    title: 'Confirmer le changement',
+    message: confirmationMessage,
+    confirmLabel: 'Valider',
+    confirmVariant: 'warning',
+  })
+
+  if (!confirmed) return
 
   try {
     await missionService.update(mission.id, {
@@ -360,9 +407,9 @@ const handleTogglePostable = async (mission) => {
     })
 
     mission.postable = nextPostable
-    alert(nextPostable ? 'Option postable activée.' : 'Inscriptions fermées pour cette mission.')
+    toast.success(nextPostable ? 'Option postable activée.' : 'Inscriptions fermées pour cette mission.')
   } catch (error) {
-    alert(error.message || 'Impossible de mettre à jour l option postable.')
+    toast.error(error.message || 'Impossible de mettre à jour l\'option postable.')
   }
 }
 
@@ -372,7 +419,14 @@ const handleToggleVisibility = async (mission) => {
     ? `Rendre la mission "${mission.name}" publique ?`
     : `Passer la mission "${mission.name}" en privée ?`
 
-  if (!confirm(confirmationMessage)) return
+  const confirmed = await askConfirmation({
+    title: 'Confirmer le changement',
+    message: confirmationMessage,
+    confirmLabel: 'Valider',
+    confirmVariant: 'primary',
+  })
+
+  if (!confirmed) return
 
   try {
     await missionService.update(mission.id, {
@@ -382,9 +436,9 @@ const handleToggleVisibility = async (mission) => {
 
     mission.visibility = nextVisibility
     mission.public = nextVisibility === 'public'
-    alert(nextVisibility === 'public' ? 'Mission rendue publique.' : 'Mission passée en privée.')
+    toast.success(nextVisibility === 'public' ? 'Mission rendue publique.' : 'Mission passée en privée.')
   } catch (error) {
-    alert(error.message || 'Impossible de mettre à jour la visibilité.')
+    toast.error(error.message || 'Impossible de mettre à jour la visibilité.')
   }
 }
 

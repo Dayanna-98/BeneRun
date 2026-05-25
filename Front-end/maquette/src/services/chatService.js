@@ -130,7 +130,7 @@ export const chatService = {
     return conversation
   },
 
-  ensureMissionGroupConversation: (payload, createdByUserId = null) => {
+  ensureMissionGroupConversation: (payload) => {
     const mission = extractMissionPayload(payload)
     if (!mission) return null
 
@@ -153,7 +153,7 @@ export const chatService = {
     return conversation
   },
 
-  syncMissionGroups: (missions = [], affectations = [], postulations = [], currentUserId = null) => {
+  syncMissionGroups: (missions = [], affectations = [], postulations = []) => {
     const store = loadStore()
     const nextByMission = new Map()
     const missionIds = new Set()

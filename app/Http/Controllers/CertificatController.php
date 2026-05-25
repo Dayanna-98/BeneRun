@@ -123,7 +123,26 @@ class CertificatController extends Controller
         }
 
         $path = $certificat->chemin_fichier_certificat;
-        if (! Storage::disk('public')->exists($path)) {
+        $normalizedPath = ltrim(preg_replace('#^public/#', '', (string) $path), '/');
+
+        $candidates = [
+            ['disk' => 'public', 'path' => (string) $path],
+            ['disk' => 'public', 'path' => $normalizedPath],
+            ['disk' => 'local', 'path' => (string) $path],
+            ['disk' => 'local', 'path' => $normalizedPath],
+        ];
+
+        $resolvedDisk = null;
+        $resolvedPath = null;
+        foreach ($candidates as $candidate) {
+            if (Storage::disk($candidate['disk'])->exists($candidate['path'])) {
+                $resolvedDisk = $candidate['disk'];
+                $resolvedPath = $candidate['path'];
+                break;
+            }
+        }
+
+        if ($resolvedDisk === null || $resolvedPath === null) {
             return response()->json(['message' => 'Fichier du certificat introuvable'], 404);
         }
 
@@ -134,10 +153,10 @@ class CertificatController extends Controller
             $safeTitle = 'certificat';
         }
 
-        $extension = pathinfo((string) $path, PATHINFO_EXTENSION);
+        $extension = pathinfo((string) $resolvedPath, PATHINFO_EXTENSION);
         $fileName = $safeTitle.($extension ? ('.'.$extension) : '');
 
-        return Storage::disk('public')->download($path, $fileName);
+        return Storage::disk($resolvedDisk)->download($resolvedPath, $fileName);
     }
 
     public function store(Request $request)

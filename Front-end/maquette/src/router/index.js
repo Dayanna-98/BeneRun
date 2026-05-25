@@ -5,6 +5,7 @@ import { getCurrentUser, isRole } from '@/utils/auth'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import ResetPassword from '@/views/ResetPassword.vue'
+import Welcome from '@/views/Welcome.vue'
 
 // Pages protégées
 import Dashboard from '@/views/Dashboard.vue'
@@ -19,6 +20,7 @@ import Messaging from '@/views/Messaging.vue'
 import MissionDetails from '@/views/MissionDetails.vue'
 import Favorites from '@/views/Favorites.vue'
 import ManageMissions from '@/views/ManageMissions.vue'
+import MyManagedMissions from '@/views/MyManagedMissions.vue'
 import CreateMission from '@/views/CreateMission.vue'
 import EditMission from '@/views/EditMission.vue'
 import ManageEvents from '@/views/ManageEvents.vue'
@@ -38,6 +40,7 @@ const routes = [
   { path: '/login', component: Login },
   { path: '/register', component: Register },
   { path: '/reset-password', component: ResetPassword },
+  { path: '/welcome', component: Welcome, meta: { requiresAuth: true } },
 
   // Routes protégées
   { path: '/', component: Dashboard, meta: { requiresAuth: true } },
@@ -52,6 +55,7 @@ const routes = [
   { path: '/mission/:id', component: MissionDetails, meta: { requiresAuth: true } },
   { path: '/favorites', component: Favorites, meta: { requiresAuth: true } },
   { path: '/manage-missions', component: ManageMissions, meta: { requiresAuth: true } },
+  { path: '/my-managed-missions', component: MyManagedMissions, meta: { requiresAuth: true } },
   { path: '/manage-missions/create', component: CreateMission, meta: { requiresAuth: true } },
   { path: '/manage-missions/edit/:id', component: EditMission, meta: { requiresAuth: true } },
   { path: '/manage-events', component: ManageEvents, meta: { requiresAuth: true } },
@@ -76,7 +80,7 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach((to, from) => {
+router.beforeEach((to) => {
   const token = localStorage.getItem('token')
   const user = getCurrentUser()
   const isLoggedIn = !!token && !!user
@@ -94,6 +98,12 @@ router.beforeEach((to, from) => {
   // Si déjà sur login/register et connecté → dashboard
   if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
     return '/'
+  }
+
+  // La page /welcome est réservée aux utilisateurs connectés (guard déjà géré par requiresAuth)
+  // On n'autorise pas un utilisateur non connecté à l'accéder
+  if (to.path === '/welcome' && !isLoggedIn) {
+    return '/login'
   }
 
   return true

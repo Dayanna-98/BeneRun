@@ -128,7 +128,7 @@ const normalizeUser = (user) => {
   const accountType = user.accountType || ROLE_ACCOUNT_TYPES[role] || 'Bénévole'
   const permissions = {
     ...DEFAULT_PERMISSIONS[role],
-    ...(user.permissions || {}),
+    ...user.permissions,
   }
   return {
     ...user,

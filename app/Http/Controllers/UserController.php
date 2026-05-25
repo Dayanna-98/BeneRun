@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class UserController extends Controller
 {
@@ -68,6 +69,19 @@ class UserController extends Controller
 
         return (int) $actor->id_utilisateur === (int) $user->id_utilisateur
             || $this->isSuperAdminRequest($request);
+    }
+
+    private function passwordRules(bool $required = true): array
+    {
+        $presenceRule = $required ? 'required' : 'nullable';
+
+        return [
+            $presenceRule,
+            'string',
+            PasswordRule::min(10)
+                ->letters()
+                ->numbers(),
+        ];
     }
 
     public function competences($id)
@@ -306,7 +320,7 @@ class UserController extends Controller
             'nom_utilisateur' => 'required|string|max:255',
             'prenom_utilisateur' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8',
+            'password' => $this->passwordRules(true),
             'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
             'telephone_utilisateur' => 'nullable|string|max:255',
             'adresse_utilisateur' => 'nullable|string|max:255',
@@ -328,7 +342,9 @@ class UserController extends Controller
             'nombre_missions_utilisateur' => 'nullable|integer|min:0',
         ], [
             'email.unique' => 'Cet email est déjà utilisé.',
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
+            'password.min' => 'Le mot de passe doit contenir au moins 10 caractères.',
+            'password.letters' => 'Le mot de passe doit contenir au moins une lettre.',
+            'password.numbers' => 'Le mot de passe doit contenir au moins un chiffre.',
         ]);
 
         $user = new User;
@@ -381,7 +397,7 @@ class UserController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($id, 'id_utilisateur'),
             ],
-            'password' => 'nullable|string|min:8',
+            'password' => $this->passwordRules(false),
             'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
             'telephone_utilisateur' => 'nullable|string|max:255',
             'adresse_utilisateur' => 'nullable|string|max:255',
@@ -403,7 +419,9 @@ class UserController extends Controller
             'nombre_missions_utilisateur' => 'nullable|integer|min:0',
         ], [
             'email.unique' => 'Cet email est déjà utilisé.',
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
+            'password.min' => 'Le mot de passe doit contenir au moins 10 caractères.',
+            'password.letters' => 'Le mot de passe doit contenir au moins une lettre.',
+            'password.numbers' => 'Le mot de passe doit contenir au moins un chiffre.',
         ]);
 
         if (! User::where('id_utilisateur', $id)->exists()) {

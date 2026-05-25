@@ -33,14 +33,6 @@
 
       <div class="mx-auto" style="max-width:576px">
 
-        <!-- Image -->
-        <img
-          :src="mission.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop'"
-          :alt="mission.name"
-          class="w-100 object-fit-cover"
-          style="height:224px"
-        />
-
         <div class="p-3 d-flex flex-column gap-3">
 
           <div v-if="actionSuccess" class="alert alert-success mb-0">{{ actionSuccess }}</div>
@@ -276,9 +268,10 @@
 
       <!-- Sticky footer -->
       <div class="position-sticky bottom-0 bg-white border-top p-3">
-        <div v-if="actionError" class="alert alert-danger mb-2 py-2 small">{{ actionError }}</div>
+        <div v-if="actionError" class="alert alert-danger mb-2 py-3 text-center fw-semibold">{{ actionError }}</div>
+        <div v-if="!isActiveMission && isMissionPast" class="alert alert-secondary mb-2 py-3 text-center fw-semibold">Cette mission est terminée.</div>
         <button
-          v-if="!isActiveMission"
+          v-if="!isActiveMission && !isMissionPast"
           class="btn btn-primary btn-lg w-100"
           :disabled="isSubmittingRegistration || !canCurrentUserRegister"
           @click="handleMissionRegistration">
@@ -330,10 +323,13 @@ import { getCurrentUser, setCurrentUser } from '@/utils/auth'
 import MissionLiveMap from '@/components/maps/MissionLiveMap.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 import userService from '@/services/userService'
+import { parseLocalDateTime } from '@/utils/dateTime'
 import emergencyService from '@/services/emergencyService'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const route  = useRoute()
+const toast = useToast()
 const currentUser = ref(getCurrentUser())
 
 const mission = ref(null)
@@ -476,8 +472,15 @@ const isActiveMission = computed(() =>
   && !!mission.value.isParticipant
 )
 
+const isMissionPast = computed(() => {
+  if (!mission.value) return false
+  const end = parseLocalDateTime(mission.value.date, mission.value.endTime || '23:59')
+  return end ? end.getTime() < Date.now() : false
+})
+
 const canCurrentUserRegister = computed(() => {
   if (!mission.value || !currentUser.value?.id) return false
+  if (isMissionPast.value) return false
   if (!mission.value.postable) return false
   return !mission.value.isParticipant && !mission.value.registrationStatus
 })
@@ -485,6 +488,7 @@ const canCurrentUserRegister = computed(() => {
 const registrationButtonLabel = computed(() => {
   if (isSubmittingRegistration.value) return 'Inscription en cours...'
   if (mission.value?.isParticipant) return 'Vous participez déjà à cette mission'
+  if (isMissionPast.value) return 'Mission terminée'
   if (mission.value?.registrationStatus === 'en_attente') return 'Inscription déjà envoyée'
   if (mission.value?.registrationStatus === 'accepte') return 'Vous êtes déjà inscrit à cette mission'
   if (mission.value && mission.value.postable === false) return 'Inscriptions fermées pour cette mission'
@@ -543,7 +547,7 @@ const formatDate = (d) =>
 
 const sendChatMessage = () => {
   if (chatMessage.value.trim()) {
-    alert(`Message envoyé : ${chatMessage.value}`)
+    toast.success('Message envoyé.')
     chatMessage.value = ''
   }
 }
@@ -552,7 +556,7 @@ const sendEmergencyMessage = async () => {
   emergencySendFeedback.value = ''
 
   if (!emergencyCategory.value || !emergencyMessage.value.trim() || !mission.value?.id || !currentUser.value?.id) {
-    alert('Veuillez sélectionner une catégorie et écrire un message.')
+    toast.warning('Veuillez sélectionner une catégorie et écrire un message.')
     return
   }
 
@@ -579,7 +583,7 @@ const sendEmergencyMessage = async () => {
     emergencyMessage.value = ''
     emergencyCategory.value = ''
   } catch (error) {
-    alert(error.message || 'Envoi impossible pour le moment.')
+    toast.error(error.message || 'Envoi impossible pour le moment.')
   }
 }
 
@@ -627,7 +631,7 @@ const handleMissionRegistration = async () => {
   if (!currentUser.value?.id || !canCurrentUserRegister.value) return
 
   if (mission.value && Number(mission.value.currentVolunteers || 0) >= Number(mission.value.maxVolunteers || 0)) {
-    alert('Cette mission a atteint son quota. Si vous souhaitez tout de même participer, inscrivez-vous à la liste d\'attente de l\'événement associé.')
+    toast.warning('Cette mission a atteint son quota. Inscrivez-vous à la liste d\'attente de l\'événement associé.')
 
     if (mission.value.eventId) {
       router.push(`/event/${mission.value.eventId}`)
@@ -641,12 +645,12 @@ const handleMissionRegistration = async () => {
   )
 
   if (success) {
-    alert('Inscription validée')
+    toast.success('Inscription validée.')
   }
 }
 
 const handleUnregister = () => {
-  alert('Vous avez été désinscrit de la mission. Les responsables en seront informés.')
+  toast.info('Vous avez été désinscrit de la mission. Les responsables en seront informés.')
   showUnregisterDialog.value = false
   router.push('/my-missions')
 }

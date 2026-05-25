@@ -159,22 +159,6 @@
         <div v-for="event in visibleEvents" :key="event.id"
           class="event-card card border-0 shadow overflow-hidden">
 
-          <!-- Image -->
-          <div class="position-relative event-card__media" style="height:180px">
-            <img
-              :src="event.imageUrl || 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&h=400&fit=crop'"
-              :alt="event.name"
-              class="w-100 h-100 object-fit-cover"
-            />
-            <div class="event-card__gradient"></div>
-            <div class="event-card__chips">
-              <span class="badge text-bg-light border-0">{{ isPastEvent(event) ? 'Terminé' : 'Ouvert' }}</span>
-              <span class="badge" :class="eventFillRate(event) >= 80 ? 'text-bg-warning' : 'text-bg-dark'">
-                {{ eventFillRate(event) }}% pourvu
-              </span>
-            </div>
-          </div>
-
           <!-- Content -->
           <div class="card-body d-flex flex-column gap-3">
             <div>
@@ -184,6 +168,12 @@
                   <p class="small text-muted mb-0">{{ event.description }}</p>
                 </div>
                 <span class="event-card__date-badge">{{ formatEventBadge(event) }}</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <span class="badge text-bg-light border">{{ isPastEvent(event) ? 'Terminé' : 'Ouvert' }}</span>
+                <span class="badge" :class="eventFillRate(event) >= 80 ? 'text-bg-warning' : 'text-bg-dark'">
+                  {{ eventFillRate(event) }}% pourvu
+                </span>
               </div>
             </div>
 
@@ -248,6 +238,7 @@ import eventService from '@/services/eventService'
 import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
+import { parseLocalDateTime } from '@/utils/dateTime'
 
 const router = useRouter()
 const searchQuery = ref('')
@@ -314,10 +305,13 @@ const loadEvents = async () => {
 const getEventEndDate = (event) => {
   const endDate = event.endDate || event.startDate || event.date
   const endTime = event.endTime || '23:59'
-  return new Date(`${endDate}T${endTime}:00`)
+  return parseLocalDateTime(endDate, endTime)
 }
 
-const isPastEvent = (event) => getEventEndDate(event).getTime() < Date.now()
+const isPastEvent = (event) => {
+  const end = getEventEndDate(event)
+  return end ? end.getTime() < Date.now() : false
+}
 
 const upcomingEventsCount = computed(() => events.value.filter((event) => !isPastEvent(event)).length)
 const organizerOptions = computed(() =>
@@ -338,7 +332,7 @@ const activeFilterChips = computed(() => {
   return chips
 })
 
-const eventStartDate = (event) => new Date(`${event.startDate || event.date}T${event.startTime || '00:00'}:00`)
+const eventStartDate = (event) => parseLocalDateTime(event.startDate || event.date, event.startTime || '00:00')
 
 const isWithinCurrentWeek = (event) => {
   const now = new Date()
@@ -353,6 +347,7 @@ const isWithinCurrentWeek = (event) => {
   end.setHours(23, 59, 59, 999)
 
   const eventDate = eventStartDate(event)
+  if (!eventDate) return false
   return eventDate >= start && eventDate <= end
 }
 
@@ -376,10 +371,10 @@ const filteredEvents = computed(() =>
     const matchesDate = filterDate.value === 'all'
       ? true
       : filterDate.value === 'today'
-        ? startDate.toDateString() === today.toDateString()
+        ? !!startDate && startDate.toDateString() === today.toDateString()
         : filterDate.value === 'week'
           ? isWithinCurrentWeek(event)
-          : startDate >= today && startDate <= thisMonthEnd
+          : !!startDate && startDate >= today && startDate <= thisMonthEnd
 
     const fill = eventFillRate(event)
     const spotsOpen = Number(event.currentVolunteers || 0) < Number(event.totalVolunteersNeeded || 0)
@@ -409,7 +404,11 @@ const sortedEvents = computed(() => {
   if (sortBy.value === 'volunteers_desc') {
     return rows.sort((a, b) => Number(b.currentVolunteers || 0) - Number(a.currentVolunteers || 0))
   }
-  return rows.sort((a, b) => eventStartDate(a).getTime() - eventStartDate(b).getTime())
+  return rows.sort((a, b) => {
+    const left = eventStartDate(a)?.getTime() || 0
+    const right = eventStartDate(b)?.getTime() || 0
+    return left - right
+  })
 })
 
 const visibleEvents = computed(() => sortedEvents.value.slice(0, visibleCount.value))
@@ -446,7 +445,9 @@ const clearAllFilters = () => {
 
 const formatDateLabel = (dateValue) => {
   if (!dateValue) return 'Date à définir'
-  return new Date(dateValue).toLocaleDateString('fr-FR', {
+  const parsed = parseLocalDateTime(dateValue, '00:00')
+  if (!parsed) return 'Date à définir'
+  return parsed.toLocaleDateString('fr-FR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -471,7 +472,8 @@ const formatEventBadge = (event) => {
   const dateValue = event.startDate || event.date
   if (!dateValue) return 'À définir'
 
-  const date = new Date(dateValue)
+  const date = parseLocalDateTime(dateValue, '00:00')
+  if (!date) return 'À définir'
   const day = date.toLocaleDateString('fr-FR', { day: '2-digit' })
   const month = date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
   return `${day} ${month}`

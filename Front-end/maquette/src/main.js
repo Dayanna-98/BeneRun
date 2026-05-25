@@ -38,7 +38,16 @@ const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
-app.use(Toast, { position: 'bottom-right', timeout: 4000 })
+app.use(Toast, {
+	position: 'top-center',
+	timeout: 5000,
+	maxToasts: 2,
+	newestOnTop: true,
+	hideProgressBar: false,
+	closeOnClick: true,
+	toastClassName: 'benerun-toast',
+	bodyClassName: 'benerun-toast-body',
+})
 
 app.component('Accordion',    Accordion)
 app.component('Alert',        Alert)

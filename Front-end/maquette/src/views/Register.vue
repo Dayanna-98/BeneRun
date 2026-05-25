@@ -20,11 +20,12 @@
         </div>
         <div class="card-body">
           <form @submit.prevent="handleRegister" class="d-flex flex-column gap-3">
+            <p class="x-small text-muted mb-0">Les champs marqués * sont obligatoires.</p>
 
             <!-- Prénom / Nom -->
             <div class="row g-3">
               <div class="col-6">
-                <label class="form-label small fw-medium">Prénom</label>
+                <label class="form-label small fw-medium">Prénom *</label>
                 <div class="position-relative">
                   <User class="position-absolute text-muted"
                     style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
@@ -33,7 +34,7 @@
                 </div>
               </div>
               <div class="col-6">
-                <label class="form-label small fw-medium">Nom</label>
+                <label class="form-label small fw-medium">Nom *</label>
                 <div class="position-relative">
                   <User class="position-absolute text-muted"
                     style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
@@ -45,7 +46,7 @@
 
             <!-- Email -->
             <div>
-              <label class="form-label small fw-medium">Email</label>
+              <label class="form-label small fw-medium">Email *</label>
               <div class="position-relative">
                 <Mail class="position-absolute text-muted"
                   style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
@@ -56,7 +57,7 @@
 
             <!-- Mot de passe -->
             <div>
-              <label class="form-label small fw-medium">Mot de passe</label>
+              <label class="form-label small fw-medium">Mot de passe *</label>
               <div class="position-relative">
                 <Lock class="position-absolute text-muted"
                   style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
@@ -70,12 +71,12 @@
                   <Eye v-else style="width:16px;height:16px" />
                 </button>
               </div>
-              <p class="x-small text-muted mt-1 mb-0">Minimum 8 caractères</p>
+              <p class="x-small text-muted mt-1 mb-0">{{ PASSWORD_HINT }}</p>
             </div>
 
             <!-- Confirmer mot de passe -->
             <div>
-              <label class="form-label small fw-medium">Confirmer le mot de passe</label>
+              <label class="form-label small fw-medium">Confirmer le mot de passe *</label>
               <div class="position-relative">
                 <Lock class="position-absolute text-muted"
                   style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
@@ -108,7 +109,7 @@
               <p class="x-small text-muted mb-0">
                 En vous inscrivant, vous acceptez nos
                 <button type="button" class="btn btn-link btn-sm p-0 x-small text-decoration-none"
-                  @click="alert('Page des conditions d\'utilisation à venir')">
+                  @click="toast.info('Page des conditions d\'utilisation à venir.')">
                   conditions d'utilisation
                 </button>
               </p>
@@ -129,12 +130,15 @@ import { useRouter } from 'vue-router'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-vue-next'
 import userService from '@/services/userService'
 import { persistAuthSession } from '@/utils/auth'
+import { useToast } from '@/composables/useToast'
+import { PASSWORD_HINT, validatePasswordStrength } from '@/utils/passwordPolicy'
 
 const router = useRouter()
 const showPassword        = ref(false)
 const showConfirmPassword = ref(false)
 const isLoading           = ref(false)
 const errorMessage        = ref('')
+const toast = useToast()
 
 const form = ref({
   firstName: '', lastName: '', email: '',
@@ -161,8 +165,9 @@ const handleRegister = async () => {
     errorMessage.value = 'Les mots de passe ne correspondent pas'
     return
   }
-  if (form.value.password.length < 8) {
-    errorMessage.value = 'Le mot de passe doit contenir au moins 8 caractères'
+  const passwordError = validatePasswordStrength(form.value.password)
+  if (passwordError) {
+    errorMessage.value = passwordError
     return
   }
 
@@ -181,8 +186,8 @@ const handleRegister = async () => {
 
     if (loginResponse.user && loginResponse.token) {
       persistAuthSession({ user: loginResponse.user, token: loginResponse.token })
-      alert('Compte créé avec succès !')
-      router.push('/')
+      toast.success('Compte créé avec succès.')
+      router.push('/welcome')
       return
     }
 

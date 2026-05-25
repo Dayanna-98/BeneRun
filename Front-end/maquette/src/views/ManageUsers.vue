@@ -432,6 +432,17 @@
     <div v-if="toast.show" :class="`toast-custom alert alert-${toast.type} shadow`">
       {{ toast.message }}
     </div>
+
+    <BootstrapConfirmModal
+      v-model="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :cancel-label="confirmDialog.cancelLabel"
+      :confirm-variant="confirmDialog.confirmVariant"
+      @confirm="handleConfirmDialogConfirm"
+      @cancel="handleConfirmDialogCancel"
+    />
   </div>
 </template>
 
@@ -443,6 +454,8 @@ import { getCurrentUser, isRole } from '@/utils/auth'
 import userService from '@/services/userService'
 import badgeService from '@/services/badgeService'
 import certificatService from '@/services/certificatService'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
 const router = useRouter()
 const user = getCurrentUser()
@@ -451,6 +464,12 @@ if (!user || !isRole('superadmin')) router.push('/')
 const usersList = ref([])
 const allBadges = ref([])
 const toast = ref({ show: false, message: '', type: 'success' })
+const {
+  confirmDialog,
+  askConfirmation,
+  handleConfirmDialogConfirm,
+  handleConfirmDialogCancel,
+} = useConfirmDialog()
 const rawSearchQuery = ref('')
 const searchQuery = ref('')
 const searchLoading = ref(false)
@@ -671,7 +690,15 @@ function toUpdatePayload(targetUser, extra = {}) {
 
 async function applyBulkRole() {
   if (!bulkRole.value || selectedUserIds.value.length === 0) return
-  if (!confirm(`Appliquer le rôle à ${selectedUserIds.value.length} utilisateur(s) ?`)) return
+
+  const confirmed = await askConfirmation({
+    title: 'Appliquer un rôle en masse ?',
+    message: `Appliquer le rôle à ${selectedUserIds.value.length} utilisateur(s) ?`,
+    confirmLabel: 'Appliquer',
+    confirmVariant: 'primary',
+  })
+
+  if (!confirmed) return
 
   bulkSaving.value = true
   let successCount = 0
@@ -715,7 +742,15 @@ async function applyBulkAnonymize() {
 
   const targetValue = bulkAnonymousMode.value === 'anonymize'
   const confirmLabel = targetValue ? 'rendre anonymes' : 'retirer l\'anonymisation'
-  if (!confirm(`Confirmer: ${confirmLabel} pour ${selectedUserIds.value.length} utilisateur(s) ?`)) return
+
+  const confirmed = await askConfirmation({
+    title: 'Confirmer l\'anonymisation',
+    message: `Confirmer: ${confirmLabel} pour ${selectedUserIds.value.length} utilisateur(s) ?`,
+    confirmLabel: 'Confirmer',
+    confirmVariant: 'warning',
+  })
+
+  if (!confirmed) return
 
   bulkSaving.value = true
   let successCount = 0
@@ -937,7 +972,14 @@ async function saveEditedCertificate(certId) {
 }
 
 async function deleteCertificateFromUser(cert) {
-  if (!confirm(`Supprimer le certificat "${cert.name}" ?`)) return
+  const confirmed = await askConfirmation({
+    title: 'Supprimer le certificat ?',
+    message: `Supprimer le certificat "${cert.name}" ?`,
+    confirmLabel: 'Supprimer',
+    confirmVariant: 'danger',
+  })
+
+  if (!confirmed) return
 
   certificateModal.value.saving = true
   try {

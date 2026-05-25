@@ -177,7 +177,7 @@
             </button>
           </div>
           <div class="p-3">
-            <button class="btn btn-primary w-100" @click="router.push('/manage-missions')">Toutes mes missions</button>
+            <button class="btn btn-primary w-100" @click="router.push('/my-managed-missions')">Toutes mes missions</button>
           </div>
         </div>
       </div>
@@ -360,7 +360,7 @@
       <div class="mt-4 pt-3 border-top text-center">
         <p class="x-small text-muted">
           <button class="btn btn-link btn-sm p-0 text-primary text-decoration-none"
-            @click="alert('Page des conditions d\'utilisation à venir')">
+            @click="toast.info('Page des conditions d\'utilisation à venir.')">
             Conditions d'utilisation
           </button>
           &nbsp;•&nbsp;© 2025 Béné'Run
@@ -379,9 +379,11 @@ import { getCurrentUser } from '@/utils/auth'
 import api from '@/services/api'
 import { missionService } from '@/services/missionService'
 import emergencyService from '@/services/emergencyService'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const user = getCurrentUser()
+const toast = useToast()
 if (!user) router.push('/login')
 
 // \u2500\u2500 Stats du tableau de bord (depuis API) \u2500\u2500

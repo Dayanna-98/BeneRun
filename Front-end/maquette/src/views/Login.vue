@@ -23,9 +23,10 @@
         </div>
         <div class="card-body">
           <form @submit.prevent="handleLogin" class="d-flex flex-column gap-3">
+            <p class="x-small text-muted mb-0">Les champs marqués * sont obligatoires.</p>
 
             <div>
-              <label class="form-label small fw-medium">Email</label>
+              <label class="form-label small fw-medium">Email *</label>
               <div class="position-relative">
                 <User class="position-absolute text-muted"
                   style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />
@@ -40,7 +41,7 @@
             </div>
 
             <div>
-              <label class="form-label small fw-medium">Mot de passe</label>
+              <label class="form-label small fw-medium">Mot de passe *</label>
               <div class="position-relative">
                 <Lock class="position-absolute text-muted"
                   style="width:20px;height:20px;top:50%;left:12px;transform:translateY(-50%)" />

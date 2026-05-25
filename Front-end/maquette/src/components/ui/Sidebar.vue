@@ -147,7 +147,11 @@ const openGroups = ref([])
 const toggleSidebar = () => { isOpen.value = !isOpen.value }
 const toggleGroup = (label) => {
   const i = openGroups.value.indexOf(label)
-  i === -1 ? openGroups.value.push(label) : openGroups.value.splice(i, 1)
+  if (i === -1) {
+    openGroups.value.push(label)
+  } else {
+    openGroups.value.splice(i, 1)
+  }
 }
 const isItemActive = (item) =>
   item.children?.some(c => c.to === route.path) || item.to === route.path

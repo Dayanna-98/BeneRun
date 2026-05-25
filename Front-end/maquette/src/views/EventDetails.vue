@@ -19,34 +19,22 @@
     </div>
 
     <template v-else>
-      <div class="position-relative" style="height:256px">
-        <img
-          :src="event.imageUrl || 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&h=400&fit=crop'"
-          :alt="event.name"
-          class="w-100 h-100 object-fit-cover"
-        />
-        <div
-          class="position-absolute inset-0 w-100 h-100"
-          style="background:linear-gradient(to top, rgba(0,0,0,.62), transparent)"
-        ></div>
-
-        <button
-          class="btn btn-light position-absolute rounded-circle p-2 shadow"
-          style="top:16px;left:16px;opacity:.92"
-          @click="router.push('/events')"
-        >
-          <ArrowLeft style="width:24px;height:24px" />
-        </button>
-
-        <div class="position-absolute text-white px-3" style="bottom:16px;left:0;right:0">
-          <h1 class="fs-4 fw-bold mb-1">{{ event.name }}</h1>
-          <p class="small mb-0 text-white-50">Organisé par {{ event.organizer }}</p>
-        </div>
-      </div>
-
       <div class="px-3 pt-3 mx-auto d-flex flex-column gap-3" style="max-width:576px">
-        <div v-if="actionSuccess" class="alert alert-success small mb-0">{{ actionSuccess }}</div>
-        <div v-if="actionError" class="alert alert-danger small mb-0">{{ actionError }}</div>
+        <div class="d-flex align-items-center gap-3">
+          <button
+            class="btn btn-light rounded-circle p-2 shadow-sm"
+            @click="router.push('/events')"
+          >
+            <ArrowLeft style="width:24px;height:24px" />
+          </button>
+          <div>
+            <h1 class="fs-4 fw-bold mb-1">{{ event.name }}</h1>
+            <p class="small text-muted mb-0">Organisé par {{ event.organizer }}</p>
+          </div>
+        </div>
+
+        <div v-if="actionSuccess" class="alert alert-success mb-0 text-center fw-semibold py-3">{{ actionSuccess }}</div>
+        <div v-if="actionError" class="alert alert-danger mb-0 text-center fw-semibold py-3">{{ actionError }}</div>
 
         <div class="card">
           <div class="card-body d-flex flex-column gap-3">
@@ -97,13 +85,16 @@
               </div>
             </div>
 
+            <div v-if="isEventPast" class="alert alert-secondary small mb-0">
+              Cet événement est terminé. Les inscriptions sont closes.
+            </div>
             <div class="d-grid gap-2">
               <button
                 class="btn btn-primary"
                 :disabled="isSubmittingEventSignup || !canSignupEvent"
                 @click="handleEventSignup"
               >
-                {{ isSubmittingEventSignup ? 'Inscription en cours...' : "S'inscrire à l'événement" }}
+                {{ isSubmittingEventSignup ? 'Inscription en cours...' : (isEventPast ? 'Événement terminé' : "S'inscrire à l'événement") }}
               </button>
               <button class="btn btn-outline-primary" @click="goToEventMissions">
                 Voir/s'inscrire aux missions
@@ -195,6 +186,7 @@ import { ArrowLeft, MapPin, Calendar, Users, Briefcase, AlertTriangle, Clock, Ex
 import api from '@/services/api'
 import eventService from '@/services/eventService'
 import { getCurrentUser } from '@/utils/auth'
+import { parseLocalDateTime } from '@/utils/dateTime'
 import LeafletPreview from '@/components/maps/LeafletPreview.vue'
 import { extractGoogleMapsCoordinates } from '@/utils/googleMaps'
 
@@ -296,10 +288,19 @@ const completionPercentage = computed(() => {
   )
 })
 
+const isEventPast = computed(() => {
+  if (!event.value) return false
+  const endDate = event.value.endDate || event.value.startDate || event.value.date
+  const endTime = event.value.endTime || '23:59'
+  const end = parseLocalDateTime(endDate, endTime)
+  return end ? end.getTime() < Date.now() : false
+})
+
 const canSignupEvent = computed(() =>
   !!currentUser.value?.id
   && !!event.value
   && !event.value.isCancelled
+  && !isEventPast.value
 )
 
 const spotsLeft = (mission) => mission.maxVolunteers - mission.currentVolunteers
@@ -316,7 +317,6 @@ const formatMissionDate = (date) => {
 
 const formatEventPeriod = (targetEvent) => {
   if (!targetEvent) return ''
-
   const from = targetEvent.startDate || targetEvent.date
   const to = targetEvent.endDate || from
   const fromLabel = formatMissionDate(from)
