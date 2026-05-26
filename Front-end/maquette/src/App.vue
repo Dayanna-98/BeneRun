@@ -7,10 +7,12 @@ import NotificationBell from '@/components/notifications/NotificationBell.vue'
 import TutorialGuide from '@/components/tutorial/TutorialGuide.vue'
 import TutorialButton from '@/components/tutorial/TutorialButton.vue'
 import { useTutorial } from '@/composables/useTutorial'
+import { useIsMobile } from '@/composables/UseIsMobile'
 
 const route = useRoute()
 const router = useRouter()
 const isLoggedIn = ref(!!localStorage.getItem('token'))
+const isMobile = useIsMobile()
 const { checkRoleChange, openGuideForRoute, isGuideOpen } = useTutorial()
 
 // Écoute les changements de token dans localStorage
@@ -55,13 +57,16 @@ watch(() => route.path, (path) => {
 // Affiche BottomNav seulement sur les routes protégées ET si connecté
 const isProtectedRoute = computed(() => route.meta.requiresAuth === true)
 const showLayout = computed(() => isLoggedIn.value && isProtectedRoute.value)
+const isProfileRoute = computed(() => route.path === '/profile' || route.path === '/profile/edit')
+const isFavoritesRoute = computed(() => route.path === '/favorites')
 const showProfileQuickAccess = computed(() =>
   showLayout.value
-  && route.path !== '/profile'
-  && route.path !== '/profile/edit'
+  && !isProfileRoute.value
 )
 const showFavoritesQuickAccess = computed(() => showLayout.value && route.path !== '/favorites')
 const isDashboardRoute = computed(() => route.path === '/')
+const showDesktopQuickAccess = computed(() => showProfileQuickAccess.value && !isMobile.value)
+const showMobileQuickAccess = computed(() => showLayout.value && isMobile.value)
 </script>
 
 <template>
@@ -70,12 +75,13 @@ const isDashboardRoute = computed(() => route.path === '/')
     :class="{
       'app-shell--authenticated': showLayout,
       'app-shell--with-nav': showLayout,
-      'app-shell--with-quick-actions': showProfileQuickAccess,
-      'app-shell--dashboard-flush': showProfileQuickAccess && isDashboardRoute,
+      'app-shell--with-quick-actions': showDesktopQuickAccess,
+      'app-shell--with-mobile-actions': showMobileQuickAccess,
+      'app-shell--dashboard-flush': showDesktopQuickAccess && isDashboardRoute,
     }">
     <div v-if="showLayout" class="app-shell__aurora app-shell__aurora--one" />
     <div v-if="showLayout" class="app-shell__aurora app-shell__aurora--two" />
-    <div v-if="showProfileQuickAccess" class="quick-actions">
+    <div v-if="showDesktopQuickAccess" class="quick-actions">
       <NotificationBell />
       <TutorialButton />
       <button
@@ -94,6 +100,31 @@ const isDashboardRoute = computed(() => route.path === '/')
         <UserRound style="width:15px;height:15px" />
         <span>Profil</span>
       </button>
+    </div>
+    <div v-if="showMobileQuickAccess" class="mobile-quick-actions" aria-label="Accès rapides">
+      <div class="mobile-quick-actions__group">
+        <NotificationBell />
+        <TutorialButton />
+        <button
+          type="button"
+          class="quick-icon-access mobile-quick-actions__button"
+          :class="{ 'mobile-quick-actions__button--active': isFavoritesRoute }"
+          @click="router.push('/favorites')"
+          :aria-current="isFavoritesRoute ? 'page' : undefined"
+          aria-label="Accéder aux favoris"
+          title="Favoris">
+          <Heart style="width:16px;height:16px" />
+        </button>
+        <button
+          type="button"
+          class="profile-quick-access mobile-quick-actions__profile"
+          :class="{ 'mobile-quick-actions__button--active': isProfileRoute }"
+          @click="router.push('/profile')"
+          :aria-current="isProfileRoute ? 'page' : undefined">
+          <UserRound style="width:15px;height:15px" />
+          <span>Profil</span>
+        </button>
+      </div>
     </div>
     <main class="app-shell__content">
       <RouterView />
@@ -151,6 +182,10 @@ const isDashboardRoute = computed(() => route.path === '/')
   padding-top: 0;
 }
 
+.app-shell--with-mobile-actions .app-shell__content {
+  padding-top: 88px;
+}
+
 .app-shell--dashboard-flush .app-shell__content {
   padding-top: 0;
 }
@@ -161,7 +196,7 @@ const isDashboardRoute = computed(() => route.path === '/')
 
 .quick-actions {
   position: fixed;
-  top: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
   right: 12px;
   z-index: 1060;
   display: flex;
@@ -169,6 +204,43 @@ const isDashboardRoute = computed(() => route.path === '/')
   justify-content: flex-end;
   gap: 8px;
   max-width: calc(100vw - 24px);
+}
+
+.mobile-quick-actions {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  right: 12px;
+  z-index: 1060;
+}
+
+.mobile-quick-actions__group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(44,53,73,0.16), 0 2px 8px rgba(44,53,73,0.08), 0 0 0 1px rgba(44,53,73,0.06);
+}
+
+.mobile-quick-actions__button,
+.mobile-quick-actions__profile {
+  flex-shrink: 0;
+}
+
+.mobile-quick-actions__button--active {
+  background: rgba(197,216,46,0.22);
+  box-shadow: 0 4px 16px rgba(197,216,46,0.22), 0 0 0 1px rgba(163,184,32,0.22);
+  color: var(--primary-dark);
+}
+
+.mobile-quick-actions__profile {
+  min-width: 96px;
+  justify-content: center;
 }
 
 .profile-quick-access {
@@ -228,6 +300,10 @@ const isDashboardRoute = computed(() => route.path === '/')
     padding-top: 0;
   }
 
+  .app-shell--with-mobile-actions .app-shell__content {
+    padding-top: 84px;
+  }
+
   .app-shell--dashboard-flush .app-shell__content {
     padding-top: 0;
   }
@@ -239,6 +315,23 @@ const isDashboardRoute = computed(() => route.path === '/')
   .quick-actions {
     left: 12px;
     right: 12px;
+  }
+
+  .mobile-quick-actions {
+    left: 10px;
+    right: 10px;
+  }
+
+  .mobile-quick-actions__group {
+    gap: 6px;
+    padding: 7px;
+    border-radius: 20px;
+  }
+
+  .mobile-quick-actions__profile {
+    min-width: 88px;
+    padding: 7px 10px;
+    font-size: 0.75rem;
   }
 
   .profile-quick-access {
