@@ -6,13 +6,68 @@ use App\Models\Affectation;
 use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\Postulation;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class PostulationController extends Controller
 {
+    private function normalizeRole(?string $role): string
+    {
+        return str_replace(['-', '_', ' '], '', strtolower((string) $role));
+    }
+
+    private function resolveActorFromBearerToken(Request $request): ?User
+    {
+        $actor = $request->user('sanctum');
+        if ($actor instanceof User) {
+            return $actor;
+        }
+
+        $token = $request->bearerToken();
+        if (! $token) {
+            return null;
+        }
+
+        $accessToken = PersonalAccessToken::findToken($token);
+        $tokenable = $accessToken?->tokenable;
+
+        return $tokenable instanceof User ? $tokenable : null;
+    }
+
+    private function resolveActorUser(Request $request): ?User
+    {
+        return $this->resolveActorFromBearerToken($request);
+    }
+
+    private function isAdminOrSuperAdmin(?User $actor): bool
+    {
+        if (! $actor) {
+            return false;
+        }
+
+        return in_array($this->normalizeRole($actor->role_utilisateur), ['admin', 'superadmin'], true);
+    }
+
+    private function assertAdminOrSuperAdmin(Request $request): ?User
+    {
+        $actor = $this->resolveActorUser($request);
+
+        if (! $this->isAdminOrSuperAdmin($actor)) {
+            return null;
+        }
+
+        return $actor;
+    }
+
+    private function hasTargetWindowEnded(array $window): bool
+    {
+        return (int) $window['end'] < now()->timestamp;
+    }
+
     public function index()// Récupérer toutes les postulations
     {
         $postulations = Postulation::with([
@@ -40,6 +95,13 @@ class PostulationController extends Controller
 
     public function store(Request $request) // Ajouter une postulation
     {
+        $actor = $this->resolveActorUser($request);
+        if (! $actor) {
+            return response()->json([
+                'message' => 'Authentification requise.',
+            ], 401);
+        }
+
         $validated = $request->validate([
             'id_mission' => 'nullable|integer|exists:missions,id_mission|required_without:id_evenement',
             'id_evenement' => 'nullable|integer|exists:evenements,id_evenement|required_without:id_mission',
@@ -51,7 +113,26 @@ class PostulationController extends Controller
             'date_annulation' => 'nullable|date',
         ]);
 
+        $isAdminOrSuperAdmin = $this->isAdminOrSuperAdmin($actor);
+        if (! $isAdminOrSuperAdmin && (int) $validated['id_utilisateur'] !== (int) $actor->id_utilisateur) {
+            return response()->json([
+                'message' => 'Vous ne pouvez créer une postulation que pour votre propre compte.',
+            ], 403);
+        }
+
         $validated = $this->hydrateMissionAndEvent($validated);
+
+        // Les bénévoles sont inscrits immédiatement aux missions (plus de validation en attente).
+        // La liste d'attente événement reste en attente pour dispatch manuel.
+        if (! $isAdminOrSuperAdmin) {
+            if (! empty($validated['id_mission'])) {
+                $validated['statut_postulation'] = 'accepte';
+                $validated['date_decision'] = $validated['date_decision'] ?? now();
+            } else {
+                $validated['statut_postulation'] = 'en_attente';
+                $validated['date_decision'] = null;
+            }
+        }
 
         if (($validated['statut_postulation'] ?? 'en_attente') === 'accepte' && empty($validated['id_mission'])) {
             return response()->json([
@@ -63,6 +144,12 @@ class PostulationController extends Controller
         if ($targetWindow === null) {
             return response()->json([
                 'message' => 'Impossible de déterminer la période de disponibilité liée à cette postulation.',
+            ], 422);
+        }
+
+        if ($this->hasTargetWindowEnded($targetWindow)) {
+            return response()->json([
+                'message' => 'Action impossible : la mission ou l\'événement ciblé est déjà terminé.',
             ], 422);
         }
 
@@ -158,13 +245,13 @@ class PostulationController extends Controller
 
     public function inscrireMission(Request $request, $idMission)
     {
-        $payload = array_merge($request->all(), [
+        $request->merge([
             'id_mission' => (int) $idMission,
-            'statut_postulation' => $request->input('statut_postulation', 'en_attente'),
+            'statut_postulation' => $request->input('statut_postulation', 'accepte'),
             'date_postulation' => $request->input('date_postulation', now()),
         ]);
 
-        return $this->store(new Request($payload));
+        return $this->store($request);
     }
 
     public function inscrireEvenement(Request $request, $idEvenement)
@@ -180,18 +267,25 @@ class PostulationController extends Controller
             }
         }
 
-        $payload = array_merge($request->all(), [
+        $request->merge([
             'id_evenement' => (int) $idEvenement,
             'id_mission' => null,
             'statut_postulation' => $request->input('statut_postulation', 'en_attente'),
             'date_postulation' => $request->input('date_postulation', now()),
         ]);
 
-        return $this->store(new Request($payload));
+        return $this->store($request);
     }
 
     public function update(Request $request, $id) // Modifier une postulation
     {
+        $adminActor = $this->assertAdminOrSuperAdmin($request);
+        if (! $adminActor) {
+            return response()->json([
+                'message' => 'Seuls les admins et superadmins peuvent modifier une postulation.',
+            ], 403);
+        }
+
         $postulation = Postulation::find($id);
 
         if (! $postulation) {
@@ -227,6 +321,13 @@ class PostulationController extends Controller
 
         $merged = array_merge($postulation->toArray(), $validated);
         $merged = $this->hydrateMissionAndEvent($merged);
+
+        $targetWindow = $this->getTargetWindow($merged);
+        if ($targetWindow !== null && $this->hasTargetWindowEnded($targetWindow)) {
+            return response()->json([
+                'message' => 'Modification impossible : la mission ou l\'événement est déjà terminé.',
+            ], 422);
+        }
 
         if (($merged['statut_postulation'] ?? $postulation->statut_postulation) === 'accepte' && empty($merged['id_mission'])) {
             return response()->json([
@@ -267,8 +368,26 @@ class PostulationController extends Controller
 
     public function destroy($id) // Supprimer une postulation
     {
+        $adminActor = $this->assertAdminOrSuperAdmin(request());
+        if (! $adminActor) {
+            return response()->json([
+                'message' => 'Seuls les admins et superadmins peuvent supprimer une postulation.',
+            ], 403);
+        }
+
         if (Postulation::where('id_postulation', $id)->exists()) {
             $postulation = Postulation::find($id);
+
+            $targetWindow = $this->getTargetWindow([
+                'id_mission' => $postulation?->id_mission,
+                'id_evenement' => $postulation?->id_evenement,
+            ]);
+
+            if ($targetWindow !== null && $this->hasTargetWindowEnded($targetWindow)) {
+                return response()->json([
+                    'message' => 'Suppression impossible : la mission ou l\'événement est déjà terminé.',
+                ], 422);
+            }
 
             if ($postulation && $this->isLockedPostulation($postulation)) {
                 return response()->json([

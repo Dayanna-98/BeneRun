@@ -84,29 +84,6 @@
           <!-- Erreur -->
           <div v-if="error" class="alert alert-danger mt-3 mb-0 small">{{ error }}</div>
 
-          <!-- Comptes connus en base -->
-          <div v-if="displayUsers.length" class="mt-4 pt-3 border-top">
-            <p class="small fw-medium text-center text-muted mb-3">Emails trouvés en base</p>
-            <div class="d-flex flex-column gap-2">
-              <button
-                v-for="user in displayUsers" :key="`db-${user.id}`"
-                type="button"
-                class="btn btn-outline-secondary text-start p-3 d-flex align-items-center justify-content-between"
-                @click="quickLogin(user.email)">
-                <div>
-                  <div class="small fw-medium">{{ user.firstName }} {{ user.lastName }}</div>
-                  <div class="x-small text-muted">{{ user.email }}</div>
-                </div>
-                <div class="d-flex flex-column align-items-end gap-1">
-                  <span class="badge" style="background:rgba(26,34,48,.1);color:#1a2230">
-                    {{ user.accountType }}
-                  </span>
-                </div>
-              </button>
-            </div>
-            <p class="x-small text-muted text-center mt-2 mb-0">Cliquez sur un email pour remplir le champ.</p>
-          </div>
-
         </div>
       </div>
 
@@ -116,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { LogIn, User, Lock } from 'lucide-vue-next'
 import { persistAuthSession } from '@/utils/auth'
@@ -127,16 +104,6 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
-const displayUsers = ref([])
-
-onMounted(async () => {
-  try {
-    displayUsers.value = await userService.getAll()
-  } catch (apiError) {
-    console.error('Erreur chargement comptes BDD:', apiError)
-    displayUsers.value = []
-  }
-})
 
 const handleLogin = async () => {
   error.value = ''
@@ -159,11 +126,4 @@ const handleLogin = async () => {
   }
 }
 
-const quickLogin = (userEmail) => {
-  const user = displayUsers.value.find(u => u.email === userEmail)
-  if (user) {
-    email.value = user.email
-    password.value = ''
-  }
-}
 </script>

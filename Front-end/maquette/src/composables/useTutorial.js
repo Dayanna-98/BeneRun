@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { getCurrentUser } from '@/utils/auth'
-import { TUTORIAL_CONTENT, getNewStepsForRole } from '@/data/tutorialContent'
+import { TUTORIAL_CONTENT, getNewStepsForRole, getTutorialContentForRole, resolveTutorialRole } from '@/data/tutorialContent'
 
 const LS_LAST_ROLE = 'benerun_tutorial_last_role'
 const LS_ONBOARDING_DONE = 'benerun_onboarding_done'
@@ -10,6 +10,7 @@ const isGuideOpen = ref(false)
 const guideSteps = ref([])
 const guideTitle = ref('')
 const guideColor = ref('#c5d82e')
+const guideRole = ref('volunteer')
 const isNewRoleGuide = ref(false)
 
 export function useTutorial() {
@@ -17,13 +18,14 @@ export function useTutorial() {
   function openFullGuide() {
     const user = getCurrentUser()
     if (!user) return
-    const role = user.role || 'volunteer'
-    const content = TUTORIAL_CONTENT[role]
+    const role = resolveTutorialRole(user.role || 'volunteer')
+    const content = getTutorialContentForRole(role)
     if (!content) return
 
     guideTitle.value = `Guide — ${content.label}`
     guideColor.value = content.color
     guideSteps.value = content.steps
+    guideRole.value = role
     isNewRoleGuide.value = false
     isGuideOpen.value = true
   }
@@ -37,7 +39,7 @@ export function useTutorial() {
     const user = getCurrentUser()
     if (!user) return
 
-    const currentRole = user.role || 'volunteer'
+    const currentRole = resolveTutorialRole(user.role || 'volunteer')
     const lastRole = localStorage.getItem(LS_LAST_ROLE)
 
     if (lastRole && lastRole !== currentRole) {
@@ -51,6 +53,7 @@ export function useTutorial() {
       guideTitle.value = `Nouvelles fonctionnalités — ${content.label}`
       guideColor.value = content.color
       guideSteps.value = newSteps
+      guideRole.value = currentRole
       isNewRoleGuide.value = true
       isGuideOpen.value = true
     }
@@ -81,6 +84,7 @@ export function useTutorial() {
     guideSteps,
     guideTitle,
     guideColor,
+    guideRole,
     isNewRoleGuide,
     openFullGuide,
     checkRoleChange,

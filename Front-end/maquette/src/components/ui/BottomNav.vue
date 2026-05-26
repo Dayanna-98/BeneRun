@@ -37,6 +37,10 @@ const navItems = [
 ]
 
 const isActive = (path) => {
+  if (path === '/my-missions' && route.path.startsWith('/my-managed-missions')) {
+    return true
+  }
+
   if (path === '/') return route.path === '/'
   return route.path === path || route.path.startsWith(`${path}/`)
 }

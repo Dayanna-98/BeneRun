@@ -37,7 +37,7 @@ export const TUTORIAL_CONTENT = {
         icon: 'ClipboardCheck',
         title: 'Inscrivez-vous',
         description:
-          'Sur la page d\'une mission, cliquez sur « S\'inscrire » pour postuler. Vous recevrez une notification une fois accepté.',
+          'Sur la page d\'une mission, cliquez sur « S\'inscrire » pour rejoindre immédiatement la mission (si vos compétences correspondent).',
         route: '/missions',
         cta: 'Explorer',
       },
@@ -106,9 +106,9 @@ export const TUTORIAL_CONTENT = {
       {
         id: 'manage-inscriptions',
         icon: 'Users',
-        title: 'Gérer les inscriptions',
+        title: 'Suivre les inscrits',
         description:
-          'Acceptez ou refusez les postulations reçues. Vous voyez en temps réel la liste d\'attente et les places disponibles.',
+          'Suivez en temps réel les bénévoles inscrits et le remplissage des missions. La liste d\'attente événement reste disponible pour les remplacements.',
         route: '/my-managed-missions',
         cta: 'Mes missions gérées',
         isNew: true,
@@ -255,9 +255,53 @@ export const TUTORIAL_CONTENT = {
   },
 }
 
+const ROLE_ALIAS = {
+  organizer: 'mission_manager',
+}
+
+const ROLE_TUTORIAL_CHAIN = {
+  volunteer: ['volunteer'],
+  mission_manager: ['volunteer', 'mission_manager'],
+  admin: ['volunteer', 'mission_manager', 'admin'],
+  superadmin: ['volunteer', 'mission_manager', 'admin', 'superadmin'],
+}
+
+export function resolveTutorialRole(role) {
+  const normalizedRole = String(role || 'volunteer').trim().toLowerCase()
+  return ROLE_ALIAS[normalizedRole] || normalizedRole || 'volunteer'
+}
+
+export function getTutorialContentForRole(role) {
+  const resolvedRole = resolveTutorialRole(role)
+  const baseContent = TUTORIAL_CONTENT[resolvedRole]
+  if (!baseContent) return null
+
+  const chain = ROLE_TUTORIAL_CHAIN[resolvedRole] || [resolvedRole]
+  const mergedSteps = []
+  const seenStepIds = new Set()
+
+  for (const roleKey of chain) {
+    const content = TUTORIAL_CONTENT[roleKey]
+    if (!content) continue
+
+    for (const step of content.steps || []) {
+      const stepId = String(step?.id || '').trim()
+      if (!stepId || seenStepIds.has(stepId)) continue
+      seenStepIds.add(stepId)
+      mergedSteps.push(step)
+    }
+  }
+
+  return {
+    ...baseContent,
+    steps: mergedSteps,
+  }
+}
+
 /** Retourne uniquement les étapes nouvelles pour un changement de rôle donné. */
 export function getNewStepsForRole(role) {
-  const content = TUTORIAL_CONTENT[role]
+  const resolvedRole = resolveTutorialRole(role)
+  const content = TUTORIAL_CONTENT[resolvedRole]
   if (!content) return []
   if (!content.newStepIds) return content.steps
   return content.steps.filter((s) => content.newStepIds.includes(s.id))

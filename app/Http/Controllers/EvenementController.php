@@ -134,6 +134,12 @@ class EvenementController extends Controller
             return response()->json(['message' => 'Événement inexistant'], 404);
         }
 
+        if ($this->hasEventStarted($event)) {
+            return response()->json([
+                'message' => 'Modification interdite pour la traçabilité: cet événement est en cours ou passé.',
+            ], 409);
+        }
+
         $validated = $request->validate([
             'nom_evenement' => 'sometimes|string|max:255',
             'description_evenement' => 'sometimes|string',

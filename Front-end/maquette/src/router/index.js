@@ -6,6 +6,7 @@ import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import ResetPassword from '@/views/ResetPassword.vue'
 import Welcome from '@/views/Welcome.vue'
+import Cgu from '@/views/Cgu.vue'
 
 // Pages protégées
 import Dashboard from '@/views/Dashboard.vue'
@@ -40,6 +41,7 @@ const routes = [
   { path: '/login', component: Login },
   { path: '/register', component: Register },
   { path: '/reset-password', component: ResetPassword },
+  { path: '/cgu', component: Cgu },
   { path: '/welcome', component: Welcome, meta: { requiresAuth: true } },
 
   // Routes protégées

@@ -8,6 +8,7 @@ use App\Models\Mission;
 use App\Models\Postulation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PostulationUpdateDestroyTest extends TestCase
@@ -16,6 +17,8 @@ class PostulationUpdateDestroyTest extends TestCase
 
     public function test_update_status_to_accepte_creates_assignment_and_decision_date(): void
     {
+        $this->actingAsAdmin();
+
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-07-01', '09:00', '11:00');
 
@@ -45,6 +48,8 @@ class PostulationUpdateDestroyTest extends TestCase
 
     public function test_update_status_to_annule_marks_existing_assignment_as_annule(): void
     {
+        $this->actingAsAdmin();
+
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-07-02', '10:00', '12:00');
 
@@ -72,6 +77,8 @@ class PostulationUpdateDestroyTest extends TestCase
 
     public function test_locked_postulation_cannot_change_mission(): void
     {
+        $this->actingAsAdmin();
+
         $user = User::factory()->create();
         $missionA = $this->createMissionForDate('2026-07-03', '08:00', '10:00');
         $missionB = $this->createMissionForDate('2026-07-04', '08:00', '10:00');
@@ -92,6 +99,8 @@ class PostulationUpdateDestroyTest extends TestCase
 
     public function test_non_locked_postulation_can_be_cancelled(): void
     {
+        $this->actingAsAdmin();
+
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-07-05', '13:00', '15:00');
 
@@ -114,6 +123,8 @@ class PostulationUpdateDestroyTest extends TestCase
 
     public function test_unlocked_postulation_can_be_deleted(): void
     {
+        $this->actingAsAdmin();
+
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-07-06', '14:00', '16:00');
 
@@ -135,9 +146,20 @@ class PostulationUpdateDestroyTest extends TestCase
 
     public function test_show_nonexistent_postulation_returns_404(): void
     {
+        $this->actingAsAdmin();
+
         $this->getJson('/api/postulations/999999')
             ->assertStatus(404)
             ->assertJsonPath('message', 'Postulation inexistante');
+    }
+
+    private function actingAsAdmin(): void
+    {
+        $admin = User::factory()->create([
+            'role_utilisateur' => 'admin',
+        ]);
+
+        Sanctum::actingAs($admin);
     }
 
     private function createMissionForDate(string $date, string $start, string $end): Mission

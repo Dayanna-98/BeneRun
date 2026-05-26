@@ -8,6 +8,7 @@ use App\Models\Mission;
 use App\Models\Postulation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PostulationWorkflowTest extends TestCase
@@ -19,7 +20,7 @@ class PostulationWorkflowTest extends TestCase
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-06-15', '08:00', '10:00');
 
-        $response = $this->postJson("/api/missions/{$mission->id_mission}/inscriptions", [
+        $response = $this->actingAsUser($user)->postJson("/api/missions/{$mission->id_mission}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ]);
 
@@ -28,12 +29,18 @@ class PostulationWorkflowTest extends TestCase
             ->assertJsonPath('postulation.id_mission', $mission->id_mission)
             ->assertJsonPath('postulation.id_evenement', $mission->id_evenement)
             ->assertJsonPath('postulation.id_utilisateur', $user->id_utilisateur)
-            ->assertJsonPath('postulation.statut_postulation', 'en_attente');
+            ->assertJsonPath('postulation.statut_postulation', 'accepte');
 
         $this->assertDatabaseHas('postulations', [
             'id_mission' => $mission->id_mission,
             'id_utilisateur' => $user->id_utilisateur,
-            'statut_postulation' => 'en_attente',
+            'statut_postulation' => 'accepte',
+        ]);
+
+        $this->assertDatabaseHas('affectations', [
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $user->id_utilisateur,
+            'statut_affectation' => 'assigne',
         ]);
     }
 
@@ -49,7 +56,7 @@ class PostulationWorkflowTest extends TestCase
             'statut_postulation' => 'en_attente',
         ]);
 
-        $this->postJson("/api/missions/{$mission->id_mission}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/missions/{$mission->id_mission}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(409)
@@ -61,7 +68,7 @@ class PostulationWorkflowTest extends TestCase
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-06-17', '10:00', '12:00', false);
 
-        $this->postJson("/api/missions/{$mission->id_mission}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/missions/{$mission->id_mission}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(422)
@@ -73,7 +80,7 @@ class PostulationWorkflowTest extends TestCase
         $user = User::factory()->create();
         $mission = $this->createMissionForDate('2026-06-18', '07:00', '09:00');
 
-        $response = $this->postJson('/api/postulations', [
+        $response = $this->actingAsUser($user)->postJson('/api/postulations', [
             'id_mission' => $mission->id_mission,
             'id_utilisateur' => $user->id_utilisateur,
             'statut_postulation' => 'accepte',
@@ -100,12 +107,13 @@ class PostulationWorkflowTest extends TestCase
         $user = User::factory()->create();
         $event = $this->createEventForDateRange('2026-06-19', '2026-06-20');
 
-        $this->postJson("/api/evenements/{$event->id_evenement}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/evenements/{$event->id_evenement}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
             'statut_postulation' => 'accepte',
         ])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Une postulation acceptée doit être rattachée à une mission.');
+            ->assertStatus(201)
+            ->assertJsonPath('postulation.id_evenement', $event->id_evenement)
+            ->assertJsonPath('postulation.statut_postulation', 'en_attente');
     }
 
     public function test_waiting_list_conflict_between_overlapping_events_returns_conflict(): void
@@ -121,7 +129,7 @@ class PostulationWorkflowTest extends TestCase
             'statut_postulation' => 'en_attente',
         ]);
 
-        $this->postJson("/api/evenements/{$eventB->id_evenement}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/evenements/{$eventB->id_evenement}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(409)
@@ -140,7 +148,7 @@ class PostulationWorkflowTest extends TestCase
             'statut_postulation' => 'en_attente',
         ]);
 
-        $this->postJson("/api/evenements/{$event->id_evenement}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/evenements/{$event->id_evenement}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(409)
@@ -181,7 +189,7 @@ class PostulationWorkflowTest extends TestCase
             'statut_postulation' => 'en_attente',
         ]);
 
-        $this->postJson("/api/missions/{$missionB->id_mission}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/missions/{$missionB->id_mission}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(409)
@@ -201,7 +209,7 @@ class PostulationWorkflowTest extends TestCase
             'statut_postulation' => 'en_attente',
         ]);
 
-        $this->postJson("/api/evenements/{$eventB->id_evenement}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/evenements/{$eventB->id_evenement}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(201)
@@ -224,7 +232,7 @@ class PostulationWorkflowTest extends TestCase
 
         $newMission = $this->createMissionForDate('2026-06-23', '11:00', '13:00');
 
-        $this->postJson("/api/missions/{$newMission->id_mission}/inscriptions", [
+        $this->actingAsUser($user)->postJson("/api/missions/{$newMission->id_mission}/inscriptions", [
             'id_utilisateur' => $user->id_utilisateur,
         ])
             ->assertStatus(409)
@@ -243,9 +251,27 @@ class PostulationWorkflowTest extends TestCase
             'statut_postulation' => 'accepte',
         ]);
 
-        $this->deleteJson("/api/postulations/{$postulation->id_postulation}")
+        $this->actingAsAdmin()->deleteJson("/api/postulations/{$postulation->id_postulation}")
             ->assertStatus(422)
             ->assertJsonPath('message', 'Cette inscription est verrouillée: une fois assigné à une mission, le bénévole ne peut pas se désinscrire.');
+    }
+
+    private function actingAsUser(User $user): self
+    {
+        Sanctum::actingAs($user);
+
+        return $this;
+    }
+
+    private function actingAsAdmin(): self
+    {
+        $admin = User::factory()->create([
+            'role_utilisateur' => 'admin',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        return $this;
     }
 
     private function createMissionForDate(string $date, string $start, string $end, bool $registrationRequired = true): Mission

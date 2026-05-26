@@ -62,7 +62,9 @@ Route::post('/users/{id}/badges', [UserController::class, 'addBadge']);
 Route::delete('/users/{id}/badges/{badgeId}', [UserController::class, 'removeBadge']);
 Route::apiResource('/users', UserController::class);
 Route::apiResource('/admins', AdminController::class); // ->middleware('auth:sanctum');
-Route::apiResource('/affectations', AffectationController::class); // ->middleware('auth:sanctum');
+Route::apiResource('/affectations', AffectationController::class)->middleware('auth:sanctum');
+Route::post('/missions/{missionId}/replace-volunteer', [AffectationController::class, 'replaceVolunteer'])
+    ->middleware('auth:sanctum');
 Route::apiResource('/badges', BadgeController::class); // ->middleware('auth:sanctum');
 Route::apiResource('/benevoles', BenevoleController::class); // ->middleware('auth:sanctum');
 Route::get('/certificats/{id}/download', [CertificatController::class, 'download'])->middleware('auth:sanctum');
@@ -73,7 +75,7 @@ Route::apiResource('/documents', DocumentController::class); // ->middleware('au
 Route::apiResource('/evenements', EvenementController::class); // ->middleware('auth:sanctum');
 Route::apiResource('/missions', MissionController::class); // ->middleware('auth:sanctum');
 Route::patch('/missions/{id}/responsable', [MissionController::class, 'assignResponsable']);
-Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission']);
+Route::post('/missions/{idMission}/inscriptions', [PostulationController::class, 'inscrireMission'])->middleware('auth:sanctum');
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/missions/{id}/positions', [MissionPositionController::class, 'index']);
     Route::post('/missions/{id}/positions', [MissionPositionController::class, 'store']);
@@ -95,12 +97,12 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 Route::post('/missions/{idMission}/urgences', [MissionEmergencyMessageController::class, 'storeForMission'])
     ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
-Route::post('/evenements/{idEvenement}/inscriptions', [PostulationController::class, 'inscrireEvenement']);
+Route::post('/evenements/{idEvenement}/inscriptions', [PostulationController::class, 'inscrireEvenement'])->middleware('auth:sanctum');
 Route::get('/urgences', [MissionEmergencyMessageController::class, 'index'])
     ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
 Route::post('/urgences/{idUrgence}/consultation', [MissionEmergencyMessageController::class, 'markViewed'])
     ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
 Route::post('/urgences/{idUrgence}/prise-en-charge', [MissionEmergencyMessageController::class, 'takeOwnership'])
     ->middleware(['auth:sanctum', 'throttle:emergency-actions']);
-Route::apiResource('/postulations', PostulationController::class); // ->middleware('auth:sanctum');
+Route::apiResource('/postulations', PostulationController::class)->middleware('auth:sanctum');
 Route::apiResource('/telephones', TelephoneController::class); // ->middleware('auth:sanctum');

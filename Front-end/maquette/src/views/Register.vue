@@ -109,7 +109,7 @@
               <p class="x-small text-muted mb-0">
                 En vous inscrivant, vous acceptez nos
                 <button type="button" class="btn btn-link btn-sm p-0 x-small text-decoration-none"
-                  @click="toast.info('Page des conditions d\'utilisation à venir.')">
+                  @click="router.push('/cgu')">
                   conditions d'utilisation
                 </button>
               </p>

@@ -3,8 +3,14 @@ import api from './api'
 export const notificationService = {
   async getFeed() {
     const response = await api.get('/notifications')
+    const payload = response.data || {}
+    const items = Array.isArray(payload.data) ? payload.data : []
 
-    return Array.isArray(response.data?.data) ? response.data.data : []
+    return {
+      items,
+      count: Number(payload.count || items.length || 0),
+      unreadCount: Number(payload.unread_count || 0),
+    }
   },
 
   async markAsRead(ids = []) {

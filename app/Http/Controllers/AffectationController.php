@@ -4,11 +4,63 @@ namespace App\Http\Controllers;
 
 use App\Models\Affectation;
 use App\Models\Mission;
+use App\Models\Postulation;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AffectationController extends Controller
 {
+    private function normalizeRole(?string $role): string
+    {
+        return str_replace(['-', '_', ' '], '', strtolower((string) $role));
+    }
+
+    private function resolveActorFromBearerToken(Request $request): ?User
+    {
+        $actor = $request->user('sanctum');
+        if ($actor instanceof User) {
+            return $actor;
+        }
+
+        $token = $request->bearerToken();
+        if (! $token) {
+            return null;
+        }
+
+        $accessToken = PersonalAccessToken::findToken($token);
+        $tokenable = $accessToken?->tokenable;
+
+        return $tokenable instanceof User ? $tokenable : null;
+    }
+
+    private function assertAdminOrSuperAdmin(Request $request): ?User
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
+
+        if (! $actor) {
+            return null;
+        }
+
+        $role = $this->normalizeRole($actor->role_utilisateur);
+
+        return in_array($role, ['admin', 'superadmin'], true) ? $actor : null;
+    }
+
+    private function hasMissionEnded(Mission $mission): bool
+    {
+        if (empty($mission->date_mission)) {
+            return false;
+        }
+
+        $missionDate = Carbon::parse((string) $mission->date_mission)->format('Y-m-d');
+        $endTime = $mission->heure_fin_mission ?: '23:59:59';
+
+        return Carbon::parse("{$missionDate} {$endTime}")->isPast();
+    }
+
     public function index()// Récupérer toutes les affectations
     {
         $affectations = Affectation::with([
@@ -34,6 +86,10 @@ class AffectationController extends Controller
 
     public function store(Request $request)
     {
+        if (! $this->assertAdminOrSuperAdmin($request)) {
+            return response()->json(['message' => 'Action réservée aux admins et superadmins.'], 403);
+        }
+
         $validated = $request->validate([
             'id_mission' => 'required|integer|exists:missions,id_mission',
             'id_utilisateur' => 'required|integer|exists:users,id_utilisateur',
@@ -64,6 +120,10 @@ class AffectationController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (! $this->assertAdminOrSuperAdmin($request)) {
+            return response()->json(['message' => 'Action réservée aux admins et superadmins.'], 403);
+        }
+
         if (Affectation::where('id_affectation', $id)->exists()) {
             $affectation = Affectation::find($id);
             $validated = $request->validate([
@@ -100,6 +160,10 @@ class AffectationController extends Controller
 
     public function destroy($id)
     {
+        if (! $this->assertAdminOrSuperAdmin(request())) {
+            return response()->json(['message' => 'Action réservée aux admins et superadmins.'], 403);
+        }
+
         if (Affectation::where('id_affectation', $id)->exists()) {
             $affectation = Affectation::find($id);
             $affectation->delete();
@@ -112,6 +176,116 @@ class AffectationController extends Controller
                 'message' => 'Affectation inexistante',
             ], 404);
         }
+    }
+
+    public function replaceVolunteer(Request $request, $missionId)
+    {
+        if (! $this->assertAdminOrSuperAdmin($request)) {
+            return response()->json(['message' => 'Action réservée aux admins et superadmins.'], 403);
+        }
+
+        $mission = Mission::find((int) $missionId);
+        if (! $mission) {
+            return response()->json(['message' => 'Mission inexistante'], 404);
+        }
+
+        if ($this->hasMissionEnded($mission)) {
+            return response()->json([
+                'message' => 'Remplacement impossible: cette mission est terminée.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'outgoing_user_id' => 'required|integer|exists:users,id_utilisateur',
+            'incoming_postulation_id' => 'required|integer|exists:postulations,id_postulation',
+        ]);
+
+        $outgoingAffectation = Affectation::where('id_mission', (int) $mission->id_mission)
+            ->where('id_utilisateur', (int) $validated['outgoing_user_id'])
+            ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
+            ->first();
+
+        if (! $outgoingAffectation) {
+            return response()->json([
+                'message' => 'Le bénévole à remplacer n\'est pas actuellement affecté à la mission.',
+            ], 404);
+        }
+
+        $incomingPostulation = Postulation::find((int) $validated['incoming_postulation_id']);
+        if (! $incomingPostulation) {
+            return response()->json(['message' => 'Postulation introuvable.'], 404);
+        }
+
+        if ((string) $incomingPostulation->statut_postulation !== 'en_attente') {
+            return response()->json([
+                'message' => 'Seules les postulations en attente peuvent être utilisées pour un remplacement.',
+            ], 422);
+        }
+
+        $isWaitingForMission = (int) $incomingPostulation->id_mission === (int) $mission->id_mission;
+        $isWaitingForEvent = empty($incomingPostulation->id_mission)
+            && (int) $incomingPostulation->id_evenement === (int) $mission->id_evenement;
+
+        if (! $isWaitingForMission && ! $isWaitingForEvent) {
+            return response()->json([
+                'message' => 'La postulation sélectionnée ne correspond pas à la mission ou à l\'événement de cette mission.',
+            ], 422);
+        }
+
+        if ((int) $incomingPostulation->id_utilisateur === (int) $validated['outgoing_user_id']) {
+            return response()->json([
+                'message' => 'Le bénévole remplaçant doit être différent du bénévole sortant.',
+            ], 422);
+        }
+
+        $alreadyAssigned = Affectation::where('id_mission', (int) $mission->id_mission)
+            ->where('id_utilisateur', (int) $incomingPostulation->id_utilisateur)
+            ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
+            ->exists();
+
+        if ($alreadyAssigned) {
+            return response()->json([
+                'message' => 'Le bénévole remplaçant est déjà affecté à cette mission.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($mission, $validated, $outgoingAffectation, $incomingPostulation): void {
+            $outgoingAffectation->update([
+                'statut_affectation' => 'annule',
+            ]);
+
+            Postulation::where('id_mission', (int) $mission->id_mission)
+                ->where('id_utilisateur', (int) $validated['outgoing_user_id'])
+                ->whereIn('statut_postulation', ['en_attente', 'accepte'])
+                ->update([
+                    'statut_postulation' => 'annule',
+                    'date_annulation' => now(),
+                ]);
+
+            $incomingPostulation->update([
+                'id_mission' => (int) $mission->id_mission,
+                'id_evenement' => (int) $mission->id_evenement,
+                'statut_postulation' => 'accepte',
+                'date_decision' => now(),
+                'date_annulation' => null,
+            ]);
+
+            Affectation::updateOrCreate(
+                [
+                    'id_mission' => (int) $mission->id_mission,
+                    'id_utilisateur' => (int) $incomingPostulation->id_utilisateur,
+                ],
+                [
+                    'statut_affectation' => 'assigne',
+                    'est_responsable' => false,
+                    'date_affectation' => now(),
+                ]
+            );
+        });
+
+        return response()->json([
+            'message' => 'Remplacement effectué avec succès.',
+        ], 200);
     }
 
     private function syncMissionResponsible(int $missionId, int $userId): void

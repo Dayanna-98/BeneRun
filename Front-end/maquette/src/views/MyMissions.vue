@@ -16,8 +16,27 @@
         </div>
         <span class="badge fw-bold px-3 py-2 text-dark"
           style="background:linear-gradient(135deg,#d4e645,#a3c200)">
-          {{ myActiveMissions.length }} en cours
+          {{ activeMissions.length }} en cours
         </span>
+      </div>
+
+      <div v-if="canSeeManagedTab" class="position-relative mt-3 d-flex gap-2" style="z-index:1">
+        <button
+          class="btn btn-sm rounded-pill px-3"
+          :class="activeView === 'participant' ? 'btn-light text-dark fw-semibold' : 'btn-outline-light'"
+          @click="activeView = 'participant'"
+        >
+          Mes participations
+          <span class="badge bg-primary ms-1">{{ myActiveMissions.length }}</span>
+        </button>
+        <button
+          class="btn btn-sm rounded-pill px-3"
+          :class="activeView === 'managed' ? 'btn-light text-dark fw-semibold' : 'btn-outline-light'"
+          @click="activeView = 'managed'"
+        >
+          Mes missions responsables
+          <span class="badge bg-secondary ms-1">{{ myManagedActiveMissions.length }}</span>
+        </button>
       </div>
     </header>
 
@@ -32,16 +51,16 @@
       </div>
 
       <!-- Empty state -->
-      <div v-if="!isLoading && !loadError && myActiveMissions.length === 0" class="text-center py-5">
+      <div v-if="!isLoading && !loadError && activeMissions.length === 0" class="text-center py-5">
         <Calendar class="text-muted mb-3" style="width:64px;height:64px" />
-        <p class="text-muted mb-3">Aucune mission en cours</p>
+        <p class="text-muted mb-3">{{ emptyStateMessage }}</p>
         <button class="btn btn-primary" @click="router.push('/events')">
           Découvrir les événements
         </button>
       </div>
 
       <!-- Mission Cards -->
-      <div v-for="mission in myActiveMissions" :key="mission.id"
+      <div v-for="mission in activeMissions" :key="mission.id"
         class="card overflow-hidden">
 
         <div class="position-relative p-3 pb-0">
@@ -83,7 +102,9 @@
           </div>
 
           <div class="rounded p-3" style="background:#eff6ff;border:1px solid #bfdbfe">
-            <div class="x-small fw-medium mb-1" style="color:#1e3a5f">Responsable</div>
+            <div class="x-small fw-medium mb-1" style="color:#1e3a5f">
+              {{ activeView === 'managed' ? 'Votre rôle' : 'Responsable' }}
+            </div>
             <div class="small" style="color:#1d4ed8">{{ mission.responsible.name }}</div>
             <div class="x-small mt-1" style="color:#2563eb">{{ mission.responsible.phone }}</div>
           </div>
@@ -104,13 +125,17 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { MapPin, Calendar, Users, Clock } from 'lucide-vue-next'
 import api from '@/services/api'
-import { getCurrentUser } from '@/utils/auth'
+import { getCurrentUser, hasMinRole } from '@/utils/auth'
 
 const router = useRouter()
 const currentUser = getCurrentUser()
 const allMissions = ref([])
+const allManagedMissions = ref([])
 const isLoading = ref(false)
 const loadError = ref('')
+const activeView = ref('participant')
+
+const canSeeManagedTab = computed(() => hasMinRole('mission_manager'))
 
 const toTime = (value) => {
   if (!value || typeof value !== 'string') return ''
@@ -176,6 +201,22 @@ const isMissionActiveNow = (mission) => {
 }
 
 const myActiveMissions = computed(() => allMissions.value.filter(isMissionActiveNow))
+const myManagedActiveMissions = computed(() => allManagedMissions.value.filter(isMissionActiveNow))
+const activeMissions = computed(() => {
+  if (canSeeManagedTab.value && activeView.value === 'managed') {
+    return myManagedActiveMissions.value
+  }
+
+  return myActiveMissions.value
+})
+
+const emptyStateMessage = computed(() => {
+  if (canSeeManagedTab.value && activeView.value === 'managed') {
+    return 'Aucune mission en cours sous votre responsabilité'
+  }
+
+  return 'Aucune mission en cours à laquelle vous participez'
+})
 
 const mapMission = (mission, eventMap, currentVolunteersMap) => {
   const missionId = String(mission.id_mission)
@@ -236,6 +277,15 @@ const loadMyMissions = async () => {
 
     allMissions.value = missions
       .filter((mission) => missionIds.has(String(mission.id_mission)))
+      .map((mission) => mapMission(mission, eventMap, currentVolunteersMap))
+      .sort((a, b) => {
+        const aStart = missionStartDateTime(a)?.getTime() || 0
+        const bStart = missionStartDateTime(b)?.getTime() || 0
+        return aStart - bStart
+      })
+
+    allManagedMissions.value = missions
+      .filter((mission) => String(mission.responsable_utilisateur_id || '') === String(currentUser.id))
       .map((mission) => mapMission(mission, eventMap, currentVolunteersMap))
       .sort((a, b) => {
         const aStart = missionStartDateTime(a)?.getTime() || 0

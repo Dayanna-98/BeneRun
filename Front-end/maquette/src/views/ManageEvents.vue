@@ -378,6 +378,21 @@
                 </div>
               </div>
 
+              <div v-if="selectedMissionIsFull" class="row g-2">
+                <div class="col-12">
+                  <label class="form-label small fw-medium">Bénévole à remplacer (mission complète)</label>
+                  <select v-model="selectedOutgoingUserIdForReplacement" class="form-select" :disabled="loadingMissionAssignees">
+                    <option value="">Sélectionner un bénévole affecté...</option>
+                    <option v-for="assignee in selectedMissionAssignees" :key="assignee.userId" :value="assignee.userId">
+                      {{ assignee.fullName }}
+                    </option>
+                  </select>
+                  <div class="x-small mt-1 text-muted">
+                    Sélectionnez un bénévole affecté à remplacer par le bénévole en attente choisi.
+                  </div>
+                </div>
+              </div>
+
               <div class="d-flex flex-wrap align-items-center gap-2 queue-toolbar">
                 <div class="form-check m-0">
                   <input id="queueSelectAll" class="form-check-input" type="checkbox" :checked="allFilteredSelected" :disabled="filteredWaitingList.length === 0" @change="toggleSelectAllFiltered" />
@@ -426,8 +441,8 @@
                     <span v-if="entry.remark">Remarque: {{ entry.remark }}</span>
                   </div>
                   <div class="d-flex justify-content-end">
-                    <button class="btn btn-primary btn-sm" :disabled="!canAssignToSelectedMission || assigningPostulationId === entry.id" @click="assignVolunteerToSelectedMission(entry)">
-                      {{ assigningPostulationId === entry.id ? 'Assignation...' : 'Assigner à la mission sélectionnée' }}
+                    <button class="btn btn-primary btn-sm" :disabled="!canAssignOrReplaceToSelectedMission || assigningPostulationId === entry.id" @click="assignVolunteerToSelectedMission(entry)">
+                      {{ assigningPostulationId === entry.id ? 'Assignation...' : (selectedMissionIsFull ? 'Remplacer via la mission sélectionnée' : 'Assigner à la mission sélectionnée') }}
                     </button>
                   </div>
                 </div>
@@ -435,7 +450,7 @@
             </div>
 
             <div class="modal-footer">
-              <div v-if="selectedMissionIdForQueue && selectedMissionIsFull" class="small text-danger me-auto">La mission sélectionnée est complète.</div>
+              <div v-if="selectedMissionIdForQueue && selectedMissionIsFull" class="small text-danger me-auto">La mission sélectionnée est complète: utilisez le remplacement.</div>
               <button class="btn btn-outline-secondary" @click="closeWaitingListModal">Fermer</button>
             </div>
           </div>
@@ -458,7 +473,7 @@
 
       <script setup>
       import { ref, computed, onMounted, watch } from 'vue'
-      import { useRouter } from 'vue-router'
+      import { useRoute, useRouter } from 'vue-router'
       import { ArrowLeft, Plus, Edit, Trash2, Calendar, MapPin, Users, Briefcase, Search, X, Copy } from 'lucide-vue-next'
       import eventService from '@/services/eventService'
       import missionService from '@/services/missionService'
@@ -474,6 +489,7 @@
       import BootstrapConfirmModal from '@/components/ui/BootstrapConfirmModal.vue'
 
       const router = useRouter()
+      const route = useRoute()
       const user = getCurrentUser()
       const toast = useToast()
       const {
@@ -510,6 +526,9 @@
       const assigningPostulationId = ref('')
       const selectedWaitingIds = ref([])
       const assigningBulk = ref(false)
+      const selectedOutgoingUserIdForReplacement = ref('')
+      const selectedMissionAssignees = ref([])
+      const loadingMissionAssignees = ref(false)
 
       const selectedEventIds = ref([])
       const isBulkSaving = ref(false)
@@ -663,6 +682,8 @@
         eventsList.value.find((event) => event.id === drawerEventId.value) || null
       )
 
+      const hasHandledNotificationQueueQuery = ref(false)
+
       const totalMissions = computed(() => filteredEvents.value.reduce((sum, event) => sum + Number(event.missionsCount || 0), 0))
       const totalVolunteers = computed(() => filteredEvents.value.reduce((sum, event) => sum + Number(event.currentVolunteers || 0), 0))
       const totalPlaces = computed(() => filteredEvents.value.reduce((sum, event) => sum + Number(event.totalVolunteersNeeded || 0), 0))
@@ -684,6 +705,11 @@
       })
 
       const canAssignToSelectedMission = computed(() => !!selectedMissionForQueue.value && !selectedMissionIsFull.value)
+      const canAssignOrReplaceToSelectedMission = computed(() => {
+        if (!selectedMissionForQueue.value) return false
+        if (!selectedMissionIsFull.value) return true
+        return !!selectedOutgoingUserIdForReplacement.value
+      })
 
       const waitingDays = (entry) => {
         if (!entry?.appliedAt) return 0
@@ -1099,6 +1125,8 @@
             .filter((postulation) => postulation.statut_postulation === 'en_attente')
             .map(mapWaitingPostulation)
             .sort((a, b) => new Date(a.appliedAt || 0).getTime() - new Date(b.appliedAt || 0).getTime())
+
+          await loadSelectedMissionAssignees()
         } catch (error) {
           waitingListError.value = error.response?.data?.message || error.message || 'Impossible de charger la liste d\'attente.'
         } finally {
@@ -1117,6 +1145,31 @@
         await loadEventQueueContext(event)
       }
 
+      const loadSelectedMissionAssignees = async () => {
+        selectedMissionAssignees.value = []
+
+        if (!selectedMissionForQueue.value || !selectedMissionIsFull.value) return
+
+        loadingMissionAssignees.value = true
+        try {
+          const response = await api.get('/affectations')
+          const payload = response.data
+          const rows = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []
+
+          selectedMissionAssignees.value = rows
+            .filter((affectation) => String(affectation.id_mission) === String(selectedMissionForQueue.value.id))
+            .filter((affectation) => ['assigne', 'confirme', 'present'].includes(affectation.statut_affectation))
+            .map((affectation) => ({
+              userId: String(affectation.id_utilisateur),
+              fullName: `${affectation.utilisateur?.prenom_utilisateur || ''} ${affectation.utilisateur?.nom_utilisateur || ''}`.trim() || `Utilisateur #${affectation.id_utilisateur}`,
+            }))
+        } catch {
+          waitingListError.value = 'Impossible de charger les bénévoles affectés pour le remplacement.'
+        } finally {
+          loadingMissionAssignees.value = false
+        }
+      }
+
       const closeWaitingListModal = () => {
         showWaitingListModal.value = false
         selectedEventForQueue.value = null
@@ -1130,11 +1183,45 @@
         selectedWaitingIds.value = []
         assigningPostulationId.value = ''
         assigningBulk.value = false
+        selectedOutgoingUserIdForReplacement.value = ''
+        selectedMissionAssignees.value = []
+        loadingMissionAssignees.value = false
+      }
+
+      const openWaitingListFromNotificationQuery = async () => {
+        if (hasHandledNotificationQueueQuery.value) return
+
+        if (String(route.query.openQueue || '') !== '1') {
+          return
+        }
+
+        hasHandledNotificationQueueQuery.value = true
+
+        const requestedEventId = String(route.query.eventId || '')
+        const requestedEvent = requestedEventId
+          ? eventsList.value.find((event) => String(event.id) === requestedEventId)
+          : null
+
+        const fallbackEvent = eventsList.value.find((event) => getEventStatus(event) === 'upcoming') || eventsList.value[0]
+        const target = requestedEvent || fallbackEvent
+
+        if (target) {
+          await openWaitingListForEvent(target)
+        } else {
+          toast.info('Aucun événement disponible pour ouvrir la liste d\'attente.')
+        }
+
+        const nextQuery = { ...route.query }
+        delete nextQuery.openQueue
+        delete nextQuery.eventId
+        router.replace({ path: route.path, query: nextQuery })
       }
 
       const assignVolunteerToSelectedMission = async (entry) => {
-        if (!canAssignToSelectedMission.value) {
-          waitingListError.value = 'Veuillez sélectionner une mission avec des places disponibles.'
+        if (!canAssignOrReplaceToSelectedMission.value) {
+          waitingListError.value = selectedMissionIsFull.value
+            ? 'Sélectionnez un bénévole à remplacer dans la mission complète.'
+            : 'Veuillez sélectionner une mission avec des places disponibles.'
           return
         }
 
@@ -1143,11 +1230,18 @@
         assigningPostulationId.value = entry.id
 
         try {
-          await api.put(`/postulations/${entry.postulationId}`, {
-            id_mission: Number(selectedMissionForQueue.value.id),
-            statut_postulation: 'accepte',
-            remarque: `Assigné à la mission ${selectedMissionForQueue.value.name} depuis la gestion des événements.`,
-          })
+          if (selectedMissionIsFull.value) {
+            await api.post(`/missions/${selectedMissionForQueue.value.id}/replace-volunteer`, {
+              outgoing_user_id: Number(selectedOutgoingUserIdForReplacement.value),
+              incoming_postulation_id: Number(entry.postulationId),
+            })
+          } else {
+            await api.put(`/postulations/${entry.postulationId}`, {
+              id_mission: Number(selectedMissionForQueue.value.id),
+              statut_postulation: 'accepte',
+              remarque: `Assigné à la mission ${selectedMissionForQueue.value.name} depuis la gestion des événements.`,
+            })
+          }
 
           const conversationResponse = await chatApiService.ensureMissionConversation({
             missionId: selectedMissionForQueue.value.id,
@@ -1164,16 +1258,24 @@
           waitingList.value = waitingList.value.filter((postulation) => postulation.id !== entry.id)
           selectedWaitingIds.value = selectedWaitingIds.value.filter((id) => id !== entry.id)
 
-          const missionIndex = eventMissions.value.findIndex((mission) => mission.id === selectedMissionForQueue.value.id)
-          if (missionIndex !== -1) {
-            const mission = eventMissions.value[missionIndex]
-            eventMissions.value[missionIndex] = {
-              ...mission,
-              currentVolunteers: Number(mission.currentVolunteers || 0) + 1,
+          if (!selectedMissionIsFull.value) {
+            const missionIndex = eventMissions.value.findIndex((mission) => mission.id === selectedMissionForQueue.value.id)
+            if (missionIndex !== -1) {
+              const mission = eventMissions.value[missionIndex]
+              eventMissions.value[missionIndex] = {
+                ...mission,
+                currentVolunteers: Number(mission.currentVolunteers || 0) + 1,
+              }
             }
           }
 
-          waitingListSuccess.value = `${entry.fullName} a été assigné à ${selectedMissionForQueue.value.name}.`
+          if (selectedMissionIsFull.value) {
+            waitingListSuccess.value = `${entry.fullName} remplace le bénévole sélectionné sur ${selectedMissionForQueue.value.name}.`
+            selectedOutgoingUserIdForReplacement.value = ''
+            await loadSelectedMissionAssignees()
+          } else {
+            waitingListSuccess.value = `${entry.fullName} a été assigné à ${selectedMissionForQueue.value.name}.`
+          }
           await loadEvents()
         } catch (error) {
           waitingListError.value = error.response?.data?.message || error.message || 'Assignation impossible pour le moment.'
@@ -1263,7 +1365,10 @@
         quickFilters.value.openRegistrationsOnly = false
       }
 
-      onMounted(loadEvents)
+      onMounted(async () => {
+        await loadEvents()
+        await openWaitingListFromNotificationQuery()
+      })
       watch([
         searchQuery,
         statusTab,
@@ -1279,6 +1384,18 @@
       watch(filteredWaitingList, (rows) => {
         const validIds = new Set(rows.map((entry) => entry.id))
         selectedWaitingIds.value = selectedWaitingIds.value.filter((id) => validIds.has(id))
+      })
+
+      watch(selectedMissionIdForQueue, async () => {
+        selectedOutgoingUserIdForReplacement.value = ''
+        await loadSelectedMissionAssignees()
+      })
+
+      watch(() => route.query.openQueue, async (nextValue) => {
+        if (String(nextValue || '') === '1') {
+          hasHandledNotificationQueueQuery.value = false
+          await openWaitingListFromNotificationQuery()
+        }
       })
       </script>
 

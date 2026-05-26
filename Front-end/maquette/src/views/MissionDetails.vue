@@ -277,35 +277,12 @@
           @click="handleMissionRegistration">
           {{ registrationButtonLabel }}
         </button>
-        <button v-else class="btn btn-danger btn-lg w-100 d-flex align-items-center justify-content-center gap-2"
-          @click="showUnregisterDialog = true">
-          <UserMinus style="width:16px;height:16px" />
-          Se désinscrire de cette mission
-        </button>
+        <div v-else-if="mission?.isParticipant" class="alert alert-info mb-0 py-3 text-center fw-semibold">
+          Désinscription indisponible: contactez un admin ou un superadmin.
+        </div>
       </div>
 
     </template>
-
-    <!-- Modal désinscription -->
-    <Teleport to="body">
-      <div v-if="showUnregisterDialog" class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Se désinscrire ?</h5>
-            </div>
-            <div class="modal-body small">
-              Êtes-vous sûr de vouloir vous désinscrire de la mission <strong>{{ mission?.name }}</strong> ?
-              Les responsables en seront informés.
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-outline-secondary" @click="showUnregisterDialog = false">Annuler</button>
-              <button class="btn btn-danger" @click="handleUnregister">Se désinscrire</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
   </div>
 </template>
@@ -315,7 +292,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   ArrowLeft, MapPin, Calendar, Clock, Users, Phone, Mail,
-  MessageCircle, AlertCircle, Send, UserMinus, UserPlus
+  MessageCircle, AlertCircle, Send, UserPlus
 } from 'lucide-vue-next'
 import api from '@/services/api'
 import chatApiService from '@/services/chatApiService'
@@ -331,6 +308,8 @@ const router = useRouter()
 const route  = useRoute()
 const toast = useToast()
 const currentUser = ref(getCurrentUser())
+const currentUserCompetenceIds = ref([])
+const currentUserCompetenceNames = ref([])
 
 const mission = ref(null)
 const isLoading = ref(false)
@@ -375,6 +354,11 @@ const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCoun
       .map((competence) => competence?.nom_competence)
       .filter(Boolean)
     : [],
+  requiredSkillIds: Array.isArray(rawMission.competences)
+    ? rawMission.competences
+      .map((competence) => Number(competence?.id_competence))
+      .filter((id) => !Number.isNaN(id))
+    : [],
   organizer: 'BeneRun',
   missionManagers: [
     {
@@ -398,11 +382,12 @@ const loadMissionDetails = async () => {
   try {
     const missionId = route.params.id
 
-    const [missionResponse, usersResponse, affectationsResponse, postulationsResponse] = await Promise.all([
+    const [missionResponse, usersResponse, affectationsResponse, postulationsResponse, userCompetencesResponse] = await Promise.all([
       api.get(`/missions/${missionId}`),
       api.get('/users'),
       api.get('/affectations'),
       api.get('/postulations'),
+      currentUser.value?.id ? api.get(`/users/${currentUser.value.id}/competences`) : Promise.resolve({ data: [] }),
     ])
 
     const rawMission = missionResponse.data
@@ -414,6 +399,14 @@ const loadMissionDetails = async () => {
     const users = usersResponse.data ?? []
     const affectations = affectationsResponse.data ?? []
     const postulations = Array.isArray(postulationsResponse.data) ? postulationsResponse.data : []
+    const userCompetences = Array.isArray(userCompetencesResponse.data) ? userCompetencesResponse.data : []
+
+    currentUserCompetenceIds.value = userCompetences
+      .map((competence) => Number(competence?.id_competence))
+      .filter((id) => !Number.isNaN(id))
+    currentUserCompetenceNames.value = userCompetences
+      .map((competence) => String(competence?.nom_competence || '').trim().toLowerCase())
+      .filter(Boolean)
     const missionAffectations = affectations.filter((affectation) =>
       String(affectation.id_mission) === String(rawMission.id_mission)
       && ['assigne', 'confirme', 'present'].includes(affectation.statut_affectation)
@@ -482,14 +475,36 @@ const canCurrentUserRegister = computed(() => {
   if (!mission.value || !currentUser.value?.id) return false
   if (isMissionPast.value) return false
   if (!mission.value.postable) return false
+  if (missingRequiredSkills.value.length > 0) return false
   return !mission.value.isParticipant && !mission.value.registrationStatus
+})
+
+const missingRequiredSkills = computed(() => {
+  if (!mission.value) return []
+
+  const requiredIds = Array.isArray(mission.value.requiredSkillIds) ? mission.value.requiredSkillIds : []
+  const requiredNames = Array.isArray(mission.value.requiredSkills) ? mission.value.requiredSkills : []
+
+  if (requiredIds.length > 0) {
+    return requiredNames.filter((_, index) => {
+      const requiredId = requiredIds[index]
+      if (requiredId == null) return false
+      return !currentUserCompetenceIds.value.includes(requiredId)
+    })
+  }
+
+  if (requiredNames.length > 0) {
+    return requiredNames.filter((name) => !currentUserCompetenceNames.value.includes(String(name).trim().toLowerCase()))
+  }
+
+  return []
 })
 
 const registrationButtonLabel = computed(() => {
   if (isSubmittingRegistration.value) return 'Inscription en cours...'
   if (mission.value?.isParticipant) return 'Vous participez déjà à cette mission'
   if (isMissionPast.value) return 'Mission terminée'
-  if (mission.value?.registrationStatus === 'en_attente') return 'Inscription déjà envoyée'
+  if (missingRequiredSkills.value.length > 0) return 'Compétences requises manquantes'
   if (mission.value?.registrationStatus === 'accepte') return 'Vous êtes déjà inscrit à cette mission'
   if (mission.value && mission.value.postable === false) return 'Inscriptions fermées pour cette mission'
   if (mission.value && Number(mission.value.currentVolunteers || 0) >= Number(mission.value.maxVolunteers || 0)) {
@@ -526,7 +541,6 @@ const chatMessage       = ref('')
 const emergencyMessage  = ref('')
 const emergencyCategory = ref('')
 const emergencySendFeedback = ref('')
-const showUnregisterDialog = ref(false)
 const selectedUserId    = ref('')
 const activeTab         = ref('chat')
 
@@ -613,7 +627,7 @@ const registerUserToMission = async (userId, successMessage) => {
     }
 
     if (String(userId) === String(currentUser.value?.id || '')) {
-      mission.value.registrationStatus = postulation?.statut_postulation || 'en_attente'
+      mission.value.registrationStatus = postulation?.statut_postulation || 'accepte'
       mission.value.currentUserPostulationId = postulation?.id_postulation ? String(postulation.id_postulation) : mission.value.currentUserPostulationId
     }
 
@@ -630,6 +644,11 @@ const registerUserToMission = async (userId, successMessage) => {
 const handleMissionRegistration = async () => {
   if (!currentUser.value?.id || !canCurrentUserRegister.value) return
 
+  if (missingRequiredSkills.value.length > 0) {
+    toast.warning(`Compétences requises manquantes: ${missingRequiredSkills.value.join(', ')}`)
+    return
+  }
+
   if (mission.value && Number(mission.value.currentVolunteers || 0) >= Number(mission.value.maxVolunteers || 0)) {
     toast.warning('Cette mission a atteint son quota. Inscrivez-vous à la liste d\'attente de l\'événement associé.')
 
@@ -641,18 +660,12 @@ const handleMissionRegistration = async () => {
 
   const success = await registerUserToMission(
     currentUser.value.id,
-    'Votre inscription à la mission a bien été prise en compte.'
+    'Votre inscription à la mission est confirmée.'
   )
 
   if (success) {
     toast.success('Inscription validée.')
   }
-}
-
-const handleUnregister = () => {
-  toast.info('Vous avez été désinscrit de la mission. Les responsables en seront informés.')
-  showUnregisterDialog.value = false
-  router.push('/my-missions')
 }
 
 const handleRegisterUser = async () => {

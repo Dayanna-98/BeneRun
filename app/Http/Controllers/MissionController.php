@@ -190,6 +190,12 @@ class MissionController extends Controller
             return response()->json(['message' => 'Mission inexistante'], 404);
         }
 
+        if ($this->hasMissionStarted($mission)) {
+            return response()->json([
+                'message' => 'Modification interdite pour la traçabilité: cette mission est en cours ou passée.',
+            ], 409);
+        }
+
         $wasCompleted = $mission->statut_mission === 'Terminée';
 
         $validator = Validator::make($request->all(), [

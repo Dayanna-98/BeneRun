@@ -63,7 +63,7 @@ class NotificationsTest extends TestCase
             ]);
     }
 
-    public function test_benevole_does_not_see_global_pending_postulations_but_sees_own_updates(): void
+    public function test_benevole_does_not_see_global_pending_postulations_or_signup_notifications(): void
     {
         $mission = Mission::factory()->create();
 
@@ -88,11 +88,7 @@ class NotificationsTest extends TestCase
             ->getJson('/api/notifications');
 
         $response->assertOk();
-        $this->assertCount(2, $response->json('data'));
-        $this->assertEqualsCanonicalizing(
-            ['affectation', 'postulation_status'],
-            collect($response->json('data'))->pluck('type')->all()
-        );
+        $this->assertCount(0, $response->json('data'));
     }
 
     public function test_mark_read_requires_authentication(): void

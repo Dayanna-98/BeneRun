@@ -360,7 +360,7 @@
       <div class="mt-4 pt-3 border-top text-center">
         <p class="x-small text-muted">
           <button class="btn btn-link btn-sm p-0 text-primary text-decoration-none"
-            @click="toast.info('Page des conditions d\'utilisation à venir.')">
+            @click="router.push('/cgu')">
             Conditions d'utilisation
           </button>
           &nbsp;•&nbsp;© 2025 Béné'Run
