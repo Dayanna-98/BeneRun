@@ -46,7 +46,7 @@ export const TUTORIAL_CONTENT = {
         icon: 'CalendarDays',
         title: 'Mon planning',
         description:
-          'Retrouvez vos missions confirmées, en attente ou passées dans la section « Mes missions ».',
+          'Retrouvez vos missions en cours ou passées dans la section « Mes missions ».',
         route: '/my-missions',
         cta: 'Mes missions',
       },

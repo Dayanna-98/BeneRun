@@ -6,13 +6,24 @@ on:
   pull_request:
     branches: [ main, front-end ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
     
     strategy:
       matrix:
-        php-version: ['8.2', '8.3']
+        include:
+          - php-version: '8.2'
+            with-coverage: true
+          - php-version: '8.3'
+            with-coverage: false
     
     steps:
       - name: Checkout code
@@ -23,7 +34,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
-          coverage: xdebug
+          coverage: ${{ matrix.with-coverage && 'xdebug' || 'none' }}
       
       - name: Get Composer cache directory
         id: composer-cache
@@ -59,7 +70,16 @@ jobs:
       - name: Clear config cache
         run: php artisan config:clear
       
+      - name: Run PHPUnit tests with coverage
+        if: matrix.with-coverage
+        run: php artisan test --coverage-clover=coverage.xml
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+
       - name: Run PHPUnit tests
+        if: ${{ !matrix.with-coverage }}
         run: php artisan test
         env:
           APP_ENV: testing
@@ -68,7 +88,7 @@ jobs:
       
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
-        if: matrix.php-version == '8.2'
+        if: matrix.with-coverage && secrets.CODECOV_TOKEN != ''
         with:
           files: ./coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -159,7 +179,7 @@ jobs:
 
       - name: Upload frontend coverage
         uses: codecov/codecov-action@v4
-        if: always()
+        if: always() && secrets.CODECOV_TOKEN != ''
         with:
           files: Front-end/maquette/coverage/lcov.info
           flags: frontend

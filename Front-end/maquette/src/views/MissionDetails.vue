@@ -664,7 +664,7 @@ const handleMissionRegistration = async () => {
   )
 
   if (success) {
-    toast.success('Inscription validée.')
+    toast.success('Inscription enregistrée.')
   }
 }
 
