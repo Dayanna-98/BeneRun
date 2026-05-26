@@ -6,7 +6,6 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use RuntimeException;
 use Tests\TestCase;
 
 class DatabaseSeederTest extends TestCase
@@ -66,11 +65,28 @@ class DatabaseSeederTest extends TestCase
         $this->assertGreaterThan(0, DB::table('postulations')->count());
     }
 
-    public function test_database_seeder_requires_existing_users(): void
+    public function test_database_seeder_creates_default_users_when_empty(): void
     {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Aucun utilisateur trouvé.');
-
         $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame(8, User::count());
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'emma.rougeron@benerun.test',
+            'prenom_utilisateur' => 'Emma',
+            'nom_utilisateur' => 'Rougeron',
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'marc.manager@benerun.test',
+            'prenom_utilisateur' => 'Marc',
+            'nom_utilisateur' => 'Duval',
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'leo.benevole@benerun.test',
+            'prenom_utilisateur' => 'Leo',
+            'nom_utilisateur' => 'Morel',
+        ]);
     }
 }

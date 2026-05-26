@@ -6,6 +6,7 @@ use App\Models\Affectation;
 use App\Models\Mission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AffectationCRUDTest extends TestCase
@@ -16,9 +17,16 @@ class AffectationCRUDTest extends TestCase
 
     private User $user;
 
+    private User $admin;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->admin = User::factory()->create([
+            'role_utilisateur' => 'admin',
+        ]);
+        Sanctum::actingAs($this->admin);
 
         $this->mission = Mission::factory()->create();
         $this->user = User::factory()->create();

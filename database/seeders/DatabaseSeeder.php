@@ -17,6 +17,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->truncateTables();
 
+        if (DB::table('users')->count() === 0) {
+            $this->seedUsers();
+        }
+
         $users = $this->resolveSeedUsersFromExisting();
         $competences = $this->seedCompetences();
         $events = $this->seedEvents($users);
@@ -127,58 +131,58 @@ class DatabaseSeeder extends Seeder
     {
         $rows = [
             [
-                'nom_utilisateur' => 'Eghdoud',
+                'nom_utilisateur' => 'Rougeron',
                 'prenom_utilisateur' => 'Emma',
-                'email' => 'emmazeghdoud@gmail.com',
+                'email' => 'emma.rougeron@benerun.test',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'superadmin',
             ],
             [
-                'nom_utilisateur' => 'Martin',
+                'nom_utilisateur' => 'Rousseau',
                 'prenom_utilisateur' => 'Alexandre',
-                'email' => 'alexandre.martin@benerun.test',
+                'email' => 'alexandre.rousseau@benerun.test',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'superadmin',
             ],
             [
-                'nom_utilisateur' => 'Bensaid',
+                'nom_utilisateur' => 'Madani',
                 'prenom_utilisateur' => 'Sofian',
-                'email' => 'sofian.bensaid@benerun.test',
+                'email' => 'sofian.madani@benerun.test',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'admin',
             ],
             [
-                'nom_utilisateur' => 'Dubois',
+                'nom_utilisateur' => 'Duval',
                 'prenom_utilisateur' => 'Marc',
-                'email' => 'marc.dubois@benerun.test',
-                'password' => Hash::make('Soleil1234'),
+                'email' => 'marc.manager@benerun.test',
+                'password' => Hash::make('chocolat1'),
                 'role_utilisateur' => 'responsable',
             ],
             [
-                'nom_utilisateur' => 'Silva',
+                'nom_utilisateur' => 'Tenecela',
                 'prenom_utilisateur' => 'Dayanna',
-                'email' => 'dayanna.silva@benerun.test',
+                'email' => 'dayanna.tenecela@benerun.test',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
             ],
             [
                 'nom_utilisateur' => 'Morel',
                 'prenom_utilisateur' => 'Leo',
-                'email' => 'leo.morel@benerun.test',
-                'password' => Hash::make('Soleil1234'),
+                'email' => 'leo.benevole@benerun.test',
+                'password' => Hash::make('tagada2'),
                 'role_utilisateur' => 'bénévole',
             ],
             [
-                'nom_utilisateur' => 'Nguyen',
+                'nom_utilisateur' => 'Borel',
                 'prenom_utilisateur' => 'Nina',
-                'email' => 'nina.nguyen@benerun.test',
+                'email' => 'nina.suspendue@benerun.test',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
             ],
             [
-                'nom_utilisateur' => 'Petit',
+                'nom_utilisateur' => 'Rey',
                 'prenom_utilisateur' => 'Zoe',
-                'email' => 'zoe.petit@benerun.test',
+                'email' => 'zoe.anonyme@benerun.test',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'bénévole',
             ],
