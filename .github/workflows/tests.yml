@@ -88,10 +88,12 @@ jobs:
       
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
-        if: matrix.with-coverage && secrets.CODECOV_TOKEN != ''
+        if: matrix.with-coverage && env.CODECOV_TOKEN != ''
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: ./coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
 
   linting:
     runs-on: ubuntu-latest
@@ -179,8 +181,10 @@ jobs:
 
       - name: Upload frontend coverage
         uses: codecov/codecov-action@v4
-        if: always() && secrets.CODECOV_TOKEN != ''
+        if: always() && env.CODECOV_TOKEN != ''
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: Front-end/maquette/coverage/lcov.info
           flags: frontend
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}

@@ -11,6 +11,16 @@
  * Cela permet d'afficher "nouvelles fonctionnalités" lors d'une montée de rôle.
  */
 
+export const TUTORIAL_CATEGORIES = {
+  onboarding: 'Découverte',
+  missions: 'Missions',
+  communication: 'Communication',
+  profile: 'Profil & progression',
+  management: 'Gestion opérationnelle',
+  administration: 'Administration',
+  reporting: 'Pilotage & rapports',
+}
+
 export const TUTORIAL_CONTENT = {
   volunteer: {
     label: 'Bénévole',
@@ -18,6 +28,7 @@ export const TUTORIAL_CONTENT = {
     steps: [
       {
         id: 'welcome',
+        category: 'onboarding',
         icon: 'Heart',
         title: 'Bienvenue sur Béné\'Run !',
         description:
@@ -25,6 +36,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'missions',
+        category: 'missions',
         icon: 'ListChecks',
         title: 'Parcourez les missions',
         description:
@@ -34,6 +46,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'enroll',
+        category: 'missions',
         icon: 'ClipboardCheck',
         title: 'Inscrivez-vous',
         description:
@@ -43,6 +56,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'mymissions',
+        category: 'missions',
         icon: 'CalendarDays',
         title: 'Mon planning',
         description:
@@ -52,6 +66,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'messaging',
+        category: 'communication',
         icon: 'MessageCircle',
         title: 'Messagerie',
         description:
@@ -61,6 +76,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'badges',
+        category: 'profile',
         icon: 'Award',
         title: 'Badges & Compétences',
         description:
@@ -70,6 +86,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'favorites',
+        category: 'missions',
         icon: 'Bookmark',
         title: 'Favoris',
         description:
@@ -88,6 +105,7 @@ export const TUTORIAL_CONTENT = {
     steps: [
       {
         id: 'welcome-manager',
+        category: 'management',
         icon: 'ShieldCheck',
         title: 'Vous êtes maintenant Responsable de mission',
         description:
@@ -95,6 +113,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'create-mission',
+        category: 'management',
         icon: 'PlusCircle',
         title: 'Créer une mission',
         description:
@@ -105,6 +124,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'manage-inscriptions',
+        category: 'management',
         icon: 'Users',
         title: 'Suivre les inscrits',
         description:
@@ -115,6 +135,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'contact-members',
+        category: 'communication',
         icon: 'Send',
         title: 'Contacter vos bénévoles',
         description:
@@ -125,6 +146,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'emergency',
+        category: 'management',
         icon: 'AlertTriangle',
         title: 'Message d\'urgence',
         description:
@@ -141,6 +163,7 @@ export const TUTORIAL_CONTENT = {
     steps: [
       {
         id: 'welcome-admin',
+        category: 'administration',
         icon: 'Star',
         title: 'Vous êtes Admin',
         description:
@@ -148,6 +171,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'manage-events',
+        category: 'administration',
         icon: 'CalendarPlus',
         title: 'Gérer les événements',
         description:
@@ -158,6 +182,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'manage-users',
+        category: 'administration',
         icon: 'UserCog',
         title: 'Gérer les utilisateurs',
         description:
@@ -168,6 +193,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'manage-competences',
+        category: 'administration',
         icon: 'Tag',
         title: 'Compétences & Types de mission',
         description:
@@ -178,6 +204,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'manage-badges',
+        category: 'administration',
         icon: 'Medal',
         title: 'Badges & Certificats',
         description:
@@ -188,6 +215,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'statistics',
+        category: 'reporting',
         icon: 'BarChart3',
         title: 'Statistiques',
         description:
@@ -206,6 +234,7 @@ export const TUTORIAL_CONTENT = {
     steps: [
       {
         id: 'welcome-superadmin',
+        category: 'administration',
         icon: 'Crown',
         title: 'Vous êtes Super-admin',
         description:
@@ -213,6 +242,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'create-accounts',
+        category: 'administration',
         icon: 'UserPlus',
         title: 'Créer des comptes',
         description:
@@ -223,6 +253,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'manage-permissions',
+        category: 'administration',
         icon: 'KeyRound',
         title: 'Gérer les permissions',
         description:
@@ -233,6 +264,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'certificates',
+        category: 'administration',
         icon: 'FileText',
         title: 'Émettre des certificats',
         description:
@@ -243,6 +275,7 @@ export const TUTORIAL_CONTENT = {
       },
       {
         id: 'export',
+        category: 'reporting',
         icon: 'Download',
         title: 'Export & Rapports',
         description:

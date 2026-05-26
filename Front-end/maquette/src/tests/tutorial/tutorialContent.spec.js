@@ -22,10 +22,11 @@ describe('tutorialContent', () => {
     }
   })
 
-  it('every step has required fields: id, icon, title, description', () => {
+  it('every step has required fields: id, category, icon, title, description', () => {
     for (const role of ROLES) {
       for (const step of TUTORIAL_CONTENT[role].steps) {
         expect(step.id, `${role} step missing id`).toBeTruthy()
+        expect(step.category, `${role}/${step.id} missing category`).toBeTruthy()
         expect(step.icon, `${role}/${step.id} missing icon`).toBeTruthy()
         expect(step.title, `${role}/${step.id} missing title`).toBeTruthy()
         expect(step.description, `${role}/${step.id} missing description`).toBeTruthy()

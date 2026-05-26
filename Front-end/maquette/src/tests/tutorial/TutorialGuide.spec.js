@@ -7,6 +7,7 @@ const mockIsGuideOpen = ref(false)
 const mockGuideSteps = ref([])
 const mockGuideTitle = ref('')
 const mockGuideColor = ref('#c5d82e')
+const mockGuideRole = ref('volunteer')
 const mockIsNewRoleGuide = ref(false)
 const mockCloseGuide = vi.fn(() => { mockIsGuideOpen.value = false })
 
@@ -16,6 +17,7 @@ vi.mock('@/composables/useTutorial', () => ({
     guideSteps: mockGuideSteps,
     guideTitle: mockGuideTitle,
     guideColor: mockGuideColor,
+    guideRole: mockGuideRole,
     isNewRoleGuide: mockIsNewRoleGuide,
     closeGuide: mockCloseGuide,
   })),
@@ -161,6 +163,10 @@ describe('TutorialGuide.vue', () => {
     // Navigate to last step
     await wrapper.find('.tutorial-nav--next').trigger('click')
     await wrapper.find('.tutorial-nav--next').trigger('click')
+
+    // Validate current step to unlock final completion action
+    await wrapper.find('.tutorial-check').trigger('click')
+
     expect(wrapper.text()).toContain('Terminer')
     expect(wrapper.find('.tutorial-nav--done').exists()).toBe(true)
   })
@@ -175,6 +181,10 @@ describe('TutorialGuide.vue', () => {
     const wrapper = await mountGuide(true)
     await wrapper.find('.tutorial-nav--next').trigger('click')
     await wrapper.find('.tutorial-nav--next').trigger('click')
+
+    // Last step must be marked as done before close is enabled
+    await wrapper.find('.tutorial-check').trigger('click')
+
     await wrapper.find('.tutorial-nav--done').trigger('click')
     expect(mockCloseGuide).toHaveBeenCalled()
   })

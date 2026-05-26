@@ -14,7 +14,7 @@
               </span>
               <div>
                 <p class="tutorial-header__label">{{ guideTitle }}</p>
-                <p class="tutorial-header__sub">Étape {{ currentIndex + 1 }} / {{ guideSteps.length }} · {{ completedCount }}/{{ guideSteps.length }} validée(s)</p>
+                <p class="tutorial-header__sub">Étape {{ currentIndex + 1 }} / {{ guideSteps.length }} · {{ completedCount }}/{{ guideSteps.length }} validée(s) · {{ currentCategoryLabel }}</p>
               </div>
             </div>
             <button class="tutorial-close" @click="closeGuide" aria-label="Fermer le guide">
@@ -41,12 +41,27 @@
             />
           </div>
 
+          <div v-if="stepCategories.length > 1" class="tutorial-categories">
+            <button
+              v-for="category in stepCategories"
+              :key="category.key"
+              class="tutorial-category-chip"
+              :class="{ 'tutorial-category-chip--active': isCategoryActive(category) }"
+              :style="isCategoryActive(category) ? { borderColor: guideColor, color: guideColor } : {}"
+              @click="jumpToCategory(category.key)"
+            >
+              {{ category.label }}
+              <span class="tutorial-category-chip__count">{{ category.indexes.length }}</span>
+            </button>
+          </div>
+
           <div class="tutorial-body">
             <Transition :name="slideDirection === 'forward' ? 'slide-left' : 'slide-right'" mode="out-in">
               <div :key="currentIndex" class="tutorial-step">
                 <div v-if="currentStep.isNew" class="tutorial-new-badge">
                   Nouvelle fonctionnalité
                 </div>
+                <p class="tutorial-step__category">{{ currentCategoryLabel }}</p>
                 <h2 class="tutorial-step__title">{{ currentStep.title }}</h2>
                 <p class="tutorial-step__desc">{{ currentStep.description }}</p>
 
@@ -151,6 +166,7 @@ import {
   Crown, UserPlus, KeyRound, FileText, Download,
 } from 'lucide-vue-next'
 import { useTutorial } from '@/composables/useTutorial'
+import { TUTORIAL_CATEGORIES } from '@/data/tutorialContent'
 
 const ICONS = {
   Heart, ListChecks, ClipboardCheck, CalendarDays, MessageCircle,
@@ -195,6 +211,30 @@ const isCurrentStepDone = computed(() => {
 })
 
 const currentUnderstanding = computed(() => understandingByStepId.value[currentStep.value?.id] || null)
+
+const currentCategoryKey = computed(() => currentStep.value?.category || 'onboarding')
+const currentCategoryLabel = computed(() => TUTORIAL_CATEGORIES[currentCategoryKey.value] || 'Général')
+
+const stepCategories = computed(() => {
+  const grouped = new Map()
+
+  for (const [index, step] of guideSteps.value.entries()) {
+    const categoryKey = step?.category || 'onboarding'
+
+    if (!grouped.has(categoryKey)) {
+      grouped.set(categoryKey, {
+        key: categoryKey,
+        label: TUTORIAL_CATEGORIES[categoryKey] || 'Général',
+        firstIndex: index,
+        indexes: [],
+      })
+    }
+
+    grouped.get(categoryKey).indexes.push(index)
+  }
+
+  return Array.from(grouped.values())
+})
 
 const interactiveHint = computed(() => {
   if (currentStep.value?.route) {
@@ -294,6 +334,16 @@ function prev() {
 function goTo(index) {
   slideDirection.value = index > currentIndex.value ? 'forward' : 'backward'
   currentIndex.value = index
+}
+
+function jumpToCategory(categoryKey) {
+  const targetCategory = stepCategories.value.find((category) => category.key === categoryKey)
+  if (!targetCategory) return
+  goTo(targetCategory.firstIndex)
+}
+
+function isCategoryActive(category) {
+  return category.indexes.includes(currentIndex.value)
 }
 
 function onKeydown(event) {
@@ -438,6 +488,39 @@ onBeforeUnmount(() => {
   padding: 0.75rem 0 0;
 }
 
+.tutorial-categories {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.7rem 1rem 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tutorial-category-chip {
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.25rem 0.6rem;
+  white-space: nowrap;
+}
+
+.tutorial-category-chip--active {
+  background: #f9fafb;
+}
+
+.tutorial-category-chip__count {
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+}
+
 .tutorial-dot {
   width: 7px;
   height: 7px;
@@ -482,6 +565,15 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: #111827;
   margin-bottom: 0.5rem;
+}
+
+.tutorial-step__category {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #6b7280;
+  margin-bottom: 0.35rem;
 }
 
 .tutorial-step__desc {
