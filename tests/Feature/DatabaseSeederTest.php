@@ -72,7 +72,7 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame(8, User::count());
 
         $this->assertDatabaseHas('users', [
-            'email' => 'emma.rougeron@benerun.test',
+            'email' => 'emmazeghdoud@gmail.com',
             'prenom_utilisateur' => 'Emma',
             'nom_utilisateur' => 'Rougeron',
         ]);
