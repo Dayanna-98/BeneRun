@@ -133,7 +133,7 @@ class DatabaseSeeder extends Seeder
             [
                 'nom_utilisateur' => 'Rougeron',
                 'prenom_utilisateur' => 'Emma',
-                'email' => 'emma.rougeron@benerun.test',
+                'email' => 'emmazeghdoud@gmail.com',
                 'password' => Hash::make('Soleil1234'),
                 'role_utilisateur' => 'superadmin',
             ],

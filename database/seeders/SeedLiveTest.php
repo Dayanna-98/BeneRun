@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\DB;
 
-$emma = DB::table('users')->where('email', 'emma.rougeron@benerun.test')->value('id_utilisateur');
+$emma = DB::table('users')->where('email', 'emmazeghdoud@gmail.com')->value('id_utilisateur');
 $dayanna = DB::table('users')->where('email', 'dayanna.tenecela@benerun.test')->value('id_utilisateur');
 $marc = DB::table('users')->where('email', 'marc.manager@benerun.test')->value('id_utilisateur');
 $sofian = DB::table('users')->where('email', 'sofian.madani@benerun.test')->value('id_utilisateur');
