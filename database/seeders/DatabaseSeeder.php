@@ -148,7 +148,7 @@ class DatabaseSeeder extends Seeder
                 'nom_utilisateur' => 'Madani',
                 'prenom_utilisateur' => 'Sofian',
                 'email' => 'sofian.madani@benerun.test',
-                'password' => Hash::make('Soleil1234'),
+                'password' => Hash::make('fraise23'),
                 'role_utilisateur' => 'admin',
             ],
             [
@@ -162,7 +162,7 @@ class DatabaseSeeder extends Seeder
                 'nom_utilisateur' => 'Tenecela',
                 'prenom_utilisateur' => 'Dayanna',
                 'email' => 'dayanna.tenecela@benerun.test',
-                'password' => Hash::make('Soleil1234'),
+                'password' => Hash::make('vanille18'),
                 'role_utilisateur' => 'bénévole',
             ],
             [
