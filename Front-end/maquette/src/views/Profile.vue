@@ -815,7 +815,7 @@ const handleLogout = async () => {
     // Always clear local session, even if API logout fails.
   }
   authLogout()
-  router.push('/login')
+  router.replace('/login')
 }
 
 const handleChangePassword = async () => {

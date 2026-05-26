@@ -2,6 +2,7 @@ import axios from 'axios'
 
 const defaultApiBaseUrl = `${window.location.protocol}//${window.location.hostname}:8000/api`
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl
+const loginUrl = `${import.meta.env.BASE_URL}login`
 
 const api = axios.create({
   baseURL: apiBaseUrl,
@@ -51,7 +52,7 @@ api.interceptors.response.use(
       localStorage.removeItem('userEmail')
       localStorage.removeItem('token')
       localStorage.removeItem('currentUser')
-      window.location.href = '/login'
+      window.location.href = loginUrl
     }
     return Promise.reject(error)
   }
