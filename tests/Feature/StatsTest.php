@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Evenement;
 use App\Models\Competence;
+use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\User;
 use Tests\TestCase;
