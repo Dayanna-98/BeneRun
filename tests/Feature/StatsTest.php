@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Affectation;
 use App\Models\Competence;
 use App\Models\Evenement;
 use App\Models\Mission;
@@ -139,5 +140,32 @@ class StatsTest extends TestCase
         $this->assertContains($compatibleMission->id_mission, $suggestedMissionIds);
         $this->assertContains($noCompetenceMission->id_mission, $suggestedMissionIds);
         $this->assertNotContains($incompatibleMission->id_mission, $suggestedMissionIds);
+    }
+
+    public function test_manager_dashboard_returns_full_managed_count_and_limited_preview(): void
+    {
+        $manager = User::factory()->create(['role_utilisateur' => 'responsable']);
+        $event = Evenement::factory()->create();
+
+        $missions = Mission::factory()->count(6)->create([
+            'id_evenement' => $event->id_evenement,
+            'responsable_utilisateur_id' => $manager->id_utilisateur,
+            'date_mission' => now()->addDays(3),
+            'statut_mission' => 'À venir',
+        ]);
+
+        Affectation::factory()->create([
+            'id_utilisateur' => $manager->id_utilisateur,
+            'id_mission' => $missions->first()->id_mission,
+            'statut_affectation' => 'confirme',
+        ]);
+
+        $response = $this->actingAs($manager, 'sanctum')
+            ->getJson('/api/stats/me')
+            ->assertStatus(200);
+
+        $response->assertJsonPath('managedMissionsCount', 6);
+        $this->assertCount(5, $response->json('managedMissions', []));
+        $this->assertCount(1, $response->json('activeMissions', []));
     }
 }

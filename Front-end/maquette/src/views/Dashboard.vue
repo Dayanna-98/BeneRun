@@ -52,9 +52,9 @@
                 <div class="dashboard-stat-note">Distinctions déjà obtenues</div>
               </div>
               <div class="dashboard-stat-card">
-                <div class="dashboard-stat-label">En cours</div>
-                <div class="dashboard-stat-value">{{ myActiveMissions.length }}</div>
-                <div class="dashboard-stat-note">Missions actuellement actives</div>
+                <div class="dashboard-stat-label">{{ currentActiveStatLabel }}</div>
+                <div class="dashboard-stat-value">{{ currentActiveStatCount }}</div>
+                <div class="dashboard-stat-note">{{ currentActiveStatNote }}</div>
               </div>
               <div class="dashboard-stat-card">
                 <div class="dashboard-stat-label">Urgences</div>
@@ -391,6 +391,7 @@ const myActiveMissions   = ref([])
 const nextMission        = ref(null)
 const badges             = ref(user?.badges || [])
 const managedMissions    = ref([])
+const managedMissionsCount = ref(0)
 const suggestedMissions  = ref([])
 
 onMounted(async () => {
@@ -402,6 +403,7 @@ onMounted(async () => {
     nextMission.value       = d.nextMission ? missionService.mapApiMission(d.nextMission) : null
     badges.value            = Array.isArray(d.badges) ? d.badges : []
     managedMissions.value   = Array.isArray(d.managedMissions) ? d.managedMissions.map(missionService.mapApiMission).filter(Boolean) : []
+    managedMissionsCount.value = Number(d.managedMissionsCount ?? managedMissions.value.length ?? 0)
     suggestedMissions.value = Array.isArray(d.suggestedMissions) ? d.suggestedMissions.map(missionService.mapApiMission).filter(Boolean) : []
   } catch (e) {
     console.error('Erreur chargement dashboard:', e)
@@ -416,6 +418,20 @@ onMounted(async () => {
 
 const isManager = computed(() =>
   ['mission_manager', 'admin', 'superadmin'].includes(user.role)
+)
+
+const currentActiveStatCount = computed(() =>
+  isManager.value ? managedMissionsCount.value : myActiveMissions.value.length
+)
+
+const currentActiveStatLabel = computed(() =>
+  isManager.value ? 'Sous responsabilité' : 'En cours'
+)
+
+const currentActiveStatNote = computed(() =>
+  isManager.value
+    ? 'Missions actuellement actives que vous gérez'
+    : 'Missions actuellement actives'
 )
 
 const superAdminPanelTab = ref('management')

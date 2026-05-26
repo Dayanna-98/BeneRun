@@ -22,6 +22,8 @@ class StatsController extends Controller
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
+        $confirmedStatuses = ['confirme', 'confirmé'];
+
         $role = strtolower($user->role_utilisateur ?? '');
         if (! in_array($role, ['admin', 'superadmin'])) {
             return response()->json(['message' => 'Accès refusé'], 403);
@@ -39,7 +41,7 @@ class StatsController extends Controller
             ->where('statut_mission', '!=', 'Annulée')
             ->count();
 
-        $confirmedAffectations = Affectation::where('statut_affectation', 'confirmé')->count();
+        $confirmedAffectations = Affectation::whereIn('statut_affectation', $confirmedStatuses)->count();
 
         // Répartition par rôle
         $roleStats = User::selectRaw('role_utilisateur, COUNT(*) as total')
@@ -56,7 +58,7 @@ class StatsController extends Controller
         $missions = Mission::whereDate('date_mission', '>=', $today)
             ->where('statut_mission', '!=', 'Annulée')
             ->withCount(['affectations as confirmed_count' => function ($q) {
-                $q->where('statut_affectation', 'confirmé');
+                $q->whereIn('statut_affectation', ['confirme', 'confirmé']);
             }])
             ->get();
 
@@ -74,7 +76,7 @@ class StatsController extends Controller
             ->withCount('missions')
             ->with(['missions' => function ($q) {
                 $q->withCount(['affectations as confirmed_count' => function ($q2) {
-                    $q2->where('statut_affectation', 'confirmé');
+                    $q2->whereIn('statut_affectation', ['confirme', 'confirmé']);
                 }]);
             }])
             ->orderByDesc('missions_count')
@@ -120,15 +122,16 @@ class StatsController extends Controller
         }
 
         $today = now()->toDateString();
+        $confirmedStatuses = ['confirme', 'confirmé'];
         $userCompetenceIds = $user->competences()->pluck('competences.id_competence')->all();
 
         // Missions de l'utilisateur via affectations confirmées
         $myAffectations = Affectation::where('id_utilisateur', $user->id_utilisateur)
-            ->where('statut_affectation', 'confirmé')
+            ->whereIn('statut_affectation', $confirmedStatuses)
             ->with(['mission' => function ($q) {
                 $q->with('evenement')
                     ->withCount(['affectations as current_volunteers_count' => function ($q2) {
-                        $q2->where('statut_affectation', 'confirmé');
+                        $q2->whereIn('statut_affectation', ['confirme', 'confirmé']);
                     }]);
             }])
             ->get();
@@ -154,14 +157,19 @@ class StatsController extends Controller
 
         // Pour les managers : missions sous leur responsabilité
         $managedMissions = collect();
+        $managedMissionsCount = 0;
         $role = strtolower($user->role_utilisateur ?? '');
         if (in_array($role, ['responsable', 'admin', 'superadmin', 'mission_manager'])) {
-            $managedMissions = Mission::where('responsable_utilisateur_id', $user->id_utilisateur)
+            $managedMissionsQuery = Mission::where('responsable_utilisateur_id', $user->id_utilisateur)
                 ->whereDate('date_mission', '>=', $today)
                 ->with('evenement')
                 ->withCount(['affectations as current_volunteers_count' => function ($q) {
-                    $q->where('statut_affectation', 'confirmé');
-                }])
+                    $q->whereIn('statut_affectation', ['confirme', 'confirmé']);
+                }]);
+
+            $managedMissionsCount = (clone $managedMissionsQuery)->count();
+
+            $managedMissions = $managedMissionsQuery
                 ->orderBy('date_mission')
                 ->limit(5)
                 ->get();
@@ -179,7 +187,7 @@ class StatsController extends Controller
                 ->where('statut_mission', '!=', 'Annulée')
                 ->with('evenement')
                 ->withCount(['affectations as current_volunteers_count' => function ($q) {
-                    $q->where('statut_affectation', 'confirmé');
+                    $q->whereIn('statut_affectation', ['confirme', 'confirmé']);
                 }]);
 
             if (count($userCompetenceIds) === 0) {
@@ -202,6 +210,7 @@ class StatsController extends Controller
             'nextMission' => $nextMission,
             'badges' => $badges,
             'managedMissions' => $managedMissions,
+            'managedMissionsCount' => $managedMissionsCount,
             'suggestedMissions' => $suggestedMissions,
         ]);
     }
