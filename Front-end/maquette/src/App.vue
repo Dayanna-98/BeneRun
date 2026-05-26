@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UserRound, Heart } from 'lucide-vue-next'
 import BottomNav from '@/components/ui/BottomNav.vue'
@@ -11,7 +11,7 @@ import { useTutorial } from '@/composables/useTutorial'
 const route = useRoute()
 const router = useRouter()
 const isLoggedIn = ref(!!localStorage.getItem('token'))
-const { checkRoleChange } = useTutorial()
+const { checkRoleChange, openGuideForRoute, isGuideOpen } = useTutorial()
 
 // Écoute les changements de token dans localStorage
 onMounted(() => {
@@ -21,6 +21,7 @@ onMounted(() => {
   // Détection de changement de rôle (affiche guide automatiquement si le rôle a changé)
   if (isLoggedIn.value) {
     checkRoleChange()
+    openGuideForRoute(route.path)
   }
 
   // Écoute les changements de storage (depuis d'autres onglets)
@@ -44,6 +45,11 @@ onMounted(() => {
       isLoggedIn.value = false
     }
   }
+})
+
+watch(() => route.path, (path) => {
+  if (!isLoggedIn.value || !path || isGuideOpen.value) return
+  openGuideForRoute(path)
 })
 
 // Affiche BottomNav seulement sur les routes protégées ET si connecté

@@ -339,3 +339,20 @@ export function getNewStepsForRole(role) {
   if (!content.newStepIds) return content.steps
   return content.steps.filter((s) => content.newStepIds.includes(s.id))
 }
+
+export function getTutorialStepForRoute(role, routePath) {
+  const content = getTutorialContentForRole(role)
+  if (!content || !routePath) return null
+
+  const normalizedRoute = String(routePath).trim()
+  if (!normalizedRoute) return null
+
+  const index = content.steps.findIndex((step) => step.route === normalizedRoute)
+  if (index === -1) return null
+
+  return {
+    content,
+    index,
+    step: content.steps[index],
+  }
+}

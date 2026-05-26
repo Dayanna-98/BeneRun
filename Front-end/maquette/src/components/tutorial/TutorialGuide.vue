@@ -176,7 +176,7 @@ const ICONS = {
 }
 
 const router = useRouter()
-const { isGuideOpen, guideSteps, guideTitle, guideColor, guideRole, closeGuide } = useTutorial()
+const { isGuideOpen, guideSteps, guideTitle, guideColor, guideRole, closeGuide, guideStartIndex, guideRestoreLastIndex } = useTutorial()
 
 const currentIndex = ref(0)
 const slideDirection = ref('forward')
@@ -255,7 +255,7 @@ function persistInteractiveProgress() {
   localStorage.setItem(progressStorageKey.value, JSON.stringify(payload))
 }
 
-function loadInteractiveProgress() {
+function loadInteractiveProgress(restoreLastIndex = true) {
   const raw = localStorage.getItem(progressStorageKey.value)
   if (!raw) return
 
@@ -268,7 +268,7 @@ function loadInteractiveProgress() {
       : {}
 
     const savedIndex = Number(parsed?.lastIndex ?? 0)
-    if (!Number.isNaN(savedIndex) && savedIndex >= 0 && savedIndex < guideSteps.value.length) {
+    if (restoreLastIndex && !Number.isNaN(savedIndex) && savedIndex >= 0 && savedIndex < guideSteps.value.length) {
       currentIndex.value = savedIndex
     }
   } catch {
@@ -362,8 +362,11 @@ function navigateTo(route) {
 
 watch(isGuideOpen, (isOpen) => {
   if (isOpen) {
-    currentIndex.value = 0
-    loadInteractiveProgress()
+    currentIndex.value = guideStartIndex.value || 0
+    loadInteractiveProgress(guideRestoreLastIndex.value)
+    if (!guideRestoreLastIndex.value) {
+      currentIndex.value = guideStartIndex.value || 0
+    }
     window.addEventListener('keydown', onKeydown)
     return
   }

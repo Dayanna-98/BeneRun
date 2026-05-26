@@ -154,6 +154,36 @@ describe('useTutorial', () => {
     })
   })
 
+  describe('openGuideForRoute', () => {
+    it('opens the guide on a route-linked step and remembers that route once', () => {
+      getCurrentUser.mockReturnValue({ role: 'admin' })
+      const { openGuideForRoute, isGuideOpen, guideSteps, guideStartIndex } = useTutorial()
+
+      const firstOpen = openGuideForRoute('/statistics')
+
+      expect(firstOpen).toBe(true)
+      expect(isGuideOpen.value).toBe(true)
+      expect(guideSteps.value.length).toBeGreaterThan(0)
+      expect(guideStartIndex.value).toBeGreaterThanOrEqual(0)
+
+      isGuideOpen.value = false
+      const secondOpen = openGuideForRoute('/statistics')
+
+      expect(secondOpen).toBe(false)
+      expect(isGuideOpen.value).toBe(false)
+    })
+
+    it('does nothing when the route is not linked to a tutorial step', () => {
+      getCurrentUser.mockReturnValue({ role: 'volunteer' })
+      const { openGuideForRoute, isGuideOpen } = useTutorial()
+
+      const result = openGuideForRoute('/unknown-route')
+
+      expect(result).toBe(false)
+      expect(isGuideOpen.value).toBe(false)
+    })
+  })
+
   describe('closeGuide', () => {
     it('sets isGuideOpen to false', () => {
       getCurrentUser.mockReturnValue({ role: 'volunteer' })

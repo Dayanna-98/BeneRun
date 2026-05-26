@@ -66,7 +66,7 @@ const routes = [
   { path: '/manage-users', component: ManageUsers, meta: { requiresAuth: true } },
   { path: '/manage-users/create', component: CreateUser, meta: { requiresAuth: true, requiredRole: 'superadmin' } },
   { path: '/manage-users/edit/:id', component: EditUser, meta: { requiresAuth: true } },
-  { path: '/statistics', component: Statistics, meta: { requiresAuth: true } },
+  { path: '/statistics', component: Statistics, meta: { requiresAuth: true, requiredRole: ['admin', 'superadmin'] } },
   { path: '/manage-competences', component: ManageCompetences, meta: { requiresAuth: true } },
   { path: '/manage-badges', component: ManageBadges, meta: { requiresAuth: true } },
   { path: '/manage-certificates', component: ManageCertificates, meta: { requiresAuth: true } },

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Evenement;
+use App\Models\Competence;
 use App\Models\Mission;
 use App\Models\User;
 use Tests\TestCase;
@@ -90,5 +91,53 @@ class StatsTest extends TestCase
             ->assertStatus(200);
 
         $response->assertJsonPath('kpis.totalMissions', 5);
+    }
+
+    public function test_dashboard_suggested_missions_only_include_compatible_competences(): void
+    {
+        $volunteer = User::factory()->create(['role_utilisateur' => 'bénévole']);
+
+        $supportedCompetence = Competence::factory()->create();
+        $unsupportedCompetence = Competence::factory()->create();
+
+        $volunteer->competences()->attach($supportedCompetence->id_competence);
+
+        $compatibleMission = Mission::factory()->create([
+            'id_evenement' => Evenement::factory()->create()->id_evenement,
+            'date_mission' => now()->addDays(5),
+            'visibilite_mission' => 'publique',
+            'inscription_requise' => true,
+            'statut_mission' => 'À venir',
+        ]);
+        $compatibleMission->competences()->attach($supportedCompetence->id_competence);
+
+        $incompatibleMission = Mission::factory()->create([
+            'id_evenement' => Evenement::factory()->create()->id_evenement,
+            'date_mission' => now()->addDays(6),
+            'visibilite_mission' => 'publique',
+            'inscription_requise' => true,
+            'statut_mission' => 'À venir',
+        ]);
+        $incompatibleMission->competences()->attach($unsupportedCompetence->id_competence);
+
+        $noCompetenceMission = Mission::factory()->create([
+            'id_evenement' => Evenement::factory()->create()->id_evenement,
+            'date_mission' => now()->addDays(7),
+            'visibilite_mission' => 'publique',
+            'inscription_requise' => true,
+            'statut_mission' => 'À venir',
+        ]);
+
+        $response = $this->actingAs($volunteer, 'sanctum')
+            ->getJson('/api/stats/me')
+            ->assertStatus(200);
+
+        $suggestedMissionIds = collect($response->json('suggestedMissions', []))
+            ->pluck('id_mission')
+            ->all();
+
+        $this->assertContains($compatibleMission->id_mission, $suggestedMissionIds);
+        $this->assertContains($noCompetenceMission->id_mission, $suggestedMissionIds);
+        $this->assertNotContains($incompatibleMission->id_mission, $suggestedMissionIds);
     }
 }

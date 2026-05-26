@@ -115,7 +115,6 @@
           <div v-for="(mission, index) in suggestedMissions" :key="mission.id"
             :class="['p-3', index < suggestedMissions.length - 1 ? 'border-bottom' : '']">
             <div class="d-flex gap-3">
-              <img :src="mission.imageUrl" :alt="mission.name" class="rounded object-fit-cover" style="width:80px;height:80px" />
               <div class="flex-fill min-w-0">
                 <div class="fw-medium small mb-1">{{ mission.name }}</div>
                 <div class="x-small text-muted mb-2">{{ mission.eventName }}</div>
@@ -154,7 +153,6 @@
           <div v-for="(mission, index) in managedMissions" :key="mission.id"
             :class="['p-3', index < managedMissions.length - 1 ? 'border-bottom' : '']">
             <div class="d-flex gap-3">
-              <img :src="mission.imageUrl" :alt="mission.name" class="rounded object-fit-cover" style="width:80px;height:80px" />
               <div class="flex-fill min-w-0">
                 <div class="fw-medium small mb-1">{{ mission.name }}</div>
                 <div class="x-small text-muted mb-2">{{ mission.eventName }}</div>

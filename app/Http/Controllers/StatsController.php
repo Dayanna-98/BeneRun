@@ -120,6 +120,7 @@ class StatsController extends Controller
         }
 
         $today = now()->toDateString();
+        $userCompetenceIds = $user->competences()->pluck('competences.id_competence')->all();
 
         // Missions de l'utilisateur via affectations confirmées
         $myAffectations = Affectation::where('id_utilisateur', $user->id_utilisateur)
@@ -171,7 +172,7 @@ class StatsController extends Controller
         if ($role === 'bénévole' || $role === 'volunteer') {
             $myMissionIds = $myMissions->pluck('id_mission')->toArray();
 
-            $suggestedMissions = Mission::whereNotIn('id_mission', $myMissionIds)
+            $suggestedQuery = Mission::whereNotIn('id_mission', $myMissionIds)
                 ->where('visibilite_mission', 'publique')
                 ->where('inscription_requise', true)
                 ->whereDate('date_mission', '>=', $today)
@@ -179,7 +180,17 @@ class StatsController extends Controller
                 ->with('evenement')
                 ->withCount(['affectations as current_volunteers_count' => function ($q) {
                     $q->where('statut_affectation', 'confirmé');
-                }])
+                }]);
+
+            if (count($userCompetenceIds) === 0) {
+                $suggestedQuery->whereDoesntHave('competences');
+            } else {
+                $suggestedQuery->whereDoesntHave('competences', function ($query) use ($userCompetenceIds) {
+                    $query->whereNotIn('competences.id_competence', $userCompetenceIds);
+                });
+            }
+
+            $suggestedMissions = $suggestedQuery
                 ->orderBy('date_mission')
                 ->limit(3)
                 ->get();

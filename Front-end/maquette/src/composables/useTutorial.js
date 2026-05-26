@@ -1,9 +1,10 @@
 import { ref } from 'vue'
 import { getCurrentUser } from '@/utils/auth'
-import { TUTORIAL_CONTENT, getNewStepsForRole, getTutorialContentForRole, resolveTutorialRole } from '@/data/tutorialContent'
+import { TUTORIAL_CONTENT, getNewStepsForRole, getTutorialContentForRole, getTutorialStepForRoute, resolveTutorialRole } from '@/data/tutorialContent'
 
 const LS_LAST_ROLE = 'benerun_tutorial_last_role'
 const LS_ONBOARDING_DONE = 'benerun_onboarding_done'
+const LS_AUTO_ROUTE_PREFIX = 'benerun_tutorial_seen_routes_'
 
 // État global partagé entre composants
 const isGuideOpen = ref(false)
@@ -12,6 +13,41 @@ const guideTitle = ref('')
 const guideColor = ref('#c5d82e')
 const guideRole = ref('volunteer')
 const isNewRoleGuide = ref(false)
+const guideStartIndex = ref(0)
+const guideRestoreLastIndex = ref(true)
+
+const getAutoRouteKey = (role) => `${LS_AUTO_ROUTE_PREFIX}${resolveTutorialRole(role || 'volunteer')}`
+
+const readSeenRoutes = (role) => {
+  const raw = localStorage.getItem(getAutoRouteKey(role))
+  if (!raw) return []
+
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+const writeSeenRoutes = (role, routes) => {
+  localStorage.setItem(getAutoRouteKey(role), JSON.stringify(Array.from(new Set(routes.filter(Boolean)))))
+}
+
+const openGuide = ({ title, color, steps, role, isNewRole = false, startIndex = 0, restoreLastIndex = true }) => {
+  if (!steps?.length) return false
+
+  guideTitle.value = title
+  guideColor.value = color
+  guideSteps.value = steps
+  guideRole.value = role
+  isNewRoleGuide.value = isNewRole
+  guideStartIndex.value = Math.max(0, Math.min(Number(startIndex) || 0, steps.length - 1))
+  guideRestoreLastIndex.value = restoreLastIndex
+  isGuideOpen.value = true
+
+  return true
+}
 
 export function useTutorial() {
   /** Ouvre le guide complet pour le rôle courant. */
@@ -22,12 +58,39 @@ export function useTutorial() {
     const content = getTutorialContentForRole(role)
     if (!content) return
 
-    guideTitle.value = `Guide — ${content.label}`
-    guideColor.value = content.color
-    guideSteps.value = content.steps
-    guideRole.value = role
-    isNewRoleGuide.value = false
-    isGuideOpen.value = true
+    openGuide({
+      title: `Guide — ${content.label}`,
+      color: content.color,
+      steps: content.steps,
+      role,
+      isNewRole: false,
+      startIndex: 0,
+      restoreLastIndex: true,
+    })
+  }
+
+  function openGuideForRoute(routePath) {
+    const user = getCurrentUser()
+    if (!user || !routePath) return false
+
+    const role = resolveTutorialRole(user.role || 'volunteer')
+    const match = getTutorialStepForRoute(role, routePath)
+    if (!match) return false
+
+    const seenRoutes = readSeenRoutes(role)
+    if (seenRoutes.includes(routePath)) return false
+
+    writeSeenRoutes(role, [...seenRoutes, routePath])
+
+    return openGuide({
+      title: `Guide — ${match.content.label}`,
+      color: match.content.color,
+      steps: match.content.steps,
+      role,
+      isNewRole: false,
+      startIndex: match.index,
+      restoreLastIndex: false,
+    })
   }
 
   /**
@@ -50,12 +113,15 @@ export function useTutorial() {
       const newSteps = getNewStepsForRole(currentRole)
       if (!newSteps.length) return
 
-      guideTitle.value = `Nouvelles fonctionnalités — ${content.label}`
-      guideColor.value = content.color
-      guideSteps.value = newSteps
-      guideRole.value = currentRole
-      isNewRoleGuide.value = true
-      isGuideOpen.value = true
+      openGuide({
+        title: `Nouvelles fonctionnalités — ${content.label}`,
+        color: content.color,
+        steps: newSteps,
+        role: currentRole,
+        isNewRole: true,
+        startIndex: 0,
+        restoreLastIndex: true,
+      })
     }
 
     // Mémorise le rôle vu
@@ -86,7 +152,10 @@ export function useTutorial() {
     guideColor,
     guideRole,
     isNewRoleGuide,
+    guideStartIndex,
+    guideRestoreLastIndex,
     openFullGuide,
+    openGuideForRoute,
     checkRoleChange,
     markOnboardingDone,
     needsOnboarding,

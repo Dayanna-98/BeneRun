@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { TUTORIAL_CONTENT, getNewStepsForRole } from '@/data/tutorialContent'
+import { TUTORIAL_CONTENT, getNewStepsForRole, getTutorialStepForRoute } from '@/data/tutorialContent'
 
 describe('tutorialContent', () => {
   const ROLES = ['volunteer', 'mission_manager', 'admin', 'superadmin']
@@ -87,6 +87,13 @@ describe('tutorialContent', () => {
     it('returns empty array for unknown role', () => {
       const steps = getNewStepsForRole('unknown_role')
       expect(steps).toEqual([])
+    })
+
+    it('finds the tutorial step attached to a route for the current role chain', () => {
+      const match = getTutorialStepForRoute('admin', '/statistics')
+      expect(match).toBeTruthy()
+      expect(match.step.id).toBe('statistics')
+      expect(match.index).toBeGreaterThanOrEqual(0)
     })
 
     it('all new steps are marked isNew:true', () => {

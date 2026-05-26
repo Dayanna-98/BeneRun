@@ -9,6 +9,8 @@ const mockGuideTitle = ref('')
 const mockGuideColor = ref('#c5d82e')
 const mockGuideRole = ref('volunteer')
 const mockIsNewRoleGuide = ref(false)
+const mockGuideStartIndex = ref(0)
+const mockGuideRestoreLastIndex = ref(true)
 const mockCloseGuide = vi.fn(() => { mockIsGuideOpen.value = false })
 
 vi.mock('@/composables/useTutorial', () => ({
@@ -19,6 +21,8 @@ vi.mock('@/composables/useTutorial', () => ({
     guideColor: mockGuideColor,
     guideRole: mockGuideRole,
     isNewRoleGuide: mockIsNewRoleGuide,
+    guideStartIndex: mockGuideStartIndex,
+    guideRestoreLastIndex: mockGuideRestoreLastIndex,
     closeGuide: mockCloseGuide,
   })),
 }))
