@@ -45,6 +45,25 @@ class PasswordResetFlowTest extends TestCase
         $this->assertNotNull($record->created_at);
     }
 
+    public function test_request_reset_returns_generic_success_when_mail_send_fails(): void
+    {
+        $user = User::factory()->create(['email' => 'smtp-fail@example.com']);
+
+        Mail::shouldReceive('send')
+            ->once()
+            ->andThrow(new \RuntimeException('SMTP failure'));
+
+        $this->postJson('/api/password-reset/request', [
+            'email' => $user->email,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('message', 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.');
+
+        $this->assertDatabaseHas('password_resets', [
+            'email' => $user->email,
+        ]);
+    }
+
     public function test_verify_token_accepts_valid_unexpired_token(): void
     {
         $email = 'bob@example.com';

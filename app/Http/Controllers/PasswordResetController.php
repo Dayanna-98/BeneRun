@@ -87,10 +87,6 @@ class PasswordResetController extends Controller
                 'email' => $validated['email'],
                 'error' => $exception->getMessage(),
             ]);
-
-            return response()->json([
-                'message' => 'Impossible d\'envoyer l\'email de réinitialisation pour le moment. Vérifiez la configuration Gmail SMTP.',
-            ], 500);
         }
 
         return response()->json([
