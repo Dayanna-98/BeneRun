@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect('/app/');
+    return response('', 302)->header('Location', '/app/');
 });
 
 Route::get('/app/{any?}', function () {
