@@ -11,12 +11,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/services/userService', () => ({
   default: {
     register: vi.fn(),
-    login: vi.fn(),
   },
-}))
-
-vi.mock('@/utils/auth', () => ({
-  persistAuthSession: vi.fn(),
 }))
 
 vi.mock('@/composables/useToast', () => ({
@@ -43,7 +38,6 @@ describe('Register.vue', () => {
   beforeEach(() => {
     pushMock.mockClear()
     userService.register.mockReset()
-    userService.login.mockReset()
   })
 
   it('affiche une erreur live quand les mots de passe ne correspondent pas', async () => {
@@ -61,11 +55,9 @@ describe('Register.vue', () => {
     expect(wrapper.find('button[type="submit"]').attributes('disabled')).toBeDefined()
   })
 
-  it('crée un compte puis connecte automatiquement', async () => {
-    userService.register.mockResolvedValue({})
-    userService.login.mockResolvedValue({
-      user: { id: 42, role: 'volunteer' },
-      token: 'token-123',
+  it('crée un compte puis redirige vers la vérification email', async () => {
+    userService.register.mockResolvedValue({
+      message: 'User ajouté. Un email de vérification a été envoyé.',
     })
 
     const wrapper = mountRegister()
@@ -80,8 +72,19 @@ describe('Register.vue', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(userService.register).toHaveBeenCalled()
-    expect(userService.login).toHaveBeenCalledWith('marie@example.com', 'password123')
-    expect(pushMock).toHaveBeenCalledWith('/welcome')
+    expect(userService.register).toHaveBeenCalledWith({
+      firstName: 'Marie',
+      lastName: 'Dupont',
+      email: 'marie@example.com',
+      password: 'password123',
+      role: 'volunteer',
+    })
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/email-verification',
+      query: {
+        status: 'pending',
+        email: 'marie@example.com',
+      },
+    })
   })
 })
