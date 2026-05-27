@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Affectation;
-use App\Models\Postulation;
 use App\Models\Mission;
+use App\Models\Postulation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
