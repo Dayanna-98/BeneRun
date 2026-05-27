@@ -423,11 +423,27 @@ onBeforeUnmount(() => {
 }
 
 .notification-bell__panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  width: min(95vw, 430px);
+  position: fixed;
+  top: calc(80px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100vw - 24px), 430px);
+  max-height: calc(100dvh - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
+  z-index: 1070;
+}
+
+@media (min-width: 768px) {
+  .notification-bell__panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: auto;
+    right: 0;
+    transform: none;
+    width: min(95vw, 430px);
+    max-height: none;
+    z-index: auto;
+  }
 }
 
 .notification-bell__meta {
@@ -448,7 +464,7 @@ onBeforeUnmount(() => {
 }
 
 .notification-bell__content {
-  max-height: 420px;
+  max-height: min(420px, calc(100dvh - 280px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
   overflow-y: auto;
 }
 
