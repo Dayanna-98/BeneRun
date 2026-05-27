@@ -74,6 +74,20 @@ class AffectationController extends Controller
         return Carbon::parse("{$missionDate} {$endTime}")->isPast();
     }
 
+    private function normalizeMeetingTime(array $validated): array
+    {
+        if (! array_key_exists('heure_rendez_vous_affectation', $validated) || $validated['heure_rendez_vous_affectation'] === null) {
+            return $validated;
+        }
+
+        $validated['heure_rendez_vous_affectation'] = Carbon::createFromFormat(
+            'H:i',
+            $validated['heure_rendez_vous_affectation']
+        )->format('H:i:s');
+
+        return $validated;
+    }
+
     public function index()// Récupérer toutes les affectations
     {
         $affectations = Affectation::with([
@@ -108,11 +122,14 @@ class AffectationController extends Controller
             'id_utilisateur' => 'required|integer|exists:users,id_utilisateur',
             'statut_affectation' => 'nullable|in:assigne,confirme,present,absent,annule',
             'est_responsable' => 'nullable|boolean',
+            'heure_rendez_vous_affectation' => 'nullable|date_format:H:i',
             'remarque' => 'nullable|string',
             'date_affectation' => 'nullable|date',
             'date_confirmation' => 'nullable|date',
             'date_presence' => 'nullable|date',
         ]);
+
+        $validated = $this->normalizeMeetingTime($validated);
 
         $affectation = DB::transaction(function () use ($validated) {
             $affectation = Affectation::create($validated);
@@ -144,11 +161,14 @@ class AffectationController extends Controller
                 'id_utilisateur' => 'sometimes|integer|exists:users,id_utilisateur',
                 'statut_affectation' => 'nullable|in:assigne,confirme,present,absent,annule',
                 'est_responsable' => 'nullable|boolean',
+                'heure_rendez_vous_affectation' => 'nullable|date_format:H:i',
                 'remarque' => 'nullable|string',
                 'date_affectation' => 'nullable|date',
                 'date_confirmation' => 'nullable|date',
                 'date_presence' => 'nullable|date',
             ]);
+
+            $validated = $this->normalizeMeetingTime($validated);
 
             DB::transaction(function () use ($affectation, $validated): void {
                 $affectation->update($validated);

@@ -213,6 +213,7 @@ class AffectationCRUDTest extends TestCase
         $response = $this->postJson('/api/affectations', [
             'id_mission' => $this->mission->id_mission,
             'id_utilisateur' => $this->user->id_utilisateur,
+            'heure_rendez_vous_affectation' => '09:30',
             'date_affectation' => '2025-01-01',
             'date_confirmation' => '2025-01-02',
             'date_presence' => '2025-01-03',
@@ -222,6 +223,23 @@ class AffectationCRUDTest extends TestCase
         $response->assertJson([
             'affectation' => [
                 'id_mission' => $this->mission->id_mission,
+                'heure_rendez_vous_affectation' => '09:30:00',
+            ],
+        ]);
+    }
+
+    public function test_create_affectation_with_meeting_time()
+    {
+        $response = $this->postJson('/api/affectations', [
+            'id_mission' => $this->mission->id_mission,
+            'id_utilisateur' => $this->user->id_utilisateur,
+            'heure_rendez_vous_affectation' => '08:15',
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJson([
+            'affectation' => [
+                'heure_rendez_vous_affectation' => '08:15:00',
             ],
         ]);
     }

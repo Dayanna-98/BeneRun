@@ -142,6 +142,31 @@
             </div>
           </div>
 
+          <!-- Affectations -->
+          <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between gap-2">
+              <h5 class="mb-0">Affectations</h5>
+              <span class="badge bg-secondary-subtle text-secondary border">{{ mission.volunteers?.length || 0 }} bénévole(s)</span>
+            </div>
+            <div class="card-body d-flex flex-column gap-2">
+              <div v-if="!mission.volunteers?.length" class="small text-muted">
+                Aucun bénévole affecté pour le moment.
+              </div>
+              <div v-for="volunteer in mission.volunteers" :key="volunteer.id" class="border rounded p-3">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                  <div class="small fw-medium">{{ volunteer.name }}</div>
+                  <span v-if="volunteer.isResponsible" class="badge bg-primary-subtle text-primary border border-primary">
+                    Responsable
+                  </span>
+                </div>
+                <div class="d-flex flex-wrap gap-3 x-small text-muted">
+                  <span v-if="volunteer.meetingTime">RDV {{ formatTimeLabel(volunteer.meetingTime) }}</span>
+                  <span v-if="volunteer.updatedAt">Mis à jour {{ formatDateTime(volunteer.updatedAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Inscrire un utilisateur (superadmin) -->
           <div v-if="currentUser?.role === 'superadmin'" class="card">
             <div class="card-header d-flex align-items-center gap-2">
@@ -428,6 +453,8 @@ const loadMissionDetails = async () => {
       return {
         id: String(participant?.id_utilisateur ?? affectation.id_utilisateur),
         name: `${participant?.prenom_utilisateur || ''} ${participant?.nom_utilisateur || ''}`.trim() || 'Participant',
+        meetingTime: affectation.heure_rendez_vous_affectation || null,
+        isResponsible: Boolean(affectation.est_responsable),
         latitude: participant?.partage_localisation_directe_utilisateur ? Number(participant.latitude_localisation_directe_utilisateur) : null,
         longitude: participant?.partage_localisation_directe_utilisateur ? Number(participant.longitude_localisation_directe_utilisateur) : null,
         updatedAt: participant?.date_localisation_directe_utilisateur || null,
@@ -558,6 +585,27 @@ const emergencyCategories = [
 
 const formatDate = (d) =>
   new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+const formatDateTime = (value) => {
+  if (!value) return 'Date inconnue'
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Date inconnue'
+
+  return parsed.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const formatTimeLabel = (value) => {
+  if (!value) return ''
+
+  return String(value).slice(0, 5)
+}
 
 const sendChatMessage = () => {
   if (chatMessage.value.trim()) {

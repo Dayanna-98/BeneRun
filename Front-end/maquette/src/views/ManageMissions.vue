@@ -272,7 +272,7 @@
                   <select v-model="selectedOutgoingUserIdForReplacement" class="form-select" :disabled="replacementLoading || loadingReplacementContext">
                     <option value="">Sélectionner un bénévole affecté...</option>
                     <option v-for="assignee in replacementAssignees" :key="assignee.userId" :value="assignee.userId">
-                      {{ assignee.fullName }}
+                        {{ assignee.fullName }}{{ assignee.meetingTime ? ` • RDV ${formatTimeLabel(assignee.meetingTime)}` : '' }}
                     </option>
                   </select>
                 </div>
@@ -509,6 +509,7 @@ const openReplacementModal = async (mission) => {
         return {
           userId: String(affectation.id_utilisateur),
           fullName: `${participant.prenom_utilisateur || ''} ${participant.nom_utilisateur || ''}`.trim() || `Utilisateur #${affectation.id_utilisateur}`,
+          meetingTime: affectation.heure_rendez_vous_affectation || null,
         }
       })
 
@@ -653,6 +654,12 @@ const handleToggleVisibility = async (mission) => {
   } catch (error) {
     toast.error(error.message || 'Impossible de mettre à jour la visibilité.')
   }
+}
+
+const formatTimeLabel = (value) => {
+  if (!value) return ''
+
+  return String(value).slice(0, 5)
 }
 
 const resetQuickFilters = () => {

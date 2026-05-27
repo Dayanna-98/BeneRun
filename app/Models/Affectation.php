@@ -18,6 +18,7 @@ class Affectation extends Model
         'id_utilisateur',
         'statut_affectation',
         'est_responsable',
+        'heure_rendez_vous_affectation',
         'remarque',
         'date_affectation',
         'date_confirmation',
