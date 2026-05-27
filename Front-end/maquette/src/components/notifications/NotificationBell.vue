@@ -5,6 +5,8 @@
       <span v-if="unreadCount > 0" class="notification-bell__badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
     </button>
 
+    <div v-if="isOpen" class="notification-bell__backdrop" @click="isOpen = false" />
+
     <div v-if="isOpen" class="notification-bell__panel card border-0 shadow-lg animate-scale-in">
       <div class="card-header">
         <div class="d-flex align-items-center justify-content-between gap-2">
@@ -15,6 +17,13 @@
             </button>
             <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" :disabled="unreadCount === 0" @click="markAllAsRead">
               Tout lire
+            </button>
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 text-decoration-none notification-bell__close"
+              aria-label="Fermer les notifications"
+              @click="isOpen = false">
+              <X style="width:16px;height:16px" />
             </button>
           </div>
         </div>
@@ -138,7 +147,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Bell, CheckCircle2, Clock3, CircleAlert, Info } from 'lucide-vue-next'
+import { Bell, CheckCircle2, Clock3, CircleAlert, Info, X } from 'lucide-vue-next'
 import notificationService from '@/services/notificationService'
 import { useToast } from '@/composables/useToast'
 
@@ -422,19 +431,38 @@ onBeforeUnmount(() => {
   color: var(--primary-dark);
 }
 
+.notification-bell__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,24,39,0.42);
+  z-index: 1065;
+}
+
 .notification-bell__panel {
   position: fixed;
-  top: calc(80px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  width: min(calc(100vw - 24px), 430px);
-  max-height: calc(100dvh - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: none;
+  width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
   overflow: hidden;
   z-index: 1070;
 }
 
+.notification-bell__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (min-width: 768px) {
+  .notification-bell__backdrop {
+    display: none;
+  }
+
   .notification-bell__panel {
     position: absolute;
     top: calc(100% + 10px);
@@ -442,8 +470,14 @@ onBeforeUnmount(() => {
     right: 0;
     transform: none;
     width: min(95vw, 430px);
+    height: auto;
     max-height: none;
+    border-radius: inherit;
     z-index: auto;
+  }
+
+  .notification-bell__close {
+    display: none;
   }
 }
 
@@ -465,8 +499,14 @@ onBeforeUnmount(() => {
 }
 
 .notification-bell__content {
-  max-height: min(420px, calc(100dvh - 280px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+  max-height: calc(100dvh - 300px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .notification-bell__content {
+    max-height: min(420px, calc(100dvh - 280px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+  }
 }
 
 .notification-bell__group + .notification-bell__group {
