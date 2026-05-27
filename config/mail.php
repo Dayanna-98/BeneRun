@@ -39,11 +39,12 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => match (strtolower((string) env('MAIL_SCHEME', ''))) {
+            // Keep backward compatibility with hosting setups that still define MAIL_ENCRYPTION.
+            'scheme' => match (strtolower((string) (env('MAIL_SCHEME') ?: env('MAIL_ENCRYPTION', '')))) {
                 'tls' => 'smtp',
                 'ssl' => 'smtps',
                 '' => null,
-                default => env('MAIL_SCHEME'),
+                default => env('MAIL_SCHEME') ?: env('MAIL_ENCRYPTION'),
             },
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
