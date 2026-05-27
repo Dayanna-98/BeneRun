@@ -87,6 +87,14 @@
 
           <!-- Erreur -->
           <div v-if="error" class="alert alert-danger mt-3 mb-0 small">{{ error }}</div>
+          <button
+            v-if="pendingVerificationEmail"
+            type="button"
+            class="btn btn-outline-primary btn-sm mt-3 w-100"
+            @click="goToEmailVerification"
+          >
+            Vérifier mon email
+          </button>
 
         </div>
       </div>
@@ -109,6 +117,7 @@ const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
 const hasSubmitted = ref(false)
+const pendingVerificationEmail = ref('')
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -129,7 +138,19 @@ const canSubmit = computed(() => !isLoading.value && !emailError.value && !passw
 
 watch([email, password], () => {
   error.value = ''
+  pendingVerificationEmail.value = ''
 })
+
+const goToEmailVerification = () => {
+  router.push({
+    path: '/email-verification',
+    query: {
+      status: 'pending',
+      email: pendingVerificationEmail.value,
+      message: 'Veuillez vérifier votre adresse email avant de vous connecter.',
+    },
+  })
+}
 
 const handleLogin = async () => {
   hasSubmitted.value = true
@@ -153,6 +174,9 @@ const handleLogin = async () => {
     error.value = 'Réponse de connexion invalide'
   } catch (apiError) {
     console.error('Erreur connexion API:', apiError)
+    if (apiError?.status === 'email_not_verified') {
+      pendingVerificationEmail.value = String(apiError?.email || email.value || '').trim()
+    }
     error.value = apiError.message || 'Email ou mot de passe incorrect'
   } finally {
     isLoading.value = false

@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
@@ -303,7 +304,9 @@ class UserController extends Controller
 
         if (! $user->hasVerifiedEmail()) {
             return response()->json([
+                'status' => 'email_not_verified',
                 'message' => 'Veuillez vérifier votre adresse email avant de vous connecter.',
+                'email' => $user->email,
             ], 403);
         }
 
@@ -434,7 +437,19 @@ class UserController extends Controller
 
         $user->save();
 
-        $user->sendEmailVerificationNotification();
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $exception) {
+            Log::error('User verification email send failed', [
+                'user_id' => $user->id_utilisateur,
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Utilisateur créé, mais impossible d\'envoyer l\'email de vérification pour le moment. Vérifiez la configuration Gmail SMTP.',
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'User ajouté. Un email de vérification a été envoyé.',
@@ -497,7 +512,19 @@ class UserController extends Controller
         $user = User::where('email', $validated['email'])->first();
 
         if ($user && ! $user->hasVerifiedEmail()) {
-            $user->sendEmailVerificationNotification();
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable $exception) {
+                Log::error('Resend verification email failed', [
+                    'user_id' => $user->id_utilisateur,
+                    'email' => $user->email,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Impossible de renvoyer l\'email de vérification pour le moment. Vérifiez la configuration Gmail SMTP.',
+                ], 500);
+            }
         }
 
         return response()->json([

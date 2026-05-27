@@ -57,6 +57,8 @@ class UserAuthFlowTest extends TestCase
             'password' => 'secret-password',
         ])
             ->assertStatus(403)
+            ->assertJsonPath('status', 'email_not_verified')
+            ->assertJsonPath('email', $user->email)
             ->assertJsonPath('message', 'Veuillez vérifier votre adresse email avant de vous connecter.');
     }
 
