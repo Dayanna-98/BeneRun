@@ -49,6 +49,19 @@ class AffectationController extends Controller
         return in_array($role, ['admin', 'superadmin'], true) ? $actor : null;
     }
 
+    private function assertMissionManagerOrAdmin(Request $request): ?User
+    {
+        $actor = $this->resolveActorFromBearerToken($request);
+
+        if (! $actor) {
+            return null;
+        }
+
+        $role = $this->normalizeRole($actor->role_utilisateur);
+
+        return in_array($role, ['responsable', 'missionmanager', 'organisateur', 'admin', 'superadmin'], true) ? $actor : null;
+    }
+
     private function hasMissionEnded(Mission $mission): bool
     {
         if (empty($mission->date_mission)) {
@@ -180,8 +193,8 @@ class AffectationController extends Controller
 
     public function replaceVolunteer(Request $request, $missionId)
     {
-        if (! $this->assertAdminOrSuperAdmin($request)) {
-            return response()->json(['message' => 'Action réservée aux admins et superadmins.'], 403);
+        if (! $this->assertMissionManagerOrAdmin($request)) {
+            return response()->json(['message' => 'Action réservée aux responsables, admins et superadmins.'], 403);
         }
 
         $mission = Mission::find((int) $missionId);

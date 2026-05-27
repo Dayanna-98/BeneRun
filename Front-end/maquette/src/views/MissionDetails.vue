@@ -167,10 +167,10 @@
                 <div class="x-small text-muted">{{ selectedUserInfo?.email }} • {{ selectedUserInfo?.accountType }}</div>
               </div>
               <button class="btn btn-primary d-flex align-items-center justify-content-center gap-2"
-                :disabled="!selectedUserId"
+                :disabled="!selectedUserId || isSubmittingRegistration"
                 @click="handleRegisterUser">
                 <UserPlus style="width:16px;height:16px" />
-                Inscrire à la mission
+                {{ isSubmittingRegistration ? 'Inscription en cours...' : 'Inscrire à la mission' }}
               </button>
             </div>
           </div>

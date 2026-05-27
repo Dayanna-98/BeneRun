@@ -37,14 +37,16 @@
                     v-model="email"
                     type="email"
                     class="form-control ps-5"
+                    :class="{ 'is-invalid': !!requestEmailError }"
                     placeholder="votre.email@exemple.com"
                     :disabled="isLoading"
                     required
                   />
                 </div>
+                <div v-if="requestEmailError" class="invalid-feedback d-block">{{ requestEmailError }}</div>
               </div>
 
-              <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="isLoading || !email">
+              <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="isLoading || !email || !!requestEmailError">
                 <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
                 {{ isLoading ? 'Envoi...' : 'Envoyer le lien' }}
               </button>
@@ -108,12 +110,14 @@
                     v-model="newPassword"
                     type="password"
                     class="form-control ps-5"
+                    :class="{ 'is-invalid': !!newPasswordError }"
                     placeholder="Au moins 10 caracteres"
                     :disabled="isLoading"
                     required
                   />
                 </div>
                 <small class="text-muted d-block mt-1">{{ PASSWORD_HINT }}</small>
+                <div v-if="newPasswordError" class="invalid-feedback d-block">{{ newPasswordError }}</div>
               </div>
 
               <div>
@@ -125,15 +129,17 @@
                     v-model="confirmPassword"
                     type="password"
                     class="form-control ps-5"
+                    :class="{ 'is-invalid': !!confirmPasswordError }"
                     placeholder="Confirmez votre mot de passe"
                     :disabled="isLoading"
                     required
                   />
                 </div>
+                <div v-if="confirmPasswordError" class="invalid-feedback d-block">{{ confirmPasswordError }}</div>
               </div>
 
               <button type="submit" class="btn btn-primary btn-lg w-100"
-                :disabled="isLoading || !newPassword || newPassword !== confirmPassword">
+                :disabled="isLoading || !newPassword || !confirmPassword || !!newPasswordError || !!confirmPasswordError">
                 <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
                 {{ isLoading ? 'Réinitialisation...' : 'Réinitialiser le mot de passe' }}
               </button>
@@ -174,7 +180,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Mail, CheckCircle, Lock } from 'lucide-vue-next'
 import api from '@/services/api'
@@ -194,6 +200,29 @@ const tokenValid = ref(null)
 const token = ref(route.query.token || null)
 const resetEmail = ref(route.query.email || null)
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const requestEmailError = computed(() => {
+  if (!email.value) return ''
+  if (!emailPattern.test(email.value.trim())) return 'Format d\'email invalide.'
+  return ''
+})
+
+const newPasswordError = computed(() => {
+  if (!newPassword.value) return ''
+  return validatePasswordStrength(newPassword.value) || ''
+})
+
+const confirmPasswordError = computed(() => {
+  if (!confirmPassword.value) return ''
+  if (newPassword.value !== confirmPassword.value) return 'Les mots de passe ne correspondent pas.'
+  return ''
+})
+
+watch([email, newPassword, confirmPassword], () => {
+  error.value = null
+})
+
 // Vérifier le token au montage si présent
 onMounted(async () => {
   if (token.value && resetEmail.value) {
@@ -206,6 +235,12 @@ onMounted(async () => {
 // Demander la réinitialisation
 const requestReset = async () => {
   error.value = null
+
+  if (requestEmailError.value) {
+    error.value = requestEmailError.value
+    return
+  }
+
   isLoading.value = true
 
   try {
@@ -246,9 +281,8 @@ const resetPassword = async () => {
     return
   }
 
-  const passwordError = validatePasswordStrength(newPassword.value)
-  if (passwordError) {
-    error.value = passwordError
+  if (newPasswordError.value) {
+    error.value = newPasswordError.value
     return
   }
 

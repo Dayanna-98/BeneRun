@@ -88,13 +88,16 @@
             <div v-if="isEventPast" class="alert alert-secondary small mb-0">
               Cet événement est terminé. Les inscriptions sont closes.
             </div>
+            <div v-else-if="hasActiveEventRegistration" class="alert alert-info small mb-0">
+              Vous êtes déjà inscrit à cet événement (liste d'attente active).
+            </div>
             <div class="d-grid gap-2">
               <button
                 class="btn btn-primary"
                 :disabled="isSubmittingEventSignup || !canSignupEvent"
                 @click="handleEventSignup"
               >
-                {{ isSubmittingEventSignup ? 'Inscription en cours...' : (isEventPast ? 'Événement terminé' : "S'inscrire à l'événement") }}
+                {{ eventSignupButtonLabel }}
               </button>
               <button class="btn btn-outline-primary" @click="goToEventMissions">
                 Voir/s'inscrire aux missions
@@ -201,6 +204,7 @@ const actionError = ref('')
 const actionSuccess = ref('')
 const isSubmittingEventSignup = ref(false)
 const currentUser = ref(getCurrentUser())
+const currentUserEventPostulation = ref(null)
 
 const toTime = (value) => {
   if (!value || typeof value !== 'string') return ''
@@ -249,10 +253,11 @@ const loadEventDetails = async () => {
   try {
     const eventId = String(route.params.id || '')
 
-    const [eventResponse, missionsResponse, affectationsResponse] = await Promise.all([
+    const [eventResponse, missionsResponse, affectationsResponse, postulationsResponse] = await Promise.all([
       api.get(`/evenements/${eventId}`),
       api.get('/missions', { params: { id_evenement: eventId } }),
       api.get('/affectations'),
+      api.get('/postulations'),
     ])
 
     const mappedEvent = eventService.mapApiEvent(eventResponse.data)
@@ -264,6 +269,14 @@ const loadEventDetails = async () => {
     const affectationCountMap = buildAffectationCountMap(affectationsResponse.data ?? [])
     const missions = (missionsResponse.data ?? []).map((mission) => mapMissionFromApi(mission, affectationCountMap))
     const assignedCount = missions.reduce((total, mission) => total + mission.currentVolunteers, 0)
+    const postulations = Array.isArray(postulationsResponse.data) ? postulationsResponse.data : []
+    const currentUserId = String(currentUser.value?.id || '')
+
+    currentUserEventPostulation.value = postulations.find((postulation) =>
+      String(postulation.id_utilisateur) === currentUserId
+      && String(postulation.id_evenement) === eventId
+      && ['en_attente', 'accepte'].includes(String(postulation.statut_postulation || '').toLowerCase())
+    ) || null
 
     event.value = {
       ...mappedEvent,
@@ -296,11 +309,21 @@ const isEventPast = computed(() => {
   return end ? end.getTime() < Date.now() : false
 })
 
+const hasActiveEventRegistration = computed(() => !!currentUserEventPostulation.value)
+
+const eventSignupButtonLabel = computed(() => {
+  if (isSubmittingEventSignup.value) return 'Inscription en cours...'
+  if (isEventPast.value) return 'Événement terminé'
+  if (hasActiveEventRegistration.value) return 'Déjà inscrit à cet événement'
+  return "S'inscrire à l'événement"
+})
+
 const canSignupEvent = computed(() =>
   !!currentUser.value?.id
   && !!event.value
   && !event.value.isCancelled
   && !isEventPast.value
+  && !hasActiveEventRegistration.value
 )
 
 const spotsLeft = (mission) => mission.maxVolunteers - mission.currentVolunteers
@@ -340,13 +363,26 @@ const handleEventSignup = async () => {
   isSubmittingEventSignup.value = true
 
   try {
-    await api.post(`/evenements/${event.value.id}/inscriptions`, {
+    const response = await api.post(`/evenements/${event.value.id}/inscriptions`, {
       id_utilisateur: Number(currentUser.value.id),
       remarque: 'Inscription en liste d\'attente événement depuis la vue détails.',
     })
 
+    currentUserEventPostulation.value = response?.data?.postulation || {
+      id_evenement: Number(event.value.id),
+      id_utilisateur: Number(currentUser.value.id),
+      statut_postulation: 'en_attente',
+    }
+
     actionSuccess.value = 'Vous êtes inscrit en liste d\'attente pour cet événement. Un superadmin vous assignera ensuite à une mission.'
   } catch (error) {
+    if (error.response?.status === 409) {
+      currentUserEventPostulation.value = error.response?.data?.postulation || currentUserEventPostulation.value || {
+        id_evenement: Number(event.value.id),
+        id_utilisateur: Number(currentUser.value.id),
+        statut_postulation: 'en_attente',
+      }
+    }
     actionError.value = error.response?.data?.message || 'Inscription impossible pour le moment.'
   } finally {
     isSubmittingEventSignup.value = false

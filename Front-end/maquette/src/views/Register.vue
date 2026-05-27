@@ -30,8 +30,10 @@
                   <User class="position-absolute text-muted"
                     style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
                   <input v-model="form.firstName" type="text" class="form-control form-control-sm ps-4"
+                    :class="{ 'is-invalid': shouldShowFieldError('firstName') }"
                     placeholder="Marie" required />
                 </div>
+                <div v-if="shouldShowFieldError('firstName')" class="invalid-feedback d-block">{{ validationErrors.firstName }}</div>
               </div>
               <div class="col-6">
                 <label class="form-label small fw-medium">Nom *</label>
@@ -39,8 +41,10 @@
                   <User class="position-absolute text-muted"
                     style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
                   <input v-model="form.lastName" type="text" class="form-control form-control-sm ps-4"
+                    :class="{ 'is-invalid': shouldShowFieldError('lastName') }"
                     placeholder="Dubois" required />
                 </div>
+                <div v-if="shouldShowFieldError('lastName')" class="invalid-feedback d-block">{{ validationErrors.lastName }}</div>
               </div>
             </div>
 
@@ -51,8 +55,10 @@
                 <Mail class="position-absolute text-muted"
                   style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
                 <input v-model="form.email" type="email" class="form-control form-control-sm ps-4"
+                  :class="{ 'is-invalid': shouldShowFieldError('email') }"
                   placeholder="votre.email@exemple.com" required />
               </div>
+              <div v-if="shouldShowFieldError('email')" class="invalid-feedback d-block">{{ validationErrors.email }}</div>
             </div>
 
             <!-- Mot de passe -->
@@ -63,6 +69,7 @@
                   style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
                 <input v-model="form.password" :type="showPassword ? 'text' : 'password'"
                   class="form-control form-control-sm ps-4 pe-5"
+                  :class="{ 'is-invalid': shouldShowFieldError('password') }"
                   placeholder="••••••••" required />
                 <button type="button" class="btn btn-link position-absolute p-0 text-muted"
                   style="top:50%;right:10px;transform:translateY(-50%)"
@@ -72,6 +79,7 @@
                 </button>
               </div>
               <p class="x-small text-muted mt-1 mb-0">{{ PASSWORD_HINT }}</p>
+              <div v-if="shouldShowFieldError('password')" class="invalid-feedback d-block">{{ validationErrors.password }}</div>
             </div>
 
             <!-- Confirmer mot de passe -->
@@ -82,6 +90,7 @@
                   style="width:16px;height:16px;top:50%;left:10px;transform:translateY(-50%)" />
                 <input v-model="form.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
                   class="form-control form-control-sm ps-4 pe-5"
+                  :class="{ 'is-invalid': shouldShowFieldError('confirmPassword') }"
                   placeholder="••••••••" required />
                 <button type="button" class="btn btn-link position-absolute p-0 text-muted"
                   style="top:50%;right:10px;transform:translateY(-50%)"
@@ -90,9 +99,10 @@
                   <Eye v-else style="width:16px;height:16px" />
                 </button>
               </div>
+              <div v-if="shouldShowFieldError('confirmPassword')" class="invalid-feedback d-block">{{ validationErrors.confirmPassword }}</div>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 mt-2" :disabled="isLoading">
+            <button type="submit" class="btn btn-primary w-100 mt-2" :disabled="isLoading || hasClientErrors">
               <span v-if="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
               {{ isLoading ? 'Création en cours...' : 'Créer mon compte' }}
             </button>
@@ -125,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-vue-next'
 import userService from '@/services/userService'
@@ -139,35 +149,68 @@ const showConfirmPassword = ref(false)
 const isLoading           = ref(false)
 const errorMessage        = ref('')
 const toast = useToast()
+const hasSubmitted = ref(false)
 
 const form = ref({
   firstName: '', lastName: '', email: '',
   password: '', confirmPassword: ''
 })
 
-const handleRegister = async () => {
-  errorMessage.value = ''
-  
-  // Validations
-  if (!form.value.firstName.trim()) {
-    errorMessage.value = 'Le prénom est requis'
-    return
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const validationErrors = computed(() => {
+  const errors = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
   }
-  if (!form.value.lastName.trim()) {
-    errorMessage.value = 'Le nom est requis'
-    return
-  }
+
+  if (!form.value.firstName.trim()) errors.firstName = 'Le prénom est requis.'
+  if (!form.value.lastName.trim()) errors.lastName = 'Le nom est requis.'
+
   if (!form.value.email.trim()) {
-    errorMessage.value = 'L\'email est requis'
-    return
+    errors.email = 'L\'email est requis.'
+  } else if (!emailPattern.test(form.value.email.trim())) {
+    errors.email = 'Format d\'email invalide.'
   }
-  if (form.value.password !== form.value.confirmPassword) {
-    errorMessage.value = 'Les mots de passe ne correspondent pas'
-    return
+
+  if (!form.value.password) {
+    errors.password = 'Le mot de passe est requis.'
+  } else {
+    const passwordError = validatePasswordStrength(form.value.password)
+    if (passwordError) {
+      errors.password = passwordError
+    }
   }
-  const passwordError = validatePasswordStrength(form.value.password)
-  if (passwordError) {
-    errorMessage.value = passwordError
+
+  if (!form.value.confirmPassword) {
+    errors.confirmPassword = 'La confirmation du mot de passe est requise.'
+  } else if (form.value.password !== form.value.confirmPassword) {
+    errors.confirmPassword = 'Les mots de passe ne correspondent pas.'
+  }
+
+  return errors
+})
+
+const hasClientErrors = computed(() => Object.values(validationErrors.value).some(Boolean))
+
+const shouldShowFieldError = (fieldName) => {
+  const value = form.value[fieldName]
+  return (hasSubmitted.value || !!String(value || '').trim()) && !!validationErrors.value[fieldName]
+}
+
+watch(form, () => {
+  errorMessage.value = ''
+}, { deep: true })
+
+const handleRegister = async () => {
+  hasSubmitted.value = true
+  errorMessage.value = ''
+
+  if (hasClientErrors.value) {
+    errorMessage.value = Object.values(validationErrors.value).find(Boolean) || 'Veuillez corriger le formulaire.'
     return
   }
 

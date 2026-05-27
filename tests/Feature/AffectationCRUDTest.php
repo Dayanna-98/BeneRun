@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Affectation;
+use App\Models\Postulation;
 use App\Models\Mission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -310,5 +311,72 @@ class AffectationCRUDTest extends TestCase
         $this->assertDatabaseMissing('affectations', [
             'id_affectation' => $affectation->id_affectation,
         ]);
+    }
+
+    public function test_replace_volunteer_allows_responsible_users()
+    {
+        $responsible = User::factory()->create([
+            'role_utilisateur' => 'responsable',
+        ]);
+        Sanctum::actingAs($responsible);
+
+        $mission = Mission::factory()->create();
+        $outgoingUser = User::factory()->create();
+        $incomingUser = User::factory()->create();
+
+        $outgoingAffectation = Affectation::create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $outgoingUser->id_utilisateur,
+            'statut_affectation' => 'assigne',
+            'date_affectation' => now()->subDay(),
+        ]);
+
+        $incomingPostulation = Postulation::create([
+            'id_evenement' => $mission->id_evenement,
+            'id_mission' => null,
+            'id_utilisateur' => $incomingUser->id_utilisateur,
+            'statut_postulation' => 'en_attente',
+            'date_postulation' => now()->subHours(2),
+        ]);
+
+        $response = $this->postJson('/api/missions/'.$mission->id_mission.'/replace-volunteer', [
+            'outgoing_user_id' => $outgoingUser->id_utilisateur,
+            'incoming_postulation_id' => $incomingPostulation->id_postulation,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['message' => 'Remplacement effectué avec succès.']);
+
+        $this->assertDatabaseHas('affectations', [
+            'id_affectation' => $outgoingAffectation->id_affectation,
+            'statut_affectation' => 'annule',
+        ]);
+        $this->assertDatabaseHas('affectations', [
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $incomingUser->id_utilisateur,
+            'statut_affectation' => 'assigne',
+        ]);
+        $this->assertDatabaseHas('postulations', [
+            'id_postulation' => $incomingPostulation->id_postulation,
+            'statut_postulation' => 'accepte',
+        ]);
+    }
+
+    public function test_replace_volunteer_rejects_volunteers_without_permission()
+    {
+        $volunteer = User::factory()->create([
+            'role_utilisateur' => 'bénévole',
+        ]);
+        Sanctum::actingAs($volunteer);
+
+        $mission = Mission::factory()->create();
+
+        $response = $this->postJson('/api/missions/'.$mission->id_mission.'/replace-volunteer', [
+            'outgoing_user_id' => $this->user->id_utilisateur,
+            'incoming_postulation_id' => 999999,
+        ]);
+
+        $response->assertStatus(403);
+        $response->assertJson(['message' => 'Action réservée aux responsables, admins et superadmins.']);
     }
 }

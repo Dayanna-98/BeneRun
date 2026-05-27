@@ -32,7 +32,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/composables/**', 'src/data/tutorialContent.js'],
+      include: ['src/views/**/*.vue', 'src/components/tutorial/**/*.vue', 'src/composables/**', 'src/data/tutorialContent.js'],
     },
   },
 })

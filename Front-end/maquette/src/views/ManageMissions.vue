@@ -221,6 +221,14 @@
               >
                 {{ mission.visibility === 'public' ? 'Passer en privée' : 'Activer publique' }}
               </button>
+              <button
+                class="btn btn-sm btn-outline-primary"
+                :disabled="isMissionPast(mission)"
+                :title="isMissionPast(mission) ? 'Mission terminée' : 'Remplacer un bénévole affecté'"
+                @click="openReplacementModal(mission)"
+              >
+                Remplacer un bénévole
+              </button>
             </div>
 
           </div>
@@ -241,6 +249,66 @@
 
     </div>
 
+    <Teleport to="body">
+      <div v-if="showReplacementModal" class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.45)">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+          <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+              <div>
+                <h5 class="modal-title mb-1">Remplacer un bénévole</h5>
+                <div class="small text-muted">{{ replacementMission?.name }}</div>
+              </div>
+              <button class="btn-close" @click="closeReplacementModal"></button>
+            </div>
+
+            <div class="modal-body d-flex flex-column gap-3">
+              <div class="alert alert-info small mb-0">
+                Sélectionnez un bénévole actuellement affecté puis le bénévole en attente qui prendra sa place.
+              </div>
+
+              <div class="row g-2">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-medium">Bénévole à remplacer</label>
+                  <select v-model="selectedOutgoingUserIdForReplacement" class="form-select" :disabled="replacementLoading || loadingReplacementContext">
+                    <option value="">Sélectionner un bénévole affecté...</option>
+                    <option v-for="assignee in replacementAssignees" :key="assignee.userId" :value="assignee.userId">
+                      {{ assignee.fullName }}
+                    </option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small fw-medium">Bénévole remplaçant</label>
+                  <select v-model="selectedIncomingPostulationIdForReplacement" class="form-select" :disabled="replacementLoading || loadingReplacementContext">
+                    <option value="">Sélectionner une postulation en attente...</option>
+                    <option v-for="candidate in replacementCandidates" :key="candidate.id" :value="candidate.id">
+                      {{ candidate.fullName }} • {{ formatDateTime(candidate.appliedAt) }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div v-if="replacementAssignees.length === 0" class="alert alert-warning small mb-0">
+                Aucun bénévole affecté n'est disponible pour cette mission.
+              </div>
+              <div v-if="replacementCandidates.length === 0" class="alert alert-warning small mb-0">
+                Aucune postulation en attente n'est disponible pour cette mission ou son événement.
+              </div>
+
+              <div v-if="replacementError" class="alert alert-danger small mb-0">{{ replacementError }}</div>
+              <div v-if="replacementSuccess" class="alert alert-success small mb-0">{{ replacementSuccess }}</div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" @click="closeReplacementModal">Annuler</button>
+              <button class="btn btn-primary" :disabled="!canSubmitReplacement || replacementLoading" @click="confirmVolunteerReplacement">
+                {{ replacementLoading ? 'Remplacement en cours...' : 'Remplacer le bénévole' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <BootstrapConfirmModal
       v-model="confirmDialog.open"
       :title="confirmDialog.title"
@@ -260,6 +328,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Edit, Trash2, Users, Calendar, MapPin, Clock } from 'lucide-vue-next'
 import missionService from '@/services/missionService'
 import eventService from '@/services/eventService'
+import api from '@/services/api'
 import { getCurrentUser, hasMinRole } from '@/utils/auth'
 import CardListSkeleton from '@/components/ui/CardListSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -292,6 +361,16 @@ const quickFilters = ref({
   publicOnly: false,
   availableOnly: false,
 })
+const showReplacementModal = ref(false)
+const replacementMission = ref(null)
+const replacementAssignees = ref([])
+const replacementCandidates = ref([])
+const loadingReplacementContext = ref(false)
+const replacementLoading = ref(false)
+const replacementError = ref('')
+const replacementSuccess = ref('')
+const selectedOutgoingUserIdForReplacement = ref('')
+const selectedIncomingPostulationIdForReplacement = ref('')
 const PAGE_SIZE = 8
 const visibleCount = ref(PAGE_SIZE)
 
@@ -335,6 +414,13 @@ const canDeleteMission = (mission) => {
   return start ? start.getTime() > Date.now() : false
 }
 
+const canSubmitReplacement = computed(() => {
+  return !!replacementMission.value
+    && !!selectedOutgoingUserIdForReplacement.value
+    && !!selectedIncomingPostulationIdForReplacement.value
+    && !replacementLoading.value
+})
+
 const availableCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers < m.maxVolunteers).length)
 const fullCount = computed(() => filteredMissions.value.filter(m => m.currentVolunteers === m.maxVolunteers).length)
 const totalVolunteers = computed(() => filteredMissions.value.reduce((sum, mission) => sum + mission.currentVolunteers, 0))
@@ -346,6 +432,20 @@ const activeQuickFiltersCount = computed(() =>
 
 const formatDate = (d) =>
   (parseLocalDateTime(d, '00:00') || new Date()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+
+const formatDateTime = (value) => {
+  if (!value) return 'Date inconnue'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Date inconnue'
+
+  return parsed.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 const loadData = async () => {
   isLoading.value = true
@@ -363,6 +463,119 @@ const loadData = async () => {
     errorMessage.value = error.message || 'Impossible de charger les missions'
   } finally {
     isLoading.value = false
+  }
+}
+
+const mapReplacementPostulation = (postulation) => {
+  const user = postulation.utilisateur || {}
+  const fullName = `${user.prenom_utilisateur || ''} ${user.nom_utilisateur || ''}`.trim() || `Utilisateur #${postulation.id_utilisateur}`
+
+  return {
+    id: String(postulation.id_postulation),
+    postulationId: Number(postulation.id_postulation),
+    userId: String(postulation.id_utilisateur || ''),
+    fullName,
+    appliedAt: postulation.date_postulation,
+  }
+}
+
+const openReplacementModal = async (mission) => {
+  if (isMissionPast(mission)) return
+
+  replacementMission.value = mission
+  replacementAssignees.value = []
+  replacementCandidates.value = []
+  replacementError.value = ''
+  replacementSuccess.value = ''
+  selectedOutgoingUserIdForReplacement.value = ''
+  selectedIncomingPostulationIdForReplacement.value = ''
+  showReplacementModal.value = true
+  loadingReplacementContext.value = true
+
+  try {
+    const [affectationsResponse, postulationsResponse] = await Promise.all([
+      api.get('/affectations'),
+      api.get('/postulations'),
+    ])
+
+    const affectations = Array.isArray(affectationsResponse.data) ? affectationsResponse.data : []
+    const postulations = Array.isArray(postulationsResponse.data) ? postulationsResponse.data : []
+
+    replacementAssignees.value = affectations
+      .filter((affectation) => String(affectation.id_mission) === String(mission.id))
+      .filter((affectation) => ['assigne', 'confirme', 'present'].includes(String(affectation.statut_affectation || '').toLowerCase()))
+      .map((affectation) => {
+        const participant = affectation.utilisateur || {}
+        return {
+          userId: String(affectation.id_utilisateur),
+          fullName: `${participant.prenom_utilisateur || ''} ${participant.nom_utilisateur || ''}`.trim() || `Utilisateur #${affectation.id_utilisateur}`,
+        }
+      })
+
+    replacementCandidates.value = postulations
+      .filter((postulation) => String(postulation.id_evenement) === String(mission.eventId))
+      .filter((postulation) => !postulation.id_mission)
+      .filter((postulation) => String(postulation.statut_postulation || '').toLowerCase() === 'en_attente')
+      .map(mapReplacementPostulation)
+      .sort((a, b) => new Date(a.appliedAt || 0).getTime() - new Date(b.appliedAt || 0).getTime())
+  } catch (error) {
+    replacementError.value = error.response?.data?.message || error.message || 'Impossible de charger les affectations.'
+  } finally {
+    loadingReplacementContext.value = false
+  }
+}
+
+const closeReplacementModal = () => {
+  showReplacementModal.value = false
+  replacementMission.value = null
+  replacementAssignees.value = []
+  replacementCandidates.value = []
+  replacementError.value = ''
+  replacementSuccess.value = ''
+  selectedOutgoingUserIdForReplacement.value = ''
+  selectedIncomingPostulationIdForReplacement.value = ''
+  replacementLoading.value = false
+  loadingReplacementContext.value = false
+}
+
+const confirmVolunteerReplacement = async () => {
+  if (!canSubmitReplacement.value || !replacementMission.value) {
+    replacementError.value = 'Sélectionnez un bénévole sortant et un remplaçant.'
+    return
+  }
+
+  replacementError.value = ''
+  replacementSuccess.value = ''
+  replacementLoading.value = true
+
+  try {
+    const selectedIncoming = replacementCandidates.value.find((candidate) => candidate.id === selectedIncomingPostulationIdForReplacement.value)
+
+    await api.post(`/missions/${replacementMission.value.id}/replace-volunteer`, {
+      outgoing_user_id: Number(selectedOutgoingUserIdForReplacement.value),
+      incoming_postulation_id: Number(selectedIncomingPostulationIdForReplacement.value),
+    })
+
+    replacementAssignees.value = replacementAssignees.value.filter((assignee) => assignee.userId !== selectedOutgoingUserIdForReplacement.value)
+    if (selectedIncoming) {
+      replacementAssignees.value = [
+        ...replacementAssignees.value,
+        {
+          userId: selectedIncoming.userId,
+          fullName: selectedIncoming.fullName,
+        },
+      ]
+    }
+    replacementCandidates.value = replacementCandidates.value.filter((candidate) => candidate.id !== selectedIncomingPostulationIdForReplacement.value)
+
+    replacementSuccess.value = 'Remplacement effectué avec succès.'
+    selectedOutgoingUserIdForReplacement.value = ''
+    selectedIncomingPostulationIdForReplacement.value = ''
+    await loadData()
+  } catch (error) {
+    replacementError.value = error.response?.data?.message || error.message || 'Remplacement impossible pour le moment.'
+  } finally {
+    replacementLoading.value = false
   }
 }
 
@@ -458,6 +671,11 @@ watch([
   () => quickFilters.value.availableOnly,
 ], () => {
   visibleCount.value = PAGE_SIZE
+})
+
+watch([selectedOutgoingUserIdForReplacement, selectedIncomingPostulationIdForReplacement], () => {
+  replacementError.value = ''
+  replacementSuccess.value = ''
 })
 </script>
 

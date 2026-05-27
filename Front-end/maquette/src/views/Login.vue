@@ -34,10 +34,12 @@
                   v-model="email"
                   type="email"
                   class="form-control ps-5"
+                  :class="{ 'is-invalid': shouldShowEmailError }"
                   placeholder="votre.email@exemple.com"
                   required
                 />
               </div>
+              <div v-if="shouldShowEmailError" class="invalid-feedback d-block">{{ emailError }}</div>
             </div>
 
             <div>
@@ -49,10 +51,12 @@
                   v-model="password"
                   type="password"
                   class="form-control ps-5"
+                  :class="{ 'is-invalid': shouldShowPasswordError }"
                   placeholder="••••••••"
                   required
                 />
               </div>
+              <div v-if="shouldShowPasswordError" class="invalid-feedback d-block">{{ passwordError }}</div>
             </div>
 
             <div class="text-end">
@@ -65,7 +69,7 @@
             <button
               type="submit"
               class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center gap-2"
-              :disabled="isLoading"
+              :disabled="!canSubmit"
             >
               <LogIn style="width:20px;height:20px" />
               {{ isLoading ? 'Connexion...' : 'Se connecter' }}
@@ -93,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { LogIn, User, Lock } from 'lucide-vue-next'
 import { persistAuthSession } from '@/utils/auth'
@@ -104,9 +108,38 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
+const hasSubmitted = ref(false)
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const emailError = computed(() => {
+  if (!email.value.trim()) return 'L\'email est requis.'
+  if (!emailPattern.test(email.value.trim())) return 'Format d\'email invalide.'
+  return ''
+})
+
+const passwordError = computed(() => {
+  if (!password.value.trim()) return 'Le mot de passe est requis.'
+  return ''
+})
+
+const shouldShowEmailError = computed(() => (hasSubmitted.value || !!email.value) && !!emailError.value)
+const shouldShowPasswordError = computed(() => (hasSubmitted.value || !!password.value) && !!passwordError.value)
+const canSubmit = computed(() => !isLoading.value && !emailError.value && !passwordError.value)
+
+watch([email, password], () => {
+  error.value = ''
+})
 
 const handleLogin = async () => {
+  hasSubmitted.value = true
   error.value = ''
+
+  if (emailError.value || passwordError.value) {
+    error.value = emailError.value || passwordError.value
+    return
+  }
+
   isLoading.value = true
 
   try {
