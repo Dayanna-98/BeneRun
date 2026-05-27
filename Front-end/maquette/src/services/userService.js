@@ -152,6 +152,10 @@ export const userService = {
       payload.password = userData.password
     }
 
+    if (userData.currentPassword) {
+      payload.current_password = userData.currentPassword
+    }
+
     return payload
   },
 
@@ -186,6 +190,15 @@ export const userService = {
       }
     } catch (error) {
       throw userService.formatApiError(error, 'Email ou mot de passe incorrect')
+    }
+  },
+
+  resendVerificationEmail: async (email) => {
+    try {
+      const response = await api.post('/email/verification-notification', { email })
+      return response.data
+    } catch (error) {
+      throw userService.formatApiError(error, 'Impossible de renvoyer l\'email de vérification')
     }
   },
 

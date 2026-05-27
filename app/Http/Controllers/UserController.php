@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -82,6 +83,53 @@ class UserController extends Controller
                 ->letters()
                 ->numbers(),
         ];
+    }
+
+    private function buildEmailVerificationFrontendUrl(string $status, string $message, ?string $email = null): string
+    {
+        $frontendBaseUrl = rtrim((string) (
+            env('FRONTEND_URL')
+            ?: config('app.url')
+        ), '/');
+
+        $query = [
+            'status' => $status,
+            'message' => $message,
+        ];
+
+        if (is_string($email) && $email !== '') {
+            $query['email'] = $email;
+        }
+
+        $defaultUrl = $frontendBaseUrl.'/email-verification?'.http_build_query($query);
+        $template = env('FRONTEND_EMAIL_VERIFICATION_URL_TEMPLATE');
+
+        if (! is_string($template) || trim($template) === '') {
+            return $defaultUrl;
+        }
+
+        return str_replace(
+            ['{status}', '{message}', '{email}'],
+            [urlencode($status), urlencode($message), urlencode((string) $email)],
+            $template
+        );
+    }
+
+    private function emailVerificationResponse(
+        Request $request,
+        string $status,
+        string $message,
+        int $httpStatus,
+        ?string $email = null
+    ) {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => $status,
+                'message' => $message,
+            ], $httpStatus);
+        }
+
+        return redirect()->away($this->buildEmailVerificationFrontendUrl($status, $message, $email));
     }
 
     public function competences($id)
@@ -253,6 +301,12 @@ class UserController extends Controller
             ], 401);
         }
 
+        if (! $user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Veuillez vérifier votre adresse email avant de vous connecter.',
+            ], 403);
+        }
+
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
@@ -380,9 +434,74 @@ class UserController extends Controller
 
         $user->save();
 
+        $user->sendEmailVerificationNotification();
+
         return response()->json([
-            'message' => 'User ajouté',
+            'message' => 'User ajouté. Un email de vérification a été envoyé.',
             'user' => $user,
+        ], 200);
+    }
+
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        $user = User::find($id);
+
+        if (! $user) {
+            return $this->emailVerificationResponse(
+                $request,
+                'error',
+                'Lien de vérification invalide.',
+                404
+            );
+        }
+
+        if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            return $this->emailVerificationResponse(
+                $request,
+                'error',
+                'Lien de vérification invalide.',
+                403,
+                $user->email
+            );
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return $this->emailVerificationResponse(
+                $request,
+                'already',
+                'Email déjà vérifié.',
+                200,
+                $user->email
+            );
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
+        }
+
+        return $this->emailVerificationResponse(
+            $request,
+            'success',
+            'Email vérifié avec succès.',
+            200,
+            $user->email
+        );
+    }
+
+    public function resendVerificationEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if ($user && ! $user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return response()->json([
+            'message' => 'Si un compte non vérifié existe pour cet email, un nouveau lien de vérification a été envoyé.',
         ], 200);
     }
 
@@ -398,6 +517,7 @@ class UserController extends Controller
                 Rule::unique('users', 'email')->ignore($id, 'id_utilisateur'),
             ],
             'password' => $this->passwordRules(false),
+            'current_password' => 'nullable|string',
             'role_utilisateur' => 'nullable|in:bénévole,responsable,admin,superadmin',
             'telephone_utilisateur' => 'nullable|string|max:255',
             'adresse_utilisateur' => 'nullable|string|max:255',
@@ -457,6 +577,40 @@ class UserController extends Controller
             ], 403);
         }
 
+        $wantsAnonymization = array_key_exists('est_anonyme_utilisateur', $validated)
+            && (bool) $validated['est_anonyme_utilisateur'] === true;
+
+        if ($wantsAnonymization && ! $this->isSuperAdminRequest($request)) {
+            return response()->json([
+                'message' => 'Action réservée aux super-admins',
+            ], 403);
+        }
+
+        $wantsPasswordChange = array_key_exists('password', $validated)
+            && ! empty($validated['password']);
+
+        $isSelfUpdate = (int) $actor->id_utilisateur === (int) $user->id_utilisateur;
+
+        if ($wantsPasswordChange && $isSelfUpdate) {
+            if (empty($validated['current_password'])) {
+                return response()->json([
+                    'message' => 'Le mot de passe actuel est requis pour modifier le mot de passe.',
+                    'errors' => [
+                        'current_password' => ['Le mot de passe actuel est requis pour modifier le mot de passe.'],
+                    ],
+                ], 422);
+            }
+
+            if (! Hash::check((string) $validated['current_password'], (string) $user->password)) {
+                return response()->json([
+                    'message' => 'Le mot de passe actuel est incorrect.',
+                    'errors' => [
+                        'current_password' => ['Le mot de passe actuel est incorrect.'],
+                    ],
+                ], 422);
+            }
+        }
+
         $nextRole = $validated['role_utilisateur'] ?? $user->role_utilisateur;
         $permissionsWereProvided = array_key_exists('permissions_utilisateur', $validated);
 
@@ -506,17 +660,31 @@ class UserController extends Controller
 
     public function destroy($id)
     {
-        if (User::where('id_utilisateur', $id)->exists()) {
-            $user = User::find($id);
-            $user->delete();
+        $actor = request()->user('sanctum');
 
+        if (! $actor instanceof User) {
             return response()->json([
-                'message' => 'User supprimé',
-            ], 200);
-        } else {
+                'message' => 'Non authentifié',
+            ], 401);
+        }
+
+        if ($this->normalizeRole($actor->role_utilisateur) !== 'superadmin') {
+            return response()->json([
+                'message' => 'Action réservée aux super-admins',
+            ], 403);
+        }
+
+        if (! User::where('id_utilisateur', $id)->exists()) {
             return response()->json([
                 'message' => 'User inexistant',
             ], 404);
         }
+
+        $user = User::find($id);
+        $user->delete();
+
+        return response()->json([
+            'message' => 'User supprimé',
+        ], 200);
     }
 }

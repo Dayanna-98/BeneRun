@@ -139,7 +139,6 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-vue-next'
 import userService from '@/services/userService'
-import { persistAuthSession } from '@/utils/auth'
 import { useToast } from '@/composables/useToast'
 import { PASSWORD_HINT, validatePasswordStrength } from '@/utils/passwordPolicy'
 
@@ -216,7 +215,7 @@ const handleRegister = async () => {
 
   isLoading.value = true
   try {
-    await userService.register({
+    const registerResponse = await userService.register({
       firstName: form.value.firstName,
       lastName: form.value.lastName,
       email: form.value.email,
@@ -224,18 +223,14 @@ const handleRegister = async () => {
       role: 'volunteer',
     })
 
-    // Authentification immédiate via l'API après création du compte.
-    const loginResponse = await userService.login(form.value.email, form.value.password)
-
-    if (loginResponse.user && loginResponse.token) {
-      persistAuthSession({ user: loginResponse.user, token: loginResponse.token })
-      toast.success('Compte créé avec succès.')
-      router.push('/welcome')
-      return
-    }
-
-    errorMessage.value = 'Compte créé, mais connexion automatique impossible. Veuillez vous connecter.'
-    router.push('/login')
+    toast.success(registerResponse?.message || 'Compte créé. Vérifie ton email pour activer ton compte.')
+    router.push({
+      path: '/email-verification',
+      query: {
+        status: 'pending',
+        email: form.value.email,
+      },
+    })
   } catch (error) {
     console.error('Erreur inscription:', error)
     errorMessage.value = error.message || 'Erreur lors de l\'inscription. Veuillez réessayer.'

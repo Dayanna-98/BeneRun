@@ -43,6 +43,15 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('email-verification', function (Request $request) {
+            $email = (string) $request->input('email', '');
+
+            return [
+                Limit::perMinute(8)->by($request->ip()),
+                Limit::perMinute(4)->by($email !== '' ? strtolower($email) : $request->ip()),
+            ];
+        });
+
         RateLimiter::for('maps-resolve', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });

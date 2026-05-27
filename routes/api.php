@@ -30,6 +30,11 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login', [UserController::class, 'login'])->middleware('throttle:auth-login');
+Route::get('/email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])
+    ->middleware(['signed', 'throttle:email-verification'])
+    ->name('verification.verify');
+Route::post('/email/verification-notification', [UserController::class, 'resendVerificationEmail'])
+    ->middleware('throttle:email-verification');
 
 // Réinitialisation de mot de passe (routes publiques)
 Route::post('/password-reset/request', [PasswordResetController::class, 'requestReset'])->middleware('throttle:password-reset');

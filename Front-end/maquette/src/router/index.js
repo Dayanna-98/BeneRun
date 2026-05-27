@@ -5,6 +5,7 @@ import { getCurrentUser, isRole } from '@/utils/auth'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import ResetPassword from '@/views/ResetPassword.vue'
+import EmailVerification from '@/views/EmailVerification.vue'
 import Welcome from '@/views/Welcome.vue'
 import Cgu from '@/views/Cgu.vue'
 
@@ -41,6 +42,7 @@ const routes = [
   { path: '/login', component: Login },
   { path: '/register', component: Register },
   { path: '/reset-password', component: ResetPassword },
+  { path: '/email-verification', component: EmailVerification },
   { path: '/cgu', component: Cgu },
   { path: '/welcome', component: Welcome, meta: { requiresAuth: true } },
 
