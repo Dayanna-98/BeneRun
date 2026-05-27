@@ -426,6 +426,7 @@ onBeforeUnmount(() => {
   position: fixed;
   top: calc(80px + env(safe-area-inset-top, 0px));
   left: 50%;
+  right: auto;
   transform: translateX(-50%);
   width: min(calc(100vw - 24px), 430px);
   max-height: calc(100dvh - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
