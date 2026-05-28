@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +26,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        VerifyEmail::toMailUsing(function ($notifiable, string $verificationUrl) {
+            return (new MailMessage)
+                ->subject('Vérifiez votre adresse email - Béné\'Run')
+                ->view('emails.verify-email', [
+                    'user' => $notifiable,
+                    'verificationUrl' => $verificationUrl,
+                ]);
+        });
 
         RateLimiter::for('auth-login', function (Request $request) {
             $email = (string) $request->input('email', '');
