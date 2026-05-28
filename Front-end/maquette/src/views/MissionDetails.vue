@@ -97,6 +97,7 @@
                 :current-user-id="currentUser?.id || ''"
                 :is-active-mission="isActiveMission"
                 :google-maps-url="mission.googleMapsUrl || mission.eventGoogleMapsUrl"
+                :participants="mission.volunteers || []"
               />
             </div>
           </div>
@@ -354,6 +355,16 @@ const formatUserName = (user) => {
   return `${user.prenom_utilisateur ?? ''} ${user.nom_utilisateur ?? ''}`.trim() || user.email
 }
 
+const toCoordinatePoint = (latitude, longitude) => {
+  const lat = Number(latitude)
+  const lng = Number(longitude)
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null
+
+  return { latitude: lat, longitude: lng }
+}
+
 const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCount) => ({
   id: String(rawMission.id_mission),
   eventId: String(rawMission.id_evenement || ''),
@@ -367,8 +378,12 @@ const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCoun
   googleMapsUrl: rawMission.google_maps_url_mission || '',
   eventGoogleMapsUrl: rawMission.evenement?.google_maps_url_evenement || '',
   eventRadiusMeters: Number(rawMission.evenement?.rayon_localisation_evenement || 0),
-  missionPoint: extractGoogleMapsCoordinates(rawMission.google_maps_url_mission),
-  eventCenter: extractGoogleMapsCoordinates(rawMission.evenement?.google_maps_url_evenement),
+  missionPoint:
+    extractGoogleMapsCoordinates(rawMission.google_maps_url_mission)
+    || toCoordinatePoint(rawMission.latitude_mission, rawMission.longitude_mission),
+  eventCenter:
+    extractGoogleMapsCoordinates(rawMission.evenement?.google_maps_url_evenement)
+    || toCoordinatePoint(rawMission.evenement?.latitude_evenement, rawMission.evenement?.longitude_evenement),
   status: rawMission.statut_mission || 'À venir',
   currentVolunteers: currentVolunteersCount,
   maxVolunteers: Number(rawMission.nombre_benevoles_max) || 0,

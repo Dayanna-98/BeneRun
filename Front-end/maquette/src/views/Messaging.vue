@@ -6,7 +6,12 @@
         <div class="d-flex align-items-center gap-3">
           <div>
             <div class="x-small" style="color:rgba(255,255,255,.55)">Communication</div>
-            <h1 class="fs-5 fw-semibold mb-0">Messagerie</h1>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <h1 class="fs-5 fw-semibold mb-0">Messagerie</h1>
+              <span v-if="totalUnreadCount > 0" class="badge rounded-pill text-bg-warning text-dark messaging-unread-badge">
+                {{ totalUnreadCount > 99 ? '99+' : totalUnreadCount }} non lue(s)
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -320,6 +325,10 @@ const formatRelativeTime = (dateValue) => {
 
 const selectedConversation = computed(() =>
   conversations.value.find((conversation) => conversation.id === selectedConversationId.value) || null
+)
+
+const totalUnreadCount = computed(() =>
+  conversations.value.reduce((sum, conversation) => sum + Number(conversation.unreadCount || 0), 0)
 )
 
 // Smart Message Grouping: Check if two messages should be grouped together

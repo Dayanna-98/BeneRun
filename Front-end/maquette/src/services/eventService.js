@@ -167,6 +167,34 @@ export const eventService = {
     }
   },
 
+  resolveMapsUrl: async (mapsUrl) => {
+    try {
+      const trimmedUrl = String(mapsUrl || '').trim()
+      if (!trimmedUrl) return null
+
+      const lowerUrl = trimmedUrl.toLowerCase()
+      const isShortGoogleMapsUrl = [
+        'maps.app.goo.gl',
+        'goo.gl/maps',
+        'g.co/kgs',
+      ].some((needle) => lowerUrl.includes(needle))
+
+      if (!isShortGoogleMapsUrl) {
+        return trimmedUrl
+      }
+
+      const response = await api.post('/maps/resolve', { url: trimmedUrl })
+      return response.data?.resolved_url || trimmedUrl
+    } catch (error) {
+      // Resolution is best effort only; keep the original URL on failure.
+      if (!error?.response || error.response.status >= 500) {
+        console.warn('Failed to resolve event maps URL, keeping original:', error.message)
+      }
+
+      return mapsUrl
+    }
+  },
+
   formatApiError: (error, fallbackMessage) => {
     if (error?.message && !error?.response) {
       return { message: error.message }

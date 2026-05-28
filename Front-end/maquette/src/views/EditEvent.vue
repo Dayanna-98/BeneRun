@@ -301,4 +301,18 @@ onMounted(loadEvent)
 watch(formData, () => {
   if (Object.keys(fieldErrors.value).length > 0) validateForm()
 }, { deep: true })
+
+watch(() => formData.googleMapsUrl, async (newUrl) => {
+  const trimmed = String(newUrl || '').trim()
+  if (!trimmed) return
+
+  try {
+    const resolved = await eventService.resolveMapsUrl(trimmed)
+    if (resolved && resolved !== trimmed) {
+      formData.googleMapsUrl = resolved
+    }
+  } catch (error) {
+    console.warn('Failed to resolve maps URL:', error.message)
+  }
+})
 </script>

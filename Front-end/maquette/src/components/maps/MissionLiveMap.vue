@@ -101,6 +101,7 @@ const props = defineProps({
   currentUserId:   { type: [String, Number], default: '' },
   isActiveMission: { type: Boolean, default: false },
   googleMapsUrl:   { type: String, default: '' },
+  participants:    { type: Array, default: () => [] },
 })
 
 const mapEl = ref(null)
@@ -115,12 +116,44 @@ let lastPush = 0
 const participantMarkers = new Map()
 
 const center = computed(() => props.missionPoint || props.eventCenter)
-const hasCoords = computed(() => !!center.value)
+const firstParticipantCenter = computed(() => {
+  if (!visibleParticipants.value.length) return null
+
+  const latitude = Number(visibleParticipants.value[0]?.latitude)
+  const longitude = Number(visibleParticipants.value[0]?.longitude)
+
+  if (Number.isNaN(latitude) || Number.isNaN(longitude)) return null
+
+  return { latitude, longitude }
+})
+const normalizedParticipantFallback = computed(() => {
+  if (!Array.isArray(props.participants)) return []
+
+  return props.participants
+    .map((participant) => {
+      const latitude = Number(participant?.latitude)
+      const longitude = Number(participant?.longitude)
+
+      if (Number.isNaN(latitude) || Number.isNaN(longitude)) return null
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null
+
+      return {
+        id_utilisateur: participant?.id,
+        name: participant?.name || 'Participant',
+        latitude,
+        longitude,
+        updated_at: participant?.updatedAt || null,
+      }
+    })
+    .filter(Boolean)
+})
+const effectiveCenter = computed(() => center.value || firstParticipantCenter.value)
+const hasCoords = computed(() => !!effectiveCenter.value)
 const fallbackEmbedUrl = computed(() => buildGoogleMapsEmbedUrl(props.googleMapsUrl))
 
 const externalLink = computed(() => {
   if (props.googleMapsUrl) return props.googleMapsUrl
-  if (center.value) return `https://www.google.com/maps?q=${center.value.latitude},${center.value.longitude}`
+  if (effectiveCenter.value) return `https://www.google.com/maps?q=${effectiveCenter.value.latitude},${effectiveCenter.value.longitude}`
   return null
 })
 
@@ -159,13 +192,13 @@ const createMissionIcon = () => {
 }
 
 const initMap = async () => {
-  if (!mapEl.value || !center.value) return
+  if (!mapEl.value || !effectiveCenter.value) return
 
   const leaflet = await import('leaflet')
   L = leaflet.default ?? leaflet
 
   leafletMap = L.map(mapEl.value, {
-    center: [center.value.latitude, center.value.longitude],
+    center: [effectiveCenter.value.latitude, effectiveCenter.value.longitude],
     zoom: 15,
     zoomControl: true,
   })
@@ -190,20 +223,51 @@ const initMap = async () => {
     ).addTo(leafletMap).bindPopup('<strong>Point de mission</strong>', { closeButton: false })
   }
 
-  if (props.isActiveMission && props.missionId) {
-    await fetchPositions()
-    pollInterval = setInterval(fetchPositions, 15000)
-  }
 }
 
 const fetchPositions = async () => {
-  if (!props.missionId) return
+  const fallbackByUser = new Map(
+    normalizedParticipantFallback.value.map((participant) => [
+      String(participant.id_utilisateur),
+      participant,
+    ])
+  )
+
+  if (!props.missionId) {
+    visibleParticipants.value = Array.from(fallbackByUser.values())
+
+    if (!leafletMap && mapEl.value && effectiveCenter.value) {
+      await initMap()
+    }
+
+    syncMarkers(visibleParticipants.value)
+    return
+  }
+
   try {
     const res = await api.get(`/missions/${props.missionId}/positions`)
     const positions = Array.isArray(res.data) ? res.data : []
-    visibleParticipants.value = positions
-    syncMarkers(positions)
-  } catch { /* silencieux */ }
+
+    for (const position of positions) {
+      fallbackByUser.set(String(position.id_utilisateur), position)
+    }
+
+    visibleParticipants.value = Array.from(fallbackByUser.values())
+
+    if (!leafletMap && mapEl.value && effectiveCenter.value) {
+      await initMap()
+    }
+
+    syncMarkers(visibleParticipants.value)
+  } catch {
+    visibleParticipants.value = Array.from(fallbackByUser.values())
+
+    if (!leafletMap && mapEl.value && effectiveCenter.value) {
+      await initMap()
+    }
+
+    syncMarkers(visibleParticipants.value)
+  }
 }
 
 const syncMarkers = (positions) => {
@@ -258,7 +322,16 @@ const pushPosition = async (lat, lng) => {
   } catch { /* silencieux */ }
 }
 
-onMounted(() => { if (hasCoords.value) initMap() })
+onMounted(async () => {
+  if (props.isActiveMission && props.missionId) {
+    await fetchPositions()
+    pollInterval = setInterval(fetchPositions, 15000)
+  }
+
+  if (!leafletMap && hasCoords.value) {
+    await initMap()
+  }
+})
 
 onUnmounted(() => {
   stopGps()

@@ -11,6 +11,12 @@
         <div class="nav-btn__icon-wrap">
           <div v-if="isActive(item.path)" class="nav-btn__pill" />
           <component :is="item.icon" class="nav-btn__icon" />
+          <span
+            v-if="item.path === '/messagerie' && unreadMessagingCount > 0"
+            class="nav-btn__badge"
+            aria-hidden="true">
+            {{ unreadMessagingCount > 99 ? '99+' : unreadMessagingCount }}
+          </span>
         </div>
         <span class="nav-btn__label">{{ item.label }}</span>
       </button>
@@ -22,11 +28,16 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Home, Calendar, Briefcase, MessageCircle, ListCheck } from 'lucide-vue-next'
+import chatApiService from '@/services/chatApiService'
 
 const router = useRouter()
 const route  = useRoute()
 const hideForOverlay = ref(false)
+const unreadMessagingCount = ref(0)
 let observer = null
+let unreadPollHandle = null
+
+const UNREAD_POLL_MS = 30000
 
 const navItems = [
   { path: '/',           icon: Home,         label: 'Accueil'    },
@@ -45,6 +56,18 @@ const isActive = (path) => {
   return route.path === path || route.path.startsWith(`${path}/`)
 }
 
+const refreshUnreadMessagingCount = async () => {
+  try {
+    const conversations = await chatApiService.listConversations()
+    unreadMessagingCount.value = conversations.reduce(
+      (sum, conversation) => sum + Number(conversation?.unreadCount || 0),
+      0,
+    )
+  } catch {
+    // Keep previous value on transient API errors.
+  }
+}
+
 function refreshOverlayState() {
   // Hide bottom nav while any modal/backdrop overlay is visible.
   hideForOverlay.value = !!document.querySelector(
@@ -54,6 +77,11 @@ function refreshOverlayState() {
 
 onMounted(() => {
   refreshOverlayState()
+  refreshUnreadMessagingCount()
+
+  unreadPollHandle = window.setInterval(() => {
+    refreshUnreadMessagingCount()
+  }, UNREAD_POLL_MS)
 
   observer = new MutationObserver(() => {
     refreshOverlayState()
@@ -71,6 +99,11 @@ onBeforeUnmount(() => {
   if (observer) {
     observer.disconnect()
     observer = null
+  }
+
+  if (unreadPollHandle) {
+    window.clearInterval(unreadPollHandle)
+    unreadPollHandle = null
   }
 })
 </script>
@@ -142,6 +175,26 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 42px;
   height: 30px;
+}
+
+.nav-btn__badge {
+  position: absolute;
+  top: -6px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.61rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35);
+  z-index: 2;
 }
 
 .nav-btn__pill {

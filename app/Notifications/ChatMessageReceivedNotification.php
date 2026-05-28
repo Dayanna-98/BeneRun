@@ -26,6 +26,10 @@ class ChatMessageReceivedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
+            ->from(
+                (string) config('mail.from.address', 'noreply.benerun@gmail.com'),
+                (string) config('mail.from.name', config('app.name', 'Béné\'Run')),
+            )
             ->subject('Nouveau message de '.$this->senderName.' - Béné\'Run')
             ->view('emails.chat-message-received', [
                 'recipient' => $notifiable,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Affectation;
+use App\Models\Mission;
 use App\Models\MissionPosition;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,10 @@ class MissionPositionController extends Controller
      */
     public function index($missionId)
     {
+        if (! $this->isMissionInProgress((int) $missionId)) {
+            return response()->json(['message' => 'La mission n\'est pas en cours.'], 403);
+        }
+
         $user = request()->user();
         if (! $user || ! $this->isActiveParticipantForMission((int) $user->id_utilisateur, (int) $missionId)) {
             return response()->json(['message' => 'Accès refusé à cette mission.'], 403);
@@ -47,6 +52,10 @@ class MissionPositionController extends Controller
      */
     public function store(Request $request, $missionId)
     {
+        if (! $this->isMissionInProgress((int) $missionId)) {
+            return response()->json(['message' => 'La mission n\'est pas en cours.'], 403);
+        }
+
         $user = $request->user();
         if (! $user || ! $this->isActiveParticipantForMission((int) $user->id_utilisateur, (int) $missionId)) {
             return response()->json(['message' => 'Accès refusé à cette mission.'], 403);
@@ -78,6 +87,14 @@ class MissionPositionController extends Controller
             ->where('id_mission', $missionId)
             ->where('id_utilisateur', $userId)
             ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
+            ->exists();
+    }
+
+    private function isMissionInProgress(int $missionId): bool
+    {
+        return Mission::query()
+            ->where('id_mission', $missionId)
+            ->where('statut_mission', 'En cours')
             ->exists();
     }
 }
