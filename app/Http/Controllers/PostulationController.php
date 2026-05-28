@@ -16,9 +16,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class PostulationController extends Controller
 {
-    public function __construct(private readonly MissionConversationService $missionConversationService)
-    {
-    }
+    public function __construct(private readonly MissionConversationService $missionConversationService) {}
 
     private function normalizeRole(?string $role): string
     {

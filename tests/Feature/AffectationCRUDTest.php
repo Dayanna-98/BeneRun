@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Affectation;
+use App\Models\ChatConversation;
 use App\Models\Mission;
 use App\Models\Postulation;
 use App\Models\User;
@@ -257,7 +258,7 @@ class AffectationCRUDTest extends TestCase
             'id_mission' => $this->mission->id_mission,
         ]);
 
-        $conversationId = (int) \App\Models\ChatConversation::query()
+        $conversationId = (int) ChatConversation::query()
             ->where('type_conversation', 'group')
             ->where('id_mission', $this->mission->id_mission)
             ->value('id_chat_conversation');
