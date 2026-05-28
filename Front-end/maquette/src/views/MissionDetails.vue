@@ -98,6 +98,7 @@
                 :is-active-mission="isActiveMission"
                 :google-maps-url="mission.googleMapsUrl || mission.eventGoogleMapsUrl"
                 :participants="mission.volunteers || []"
+                :live-location-sharing-enabled="!!currentUser?.liveLocationSharingEnabled"
               />
             </div>
           </div>
@@ -501,9 +502,11 @@ const loadMissionDetails = async () => {
   }
 }
 
+const normalizeMissionStatus = (status) => String(status || '').trim().toLowerCase()
+
 const isActiveMission = computed(() =>
   !!mission.value
-  && mission.value.status === 'En cours'
+  && normalizeMissionStatus(mission.value.status) === 'en cours'
   && !!mission.value.isParticipant
 )
 

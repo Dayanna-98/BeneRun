@@ -244,6 +244,32 @@ class AffectationCRUDTest extends TestCase
         ]);
     }
 
+    public function test_create_affectation_auto_creates_mission_group_and_adds_participant()
+    {
+        $this->postJson('/api/affectations', [
+            'id_mission' => $this->mission->id_mission,
+            'id_utilisateur' => $this->user->id_utilisateur,
+            'statut_affectation' => 'assigne',
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('chat_conversations', [
+            'type_conversation' => 'group',
+            'id_mission' => $this->mission->id_mission,
+        ]);
+
+        $conversationId = (int) \App\Models\ChatConversation::query()
+            ->where('type_conversation', 'group')
+            ->where('id_mission', $this->mission->id_mission)
+            ->value('id_chat_conversation');
+
+        $this->assertGreaterThan(0, $conversationId);
+
+        $this->assertDatabaseHas('chat_conversation_participants', [
+            'id_chat_conversation' => $conversationId,
+            'id_utilisateur' => $this->user->id_utilisateur,
+        ]);
+    }
+
     // UPDATE TESTS
     public function test_update_nonexistent_affectation_returns_404()
     {

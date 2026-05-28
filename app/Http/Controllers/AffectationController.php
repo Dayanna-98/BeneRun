@@ -6,6 +6,7 @@ use App\Models\Affectation;
 use App\Models\Mission;
 use App\Models\Postulation;
 use App\Models\User;
+use App\Services\MissionConversationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,10 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AffectationController extends Controller
 {
+    public function __construct(private readonly MissionConversationService $missionConversationService)
+    {
+    }
+
     private function normalizeRole(?string $role): string
     {
         return str_replace(['-', '_', ' '], '', strtolower((string) $role));
@@ -88,6 +93,11 @@ class AffectationController extends Controller
         return $validated;
     }
 
+    private function shouldSyncMissionConversation(?string $status): bool
+    {
+        return in_array((string) $status, ['assigne', 'confirme', 'present'], true);
+    }
+
     public function index()// Récupérer toutes les affectations
     {
         $affectations = Affectation::with([
@@ -142,6 +152,13 @@ class AffectationController extends Controller
             return $affectation;
         });
 
+        if ($this->shouldSyncMissionConversation($affectation->statut_affectation)) {
+            $this->missionConversationService->syncAssignedParticipants(
+                (int) $affectation->id_mission,
+                (int) $affectation->id_utilisateur
+            );
+        }
+
         return response()->json([
             'message' => 'Affectation ajoutée',
             'affectation' => $affectation,
@@ -179,6 +196,13 @@ class AffectationController extends Controller
             });
 
             $affectation->refresh();
+
+            if ($this->shouldSyncMissionConversation($affectation->statut_affectation)) {
+                $this->missionConversationService->syncAssignedParticipants(
+                    (int) $affectation->id_mission,
+                    (int) $affectation->id_utilisateur
+                );
+            }
 
             return response()->json([
                 'message' => 'Affectation mise à jour',
@@ -315,6 +339,11 @@ class AffectationController extends Controller
                 ]
             );
         });
+
+        $this->missionConversationService->syncAssignedParticipants(
+            (int) $mission->id_mission,
+            (int) $incomingPostulation->id_utilisateur
+        );
 
         return response()->json([
             'message' => 'Remplacement effectué avec succès.',

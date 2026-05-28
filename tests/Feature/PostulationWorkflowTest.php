@@ -42,6 +42,23 @@ class PostulationWorkflowTest extends TestCase
             'id_utilisateur' => $user->id_utilisateur,
             'statut_affectation' => 'assigne',
         ]);
+
+        $this->assertDatabaseHas('chat_conversations', [
+            'type_conversation' => 'group',
+            'id_mission' => $mission->id_mission,
+        ]);
+
+        $conversationId = (int) \App\Models\ChatConversation::query()
+            ->where('type_conversation', 'group')
+            ->where('id_mission', $mission->id_mission)
+            ->value('id_chat_conversation');
+
+        $this->assertGreaterThan(0, $conversationId);
+
+        $this->assertDatabaseHas('chat_conversation_participants', [
+            'id_chat_conversation' => $conversationId,
+            'id_utilisateur' => $user->id_utilisateur,
+        ]);
     }
 
     public function test_duplicate_mission_application_returns_conflict(): void

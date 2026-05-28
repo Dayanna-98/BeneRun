@@ -88,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import 'leaflet/dist/leaflet.css'
 import api from '@/services/api'
 import { buildGoogleMapsEmbedUrl } from '@/utils/googleMaps'
@@ -102,6 +102,7 @@ const props = defineProps({
   isActiveMission: { type: Boolean, default: false },
   googleMapsUrl:   { type: String, default: '' },
   participants:    { type: Array, default: () => [] },
+  liveLocationSharingEnabled: { type: Boolean, default: false },
 })
 
 const mapEl = ref(null)
@@ -336,6 +337,7 @@ const toggleGps = () => { if (gpsActive.value) stopGps(); else startGps() }
 
 const startGps = () => {
   if (!navigator.geolocation) return
+  if (watchId !== null) return
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
       // Reflect the user's exact GPS point immediately on the map.
@@ -353,6 +355,31 @@ const stopGps = () => {
   gpsActive.value = false
 }
 
+const ensurePollingState = async () => {
+  if (props.isActiveMission && props.missionId) {
+    await fetchPositions()
+
+    if (!pollInterval) {
+      pollInterval = setInterval(fetchPositions, 15000)
+    }
+
+    if (props.liveLocationSharingEnabled && props.currentUserId && !gpsActive.value) {
+      startGps()
+    }
+
+    return
+  }
+
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+
+  if (gpsActive.value) {
+    stopGps()
+  }
+}
+
 const pushPosition = async (lat, lng) => {
   const now = Date.now()
   if (now - lastPush < 10000) return
@@ -367,19 +394,57 @@ const pushPosition = async (lat, lng) => {
 }
 
 onMounted(async () => {
-  if (props.isActiveMission && props.missionId) {
-    await fetchPositions()
-    pollInterval = setInterval(fetchPositions, 15000)
-  }
+  await ensurePollingState()
 
   if (!leafletMap && hasCoords.value) {
     await initMap()
   }
 })
 
+watch(
+  () => [props.isActiveMission, props.missionId],
+  async () => {
+    await ensurePollingState()
+  }
+)
+
+watch(
+  () => props.liveLocationSharingEnabled,
+  (enabled) => {
+    if (!props.isActiveMission || !props.missionId || !props.currentUserId) return
+
+    if (enabled) {
+      startGps()
+      return
+    }
+
+    stopGps()
+  }
+)
+
+watch(
+  () => props.participants,
+  async () => {
+    if (props.isActiveMission && props.missionId) {
+      await fetchPositions()
+      return
+    }
+
+    visibleParticipants.value = normalizedParticipantFallback.value
+    if (!leafletMap && mapEl.value && effectiveCenter.value) {
+      await initMap()
+    }
+    syncMarkers(visibleParticipants.value)
+  },
+  { deep: true }
+)
+
 onUnmounted(() => {
   stopGps()
-  if (pollInterval) clearInterval(pollInterval)
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
   if (leafletMap) { leafletMap.remove(); leafletMap = null }
 })
 </script>

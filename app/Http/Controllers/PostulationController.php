@@ -7,6 +7,7 @@ use App\Models\Evenement;
 use App\Models\Mission;
 use App\Models\Postulation;
 use App\Models\User;
+use App\Services\MissionConversationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class PostulationController extends Controller
 {
+    public function __construct(private readonly MissionConversationService $missionConversationService)
+    {
+    }
+
     private function normalizeRole(?string $role): string
     {
         return str_replace(['-', '_', ' '], '', strtolower((string) $role));
@@ -420,6 +425,11 @@ class PostulationController extends Controller
                     'est_responsable' => false,
                     'date_affectation' => now(),
                 ]
+            );
+
+            $this->missionConversationService->syncAssignedParticipants(
+                (int) $postulation->id_mission,
+                (int) $postulation->id_utilisateur
             );
         }
 
