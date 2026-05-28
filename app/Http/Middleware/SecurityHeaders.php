@@ -41,8 +41,8 @@ class SecurityHeaders
                     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; ".
                     "style-src 'self' 'unsafe-inline' https://fonts.bunny.net; ".
                     "font-src 'self' https://fonts.bunny.net; ".
-                    "img-src 'self' data:; ".
-                    "connect-src 'self';"
+                    "img-src 'self' data: https:; ".
+                    'connect-src '.self::buildConnectSrc().'; '
                 );
             }
         }
@@ -55,5 +55,31 @@ class SecurityHeaders
         }
 
         return $response;
+    }
+
+    /**
+     * Construit la valeur de connect-src en incluant automatiquement
+     * l'URL WebSocket de Reverb si elle est configurée et différente de l'origine.
+     */
+    private static function buildConnectSrc(): string
+    {
+        $sources = ["'self'"];
+
+        $reverbHost = config('broadcasting.connections.reverb.options.host');
+        $reverbPort = (int) config('broadcasting.connections.reverb.options.port', 443);
+        $reverbScheme = config('broadcasting.connections.reverb.options.scheme', 'https');
+
+        if ($reverbHost) {
+            $wsScheme = $reverbScheme === 'https' ? 'wss' : 'ws';
+            $defaultPort = $reverbScheme === 'https' ? 443 : 80;
+            $portSuffix = ($reverbPort !== $defaultPort) ? ":$reverbPort" : '';
+            $wsUrl = "$wsScheme://$reverbHost$portSuffix";
+
+            if (! in_array($wsUrl, $sources, true)) {
+                $sources[] = $wsUrl;
+            }
+        }
+
+        return implode(' ', $sources);
     }
 }
