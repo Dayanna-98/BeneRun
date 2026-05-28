@@ -155,6 +155,12 @@ class MissionController extends Controller
                 (int) $request->id_evenement,
                 $request->google_maps_url_mission
             );
+            $this->validateDuplicateMissionTitle(
+                $validator,
+                (int) $request->id_evenement,
+                $request->titre_mission,
+                $request->date_mission
+            );
         });
 
         $validated = $validator->validate();
@@ -237,6 +243,13 @@ class MissionController extends Controller
                 $validator,
                 $eventId,
                 $request->google_maps_url_mission ?? $mission->google_maps_url_mission
+            );
+            $this->validateDuplicateMissionTitle(
+                $validator,
+                $eventId,
+                $request->titre_mission ?? $mission->titre_mission,
+                $dateMission,
+                (int) $mission->id_mission
             );
         });
 
@@ -321,6 +334,30 @@ class MissionController extends Controller
                 'responsable:id_utilisateur,nom_utilisateur,prenom_utilisateur,email,telephone_utilisateur',
             ]),
         ]);
+    }
+
+    private function validateDuplicateMissionTitle($validator, int $eventId, ?string $titre, $dateMission, ?int $excludeMissionId = null): void
+    {
+        if (empty($eventId) || empty($titre) || empty($dateMission)) {
+            return;
+        }
+
+        $date = date('Y-m-d', strtotime((string) $dateMission));
+
+        $exists = Mission::where('id_evenement', $eventId)
+            ->where('titre_mission', $titre)
+            ->whereDate('date_mission', $date)
+            ->when($excludeMissionId !== null, function ($query) use ($excludeMissionId) {
+                $query->where('id_mission', '!=', $excludeMissionId);
+            })
+            ->exists();
+
+        if ($exists) {
+            $validator->errors()->add(
+                'titre_mission',
+                'Une mission avec ce titre existe déjà pour cet événement à cette date.'
+            );
+        }
     }
 
     private function validateMissionDateInsideEvent($validator, int $eventId, $dateMission): void
