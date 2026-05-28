@@ -9,8 +9,10 @@ use App\Models\ChatConversationParticipant;
 use App\Models\ChatMessage;
 use App\Models\ChatMessageRead;
 use App\Models\User;
+use App\Notifications\ChatMessageReceivedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class ChatMessageController extends Controller
@@ -72,6 +74,52 @@ class ChatMessageController extends Controller
                 ->map(fn ($value) => (string) $value)
                 ->values(),
         ];
+    }
+
+    private function buildMessagingFrontendUrl(): string
+    {
+        $frontendBaseUrl = rtrim((string) (env('FRONTEND_URL') ?: config('app.url')), '/');
+
+        return $frontendBaseUrl.'/messagerie';
+    }
+
+    private function notifyMessageRecipients(ChatConversation $conversation, ChatMessage $message, User $sender): void
+    {
+        $recipients = ChatConversationParticipant::query()
+            ->where('id_chat_conversation', (int) $conversation->id_chat_conversation)
+            ->where('id_utilisateur', '!=', (int) $sender->id_utilisateur)
+            ->with('utilisateur:id_utilisateur,prenom_utilisateur,nom_utilisateur,email,permissions_utilisateur')
+            ->get()
+            ->pluck('utilisateur')
+            ->filter(fn (?User $user) => $user instanceof User
+                && filled($user->email)
+                && $user->hasPermission('messaging'));
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        $senderName = trim(($sender->prenom_utilisateur ?? '').' '.($sender->nom_utilisateur ?? '')) ?: 'Un participant';
+        $conversationName = trim((string) ($conversation->titre_conversation ?? '')) ?: null;
+        $actionUrl = $this->buildMessagingFrontendUrl();
+
+        foreach ($recipients as $recipient) {
+            try {
+                $recipient->notify(new ChatMessageReceivedNotification(
+                    senderName: $senderName,
+                    messagePreview: (string) $message->contenu_message,
+                    actionUrl: $actionUrl,
+                    conversationName: $conversationName,
+                ));
+            } catch (\Throwable $exception) {
+                Log::warning('Chat message email notification failed', [
+                    'conversation_id' => $conversation->id_chat_conversation,
+                    'message_id' => $message->id_chat_message,
+                    'recipient_user_id' => $recipient->id_utilisateur,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
     }
 
     public function index(Request $request, $conversationId)
@@ -160,6 +208,7 @@ class ChatMessageController extends Controller
 
         broadcast(new ChatMessageSent($message));
         broadcast(new ChatConversationChanged($conversation));
+        $this->notifyMessageRecipients($conversation, $message, $actor);
 
         return response()->json([
             'message' => 'Message envoye.',

@@ -111,4 +111,21 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(MissionUserReward::class, 'id_utilisateur', 'id_utilisateur');
     }
+
+    public function permissionList(): array
+    {
+        if (! is_string($this->permissions_utilisateur) || trim($this->permissions_utilisateur) === '') {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (string $permission): string => trim($permission),
+            explode(',', $this->permissions_utilisateur)
+        ))));
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return in_array(trim($permission), $this->permissionList(), true);
+    }
 }

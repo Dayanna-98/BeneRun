@@ -1,6 +1,19 @@
 import axios from 'axios'
 
-const defaultApiBaseUrl = `${window.location.protocol}//${window.location.hostname}:8000/api`
+const isLocalHost = (hostname) => ['localhost', '127.0.0.1', '[::1]'].includes(hostname)
+
+const resolveDefaultApiBaseUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:8000/api'
+
+  const { protocol, hostname, origin } = window.location
+  if (isLocalHost(hostname)) {
+    return `${protocol}//${hostname}:8000/api`
+  }
+
+  return `${origin}/api`
+}
+
+const defaultApiBaseUrl = resolveDefaultApiBaseUrl()
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl
 const loginUrl = `${import.meta.env.BASE_URL}login`
 

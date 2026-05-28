@@ -4,12 +4,57 @@ namespace Tests\Feature;
 
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Notifications\ChatMessageReceivedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class ChatMessagingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_message_send_emails_other_participant_when_messaging_notifications_are_enabled(): void
+    {
+        Notification::fake();
+
+        $userA = User::factory()->create();
+        $userB = User::factory()->create([
+            'permissions_utilisateur' => 'messaging,favoriteMission',
+        ]);
+
+        $conversationId = $this->createDirectConversation($userA, $userB);
+
+        $this->actingAs($userA, 'sanctum')
+            ->postJson("/api/conversations/{$conversationId}/messages", [
+                'text' => 'Salut, peux-tu vérifier la mission ?',
+                'type' => 'text',
+            ])
+            ->assertStatus(201);
+
+        Notification::assertSentTo($userB, ChatMessageReceivedNotification::class);
+        Notification::assertNotSentTo($userA, ChatMessageReceivedNotification::class);
+    }
+
+    public function test_message_send_does_not_email_participant_when_messaging_notifications_are_disabled(): void
+    {
+        Notification::fake();
+
+        $userA = User::factory()->create();
+        $userB = User::factory()->create([
+            'permissions_utilisateur' => 'favoriteMission',
+        ]);
+
+        $conversationId = $this->createDirectConversation($userA, $userB);
+
+        $this->actingAs($userA, 'sanctum')
+            ->postJson("/api/conversations/{$conversationId}/messages", [
+                'text' => 'Salut, est-ce que tu es disponible ?',
+                'type' => 'text',
+            ])
+            ->assertStatus(201);
+
+        Notification::assertNotSentTo($userB, ChatMessageReceivedNotification::class);
+    }
 
     public function test_unauthenticated_user_cannot_list_conversations(): void
     {
