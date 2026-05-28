@@ -16,8 +16,7 @@ class ChatMessageReceivedNotification extends Notification
         private readonly string $messagePreview,
         private readonly string $actionUrl,
         private readonly ?string $conversationName = null,
-    ) {
-    }
+    ) {}
 
     public function via(object $notifiable): array
     {
