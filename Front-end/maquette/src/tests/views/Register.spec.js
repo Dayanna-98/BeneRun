@@ -55,7 +55,7 @@ describe('Register.vue', () => {
     expect(wrapper.find('button[type="submit"]').attributes('disabled')).toBeDefined()
   })
 
-  it('crée un compte puis redirige vers la vérification email', async () => {
+  it('crée un compte puis redirige vers la connexion', async () => {
     userService.register.mockResolvedValue({
       message: 'User ajouté. Un email de vérification a été envoyé.',
     })
@@ -79,12 +79,6 @@ describe('Register.vue', () => {
       password: 'password123',
       role: 'volunteer',
     })
-    expect(pushMock).toHaveBeenCalledWith({
-      path: '/email-verification',
-      query: {
-        status: 'pending',
-        email: 'marie@example.com',
-      },
-    })
+    expect(pushMock).toHaveBeenCalledWith('/login')
   })
 })
