@@ -302,14 +302,6 @@ class UserController extends Controller
             ], 401);
         }
 
-        if (! $user->hasVerifiedEmail()) {
-            return response()->json([
-                'status' => 'email_not_verified',
-                'message' => 'Veuillez vérifier votre adresse email avant de vous connecter.',
-                'email' => $user->email,
-            ], 403);
-        }
-
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
@@ -447,12 +439,13 @@ class UserController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Utilisateur créé, mais impossible d\'envoyer l\'email de vérification pour le moment. Vérifiez la configuration Gmail SMTP.',
-            ], 500);
+                'message' => 'User ajouté. Compte actif immédiatement, mais impossible d\'envoyer l\'email de vérification pour le moment. Sans vérification email, la réinitialisation du mot de passe oublié ne sera pas possible.',
+                'user' => $user,
+            ], 200);
         }
 
         return response()->json([
-            'message' => 'User ajouté. Un email de vérification a été envoyé.',
+            'message' => 'User ajouté. Compte actif immédiatement. Vérifiez votre email: cette vérification sera requise si vous oubliez votre mot de passe.',
             'user' => $user,
         ], 200);
     }

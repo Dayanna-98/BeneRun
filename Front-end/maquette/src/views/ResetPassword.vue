@@ -27,6 +27,9 @@
               <p class="small text-muted text-center mb-0">
                 Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
               </p>
+              <div class="alert alert-warning small mb-0 py-2" role="alert">
+                La vérification de votre email est requise pour la réinitialisation du mot de passe oublié.
+              </div>
 
               <div>
                 <label class="form-label small fw-medium">Email *</label>

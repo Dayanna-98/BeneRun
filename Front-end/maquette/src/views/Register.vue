@@ -21,6 +21,10 @@
         <div class="card-body">
           <form @submit.prevent="handleRegister" class="d-flex flex-column gap-3">
             <p class="x-small text-muted mb-0">Les champs marqués * sont obligatoires.</p>
+            <div class="alert alert-info small mb-0 py-2" role="alert">
+              Votre compte sera créé immédiatement, même sans vérification email.
+              Important: la vérification email sera nécessaire uniquement si vous oubliez votre mot de passe et devez le réinitialiser.
+            </div>
 
             <!-- Prénom / Nom -->
             <div class="row g-3">
@@ -223,14 +227,8 @@ const handleRegister = async () => {
       role: 'volunteer',
     })
 
-    toast.success(registerResponse?.message || 'Compte créé. Vérifie ton email pour activer ton compte.')
-    router.push({
-      path: '/email-verification',
-      query: {
-        status: 'pending',
-        email: form.value.email,
-      },
-    })
+    toast.success(registerResponse?.message || 'Compte créé. Pense à vérifier ton email: ce sera nécessaire uniquement en cas de mot de passe oublié.')
+    router.push('/login')
   } catch (error) {
     console.error('Erreur inscription:', error)
     errorMessage.value = error.message || 'Erreur lors de l\'inscription. Veuillez réessayer.'

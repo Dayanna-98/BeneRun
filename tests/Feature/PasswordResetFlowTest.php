@@ -45,6 +45,22 @@ class PasswordResetFlowTest extends TestCase
         $this->assertNotNull($record->created_at);
     }
 
+    public function test_request_reset_rejects_unverified_email_with_explicit_message(): void
+    {
+        $user = User::factory()->unverified()->create(['email' => 'not-verified-reset@example.com']);
+
+        $this->postJson('/api/password-reset/request', [
+            'email' => $user->email,
+        ])
+            ->assertStatus(403)
+            ->assertJsonPath('status', 'email_not_verified_for_password_reset')
+            ->assertJsonPath('message', 'Vous devez vérifier votre adresse email avant de pouvoir réinitialiser votre mot de passe oublié.');
+
+        $this->assertDatabaseMissing('password_resets', [
+            'email' => $user->email,
+        ]);
+    }
+
     public function test_request_reset_returns_generic_success_when_mail_send_fails(): void
     {
         $user = User::factory()->create(['email' => 'smtp-fail@example.com']);

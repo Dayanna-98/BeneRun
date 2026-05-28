@@ -45,7 +45,7 @@ class UserAuthFlowTest extends TestCase
             ->assertJsonPath('message', 'Email ou mot de passe incorrect');
     }
 
-    public function test_login_rejects_unverified_email_even_with_valid_credentials(): void
+    public function test_login_accepts_unverified_email_with_valid_credentials(): void
     {
         $user = User::factory()->unverified()->create([
             'email' => 'not-verified@example.com',
@@ -56,10 +56,9 @@ class UserAuthFlowTest extends TestCase
             'email' => $user->email,
             'password' => 'secret-password',
         ])
-            ->assertStatus(403)
-            ->assertJsonPath('status', 'email_not_verified')
-            ->assertJsonPath('email', $user->email)
-            ->assertJsonPath('message', 'Veuillez vérifier votre adresse email avant de vous connecter.');
+            ->assertStatus(200)
+            ->assertJsonPath('message', 'Connexion réussie')
+            ->assertJsonStructure(['token', 'user']);
     }
 
     public function test_login_validates_required_email_and_password(): void
@@ -102,7 +101,7 @@ class UserAuthFlowTest extends TestCase
             'password' => 'motdepasse123',
         ])
             ->assertStatus(200)
-            ->assertJsonPath('message', 'User ajouté. Un email de vérification a été envoyé.');
+            ->assertJsonPath('message', 'User ajouté. Compte actif immédiatement. Vérifiez votre email: cette vérification sera requise si vous oubliez votre mot de passe.');
 
         $user = User::where('email', 'register-verify@example.com')->first();
 

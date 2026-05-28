@@ -44,6 +44,13 @@ class PasswordResetController extends Controller
             ], 200);
         }
 
+        if (! $user->hasVerifiedEmail()) {
+            return response()->json([
+                'status' => 'email_not_verified_for_password_reset',
+                'message' => 'Vous devez vérifier votre adresse email avant de pouvoir réinitialiser votre mot de passe oublié.',
+            ], 403);
+        }
+
         // Générer un token unique
         $token = Str::random(60);
 
@@ -161,6 +168,13 @@ class PasswordResetController extends Controller
             return response()->json([
                 'message' => 'Email non trouvé',
             ], 404);
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            return response()->json([
+                'status' => 'email_not_verified_for_password_reset',
+                'message' => 'Vous devez vérifier votre adresse email avant de pouvoir réinitialiser votre mot de passe oublié.',
+            ], 403);
         }
 
         $resetRecord = DB::table('password_resets')
