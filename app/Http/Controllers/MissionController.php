@@ -547,4 +547,48 @@ class MissionController extends Controller
 
         $mission->rewardCompetences()->sync($syncPayload);
     }
+
+    public function myHistory(Request $request)
+    {
+        $user = $request->user();
+        $userId = (int) $user->id_utilisateur;
+        $today = now()->toDateString();
+
+        $driver = (new Mission)->getConnection()->getDriverName();
+        $endDateTimeSql = $this->missionEndDateTimeExpression($driver);
+        $now = now()->format('Y-m-d H:i:s');
+
+        // Past missions where the user was a participant (non-cancelled affectation)
+        $participantMissionIds = Affectation::where('id_utilisateur', $userId)
+            ->whereNotIn('statut_affectation', ['annule'])
+            ->pluck('id_mission');
+
+        $missions = Mission::with(['evenement:id_evenement,nom_evenement'])
+            ->where(function ($query) use ($userId, $participantMissionIds) {
+                $query->whereIn('id_mission', $participantMissionIds)
+                    ->orWhere('responsable_utilisateur_id', $userId);
+            })
+            ->whereRaw("{$endDateTimeSql} < ?", [$now])
+            ->orderByDesc('date_mission')
+            ->get()
+            ->map(function (Mission $mission) use ($userId) {
+                $affectation = $mission->affectations()
+                    ->where('id_utilisateur', $userId)
+                    ->first();
+
+                $myRole = ($mission->responsable_utilisateur_id === $userId) ? 'responsable' : 'benevole';
+                $myAffectationStatus = $affectation?->statut_affectation;
+
+                return array_merge($mission->toArray(), [
+                    'my_role' => $myRole,
+                    'my_affectation_status' => $myAffectationStatus,
+                    'nom_evenement' => $mission->evenement?->nom_evenement,
+                ]);
+            });
+
+        return response()->json([
+            'count' => $missions->count(),
+            'missions' => $missions->values(),
+        ]);
+    }
 }
