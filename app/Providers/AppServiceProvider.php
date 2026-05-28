@@ -25,6 +25,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        //Scramble
+        if (request()->is('docs/*')) {
+        set_time_limit(500);
+        }
+        
         Schema::defaultStringLength(191);
 
         VerifyEmail::toMailUsing(function ($notifiable, string $verificationUrl) {
