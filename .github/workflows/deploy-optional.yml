@@ -28,7 +28,7 @@ jobs:
           echo "  php artisan migrate --force"
           echo "  php artisan cache:clear"
         
-        # Exemple avec SSH (à configurer):
+        # Déploiement via SSH (à configurer avec les secrets GitHub):
         # - name: Deploy via SSH
         #   uses: appleboy/ssh-action@master
         #   with:
@@ -39,7 +39,13 @@ jobs:
         #       cd /var/www/benerun
         #       git pull origin main
         #       composer install --no-dev --optimize-autoloader
-        #       npm install && npm run build
         #       php artisan migrate --force
+        #       php artisan config:clear
         #       php artisan cache:clear
-        #       php artisan queue:restart
+        #       php artisan route:clear
+        #       php artisan view:clear
+        #       # Rebuild frontend avec les variables de prod
+        #       npm ci --prefix Front-end/maquette
+        #       npm run build --prefix Front-end/maquette
+        #       # Redémarrer Reverb via supervisor
+        #       supervisorctl restart reverb-worker
