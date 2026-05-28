@@ -62,17 +62,25 @@ export const userService = {
 
   mapApiUser: (apiUser) => {
     if (!apiUser) return null
-    const roleSource = apiUser.role_utilisateur ?? userService.mapRoleToApi(apiUser.role)
+    const roleSource = apiUser.role_utilisateur ?? apiUser.roleUtilisateur ?? userService.mapRoleToApi(apiUser.role)
     const role = userService.mapRoleToFrontend(roleSource)
+    const firstName = apiUser.prenom_utilisateur ?? apiUser.firstName ?? apiUser.prenom ?? ''
+    const lastName = apiUser.nom_utilisateur ?? apiUser.lastName ?? apiUser.nom ?? ''
+    const phone = apiUser.telephone_utilisateur ?? apiUser.phone ?? apiUser.telephone ?? ''
+    const address = apiUser.adresse_utilisateur ?? apiUser.address ?? apiUser.adresse ?? ''
+    const dateOfBirth = apiUser.date_naissance_utilisateur ?? apiUser.dateOfBirth ?? apiUser.dateNaissance ?? ''
+
+    const allergiesSource = apiUser.allergies_utilisateur ?? apiUser.allergies
+    const healthIssuesSource = apiUser.problemes_sante_utilisateur ?? apiUser.healthIssues
 
     return {
       id: String(apiUser.id_utilisateur ?? apiUser.id ?? ''),
-      firstName: apiUser.prenom_utilisateur || '',
-      lastName: apiUser.nom_utilisateur || '',
+      firstName,
+      lastName,
       email: apiUser.email || '',
-      phone: apiUser.telephone_utilisateur || '',
-      address: apiUser.adresse_utilisateur || '',
-      dateOfBirth: apiUser.date_naissance_utilisateur || '',
+      phone,
+      address,
+      dateOfBirth,
       role,
       accountType: role === 'superadmin'
         ? 'Super-admin'
@@ -81,19 +89,19 @@ export const userService = {
           : role === 'mission_manager'
             ? 'Responsable de mission'
             : 'Bénévole',
-      allergies: userService.fromCsv(apiUser.allergies_utilisateur),
-      healthIssues: userService.fromCsv(apiUser.problemes_sante_utilisateur),
-      hasLicense: !!apiUser.possede_permis_utilisateur,
-      isMotorized: !!apiUser.est_motorise_utilisateur,
-      hasVehicle: !!apiUser.possede_vehicule_utilisateur,
-      bibSize: apiUser.taille_tshirt_utilisateur || '',
-      anonymous: !!apiUser.est_anonyme_utilisateur,
-      suspended: !!apiUser.est_suspendu_utilisateur,
-      suspensionReason: apiUser.raison_suspension_utilisateur || '',
-      liveLocationSharingEnabled: !!apiUser.partage_localisation_directe_utilisateur,
-      liveLocationLatitude: apiUser.latitude_localisation_directe_utilisateur == null ? null : Number(apiUser.latitude_localisation_directe_utilisateur),
-      liveLocationLongitude: apiUser.longitude_localisation_directe_utilisateur == null ? null : Number(apiUser.longitude_localisation_directe_utilisateur),
-      liveLocationUpdatedAt: apiUser.date_localisation_directe_utilisateur || null,
+      allergies: Array.isArray(allergiesSource) ? allergiesSource : userService.fromCsv(allergiesSource),
+      healthIssues: Array.isArray(healthIssuesSource) ? healthIssuesSource : userService.fromCsv(healthIssuesSource),
+      hasLicense: !!(apiUser.possede_permis_utilisateur ?? apiUser.hasLicense),
+      isMotorized: !!(apiUser.est_motorise_utilisateur ?? apiUser.isMotorized),
+      hasVehicle: !!(apiUser.possede_vehicule_utilisateur ?? apiUser.hasVehicle),
+      bibSize: apiUser.taille_tshirt_utilisateur ?? apiUser.bibSize ?? '',
+      anonymous: !!(apiUser.est_anonyme_utilisateur ?? apiUser.isAnonymous),
+      suspended: !!(apiUser.est_suspendu_utilisateur ?? apiUser.isSuspended),
+      suspensionReason: apiUser.raison_suspension_utilisateur ?? apiUser.suspensionReason ?? '',
+      liveLocationSharingEnabled: !!(apiUser.partage_localisation_directe_utilisateur ?? apiUser.liveLocationSharingEnabled),
+      liveLocationLatitude: (apiUser.latitude_localisation_directe_utilisateur ?? apiUser.liveLocationLatitude) == null ? null : Number(apiUser.latitude_localisation_directe_utilisateur ?? apiUser.liveLocationLatitude),
+      liveLocationLongitude: (apiUser.longitude_localisation_directe_utilisateur ?? apiUser.liveLocationLongitude) == null ? null : Number(apiUser.longitude_localisation_directe_utilisateur ?? apiUser.liveLocationLongitude),
+      liveLocationUpdatedAt: apiUser.date_localisation_directe_utilisateur ?? apiUser.liveLocationUpdatedAt ?? null,
       missionCount: Number(apiUser.nombre_missions_utilisateur || 0),
       permissions: userService.permissionsToObject(
         apiUser.permissions_utilisateur ?? apiUser.permissions

@@ -91,11 +91,6 @@ class AffectationController extends Controller
         return $validated;
     }
 
-    private function shouldSyncMissionConversation(?string $status): bool
-    {
-        return in_array((string) $status, ['assigne', 'confirme', 'present'], true);
-    }
-
     public function index()// Récupérer toutes les affectations
     {
         $affectations = Affectation::with([
@@ -150,12 +145,10 @@ class AffectationController extends Controller
             return $affectation;
         });
 
-        if ($this->shouldSyncMissionConversation($affectation->statut_affectation)) {
-            $this->missionConversationService->syncAssignedParticipants(
-                (int) $affectation->id_mission,
-                (int) $affectation->id_utilisateur
-            );
-        }
+        $this->missionConversationService->syncAssignedParticipants(
+            (int) $affectation->id_mission,
+            (int) $affectation->id_utilisateur
+        );
 
         return response()->json([
             'message' => 'Affectation ajoutée',
@@ -185,6 +178,8 @@ class AffectationController extends Controller
 
             $validated = $this->normalizeMeetingTime($validated);
 
+            $originalMissionId = (int) $affectation->id_mission;
+
             DB::transaction(function () use ($affectation, $validated): void {
                 $affectation->update($validated);
 
@@ -195,9 +190,14 @@ class AffectationController extends Controller
 
             $affectation->refresh();
 
-            if ($this->shouldSyncMissionConversation($affectation->statut_affectation)) {
+            $missionIdsToSync = collect([$originalMissionId, (int) $affectation->id_mission])
+                ->filter(static fn (int $missionId): bool => $missionId > 0)
+                ->unique()
+                ->values();
+
+            foreach ($missionIdsToSync as $missionId) {
                 $this->missionConversationService->syncAssignedParticipants(
-                    (int) $affectation->id_mission,
+                    (int) $missionId,
                     (int) $affectation->id_utilisateur
                 );
             }
@@ -221,7 +221,13 @@ class AffectationController extends Controller
 
         if (Affectation::where('id_affectation', $id)->exists()) {
             $affectation = Affectation::find($id);
+            $missionId = (int) $affectation->id_mission;
+            $userId = (int) $affectation->id_utilisateur;
             $affectation->delete();
+
+            if ($missionId > 0) {
+                $this->missionConversationService->syncAssignedParticipants($missionId, $userId);
+            }
 
             return response()->json([
                 'message' => 'Affectation supprimée',

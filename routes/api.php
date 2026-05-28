@@ -47,6 +47,7 @@ Route::post('/maps/resolve', [MapsController::class, 'resolve'])->middleware('th
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);
     Route::get('/me', [UserController::class, 'me']);
+    Route::get('/me/missions/history', [MissionController::class, 'myHistory']);
     Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:notifications-read');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->middleware('throttle:notifications-read');
 

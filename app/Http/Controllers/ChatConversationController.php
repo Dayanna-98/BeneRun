@@ -3,16 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Events\ChatConversationChanged;
+use App\Models\Affectation;
 use App\Models\ChatConversation;
 use App\Models\ChatConversationParticipant;
 use App\Models\Mission;
 use App\Models\User;
+use App\Services\MissionConversationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class ChatConversationController extends Controller
 {
+    public function __construct(private readonly MissionConversationService $missionConversationService) {}
+
     private function resolveActorFromBearerToken(Request $request): ?User
     {
         $actor = $request->user('sanctum');
@@ -88,6 +92,23 @@ class ChatConversationController extends Controller
             ->firstOrFail();
     }
 
+    private function syncMissionGroupsForActor(int $actorId): void
+    {
+        $missionIds = Affectation::query()
+            ->where('id_utilisateur', $actorId)
+            ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
+            ->whereNotNull('id_mission')
+            ->pluck('id_mission')
+            ->map(static fn ($missionId): int => (int) $missionId)
+            ->filter(static fn (int $missionId): bool => $missionId > 0)
+            ->unique()
+            ->values();
+
+        foreach ($missionIds as $missionId) {
+            $this->missionConversationService->syncAssignedParticipants($missionId, $actorId);
+        }
+    }
+
     public function index(Request $request)
     {
         $actor = $this->resolveActorFromBearerToken($request);
@@ -96,6 +117,9 @@ class ChatConversationController extends Controller
         }
 
         $actorId = (int) $actor->id_utilisateur;
+
+        // Legacy-safe reconciliation: ensure one group conversation per assigned mission.
+        $this->syncMissionGroupsForActor($actorId);
 
         $conversations = ChatConversation::query()
             ->whereHas('participants', function ($query) use ($actorId) {
@@ -201,8 +225,6 @@ class ChatConversationController extends Controller
         $validated = $request->validate([
             'mission_id' => 'required|integer|exists:missions,id_mission',
             'name' => 'nullable|string|max:255',
-            'participant_ids' => 'nullable|array',
-            'participant_ids.*' => 'integer|exists:users,id_utilisateur',
         ]);
 
         $actorId = (int) $actor->id_utilisateur;
@@ -244,23 +266,17 @@ class ChatConversationController extends Controller
             ]);
         }
 
-        $participantIds = collect($validated['participant_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->push($actorId)
-            ->unique()
-            ->values();
+        $this->missionConversationService->syncAssignedParticipants($missionId, $actorId);
 
-        foreach ($participantIds as $participantId) {
-            ChatConversationParticipant::updateOrCreate(
-                [
-                    'id_chat_conversation' => (int) $conversation->id_chat_conversation,
-                    'id_utilisateur' => $participantId,
-                ],
-                [
-                    'joined_at' => now(),
-                ]
-            );
+        $actorParticipant = ChatConversationParticipant::query()
+            ->where('id_chat_conversation', (int) $conversation->id_chat_conversation)
+            ->where('id_utilisateur', $actorId)
+            ->exists();
+
+        if (! $actorParticipant) {
+            return response()->json([
+                'message' => 'Conversation inaccessible: vous ne faites pas partie de cette mission.',
+            ], 403);
         }
 
         $loaded = $this->loadConversationForActor($conversation, $actorId);
@@ -294,6 +310,12 @@ class ChatConversationController extends Controller
 
         if ($conversation->type_conversation !== 'group') {
             return response()->json(['message' => 'Ajout de participant reserve aux groupes.'], 422);
+        }
+
+        if (! empty($conversation->id_mission)) {
+            return response()->json([
+                'message' => 'Les participants d\'un groupe mission sont synchronisés automatiquement.',
+            ], 422);
         }
 
         $actorParticipant = ChatConversationParticipant::query()

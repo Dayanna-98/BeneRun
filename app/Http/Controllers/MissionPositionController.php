@@ -30,6 +30,16 @@ class MissionPositionController extends Controller
             ->whereIn('statut_affectation', ['assigne', 'confirme', 'present'])
             ->pluck('id_utilisateur');
 
+        $responsableId = Mission::query()
+            ->where('id_mission', (int) $missionId)
+            ->value('responsable_utilisateur_id');
+
+        if (! empty($responsableId)) {
+            $activeParticipantIds->push((int) $responsableId);
+        }
+
+        $activeParticipantIds = $activeParticipantIds->unique()->values();
+
         $positions = MissionPosition::with('utilisateur:id_utilisateur,prenom_utilisateur,nom_utilisateur')
             ->where('id_mission', $missionId)
             ->whereIn('id_utilisateur', $activeParticipantIds)
@@ -83,6 +93,15 @@ class MissionPositionController extends Controller
 
     private function isActiveParticipantForMission(int $userId, int $missionId): bool
     {
+        $isResponsible = Mission::query()
+            ->where('id_mission', $missionId)
+            ->where('responsable_utilisateur_id', $userId)
+            ->exists();
+
+        if ($isResponsible) {
+            return true;
+        }
+
         return Affectation::query()
             ->where('id_mission', $missionId)
             ->where('id_utilisateur', $userId)

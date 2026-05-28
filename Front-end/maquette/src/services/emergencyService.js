@@ -13,14 +13,46 @@ const formatUserName = (user) => {
   return fullName || mapped.email || 'Utilisateur'
 }
 
+const normalizeCategory = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+
+const toFrenchCategoryLabel = (value) => {
+  const normalized = normalizeCategory(value)
+
+  const labels = {
+    medical: 'Médicale',
+    medicale: 'Médicale',
+    security: 'Sécurité',
+    securite: 'Sécurité',
+    logistics: 'Logistique',
+    logistique: 'Logistique',
+    other: 'Autre',
+    autre: 'Autre',
+    general: 'Générale',
+    generale: 'Générale',
+  }
+
+  return labels[normalized] || 'Générale'
+}
+
 const mapEmergency = (raw) => {
   if (!raw) return null
+
+  const category = raw.categorie_urgence || 'general'
 
   return {
     id: String(raw.id_mission_emergency_message),
     missionId: String(raw.id_mission || raw.mission?.id_mission || ''),
     eventId: String(raw.id_evenement || raw.evenement?.id_evenement || ''),
-    category: raw.categorie_urgence || 'general',
+    category,
+    categoryLabel: toFrenchCategoryLabel(category),
+    missionStatus: raw.mission?.statut_mission || '',
+    missionDate: raw.mission?.date_mission || null,
+    missionEndTime: raw.mission?.heure_fin_mission || null,
     message: raw.message_urgence || '',
     sentAt: raw.created_at || null,
     sender: {
@@ -58,6 +90,8 @@ const formatApiError = (error, fallbackMessage) => {
 }
 
 export const emergencyService = {
+  mapEmergencyPayload: (raw) => mapEmergency(raw),
+
   sendMissionEmergency: async ({ missionId, senderUserId, category, message }) => {
     try {
       const response = await api.post(`/missions/${missionId}/urgences`, {

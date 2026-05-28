@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Affectation;
+use App\Models\ChatConversation;
+use App\Models\ChatConversationParticipant;
 use App\Models\ChatMessage;
+use App\Models\Mission;
 use App\Models\User;
 use App\Notifications\ChatMessageReceivedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -196,6 +200,68 @@ class ChatMessagingTest extends TestCase
             ->postJson("/api/messages/{$message->id_chat_message}/read")
             ->assertStatus(403)
             ->assertJsonPath('message', 'Conversation inaccessible.');
+    }
+
+    public function test_list_conversations_backfills_missing_mission_group_for_active_assignment(): void
+    {
+        $user = User::factory()->create();
+        $missionA = Mission::factory()->create();
+        $missionB = Mission::factory()->create();
+
+        Affectation::factory()->create([
+            'id_utilisateur' => $user->id_utilisateur,
+            'id_mission' => $missionA->id_mission,
+            'statut_affectation' => 'assigne',
+        ]);
+        Affectation::factory()->create([
+            'id_utilisateur' => $user->id_utilisateur,
+            'id_mission' => $missionB->id_mission,
+            'statut_affectation' => 'assigne',
+        ]);
+
+        $existingConversation = ChatConversation::create([
+            'type_conversation' => 'group',
+            'titre_conversation' => 'Mission A',
+            'id_mission' => $missionA->id_mission,
+            'created_by_utilisateur_id' => $user->id_utilisateur,
+        ]);
+
+        ChatConversationParticipant::create([
+            'id_chat_conversation' => (int) $existingConversation->id_chat_conversation,
+            'id_utilisateur' => $user->id_utilisateur,
+            'joined_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/conversations')
+            ->assertStatus(200);
+
+        $this->assertDatabaseHas('chat_conversations', [
+            'type_conversation' => 'group',
+            'id_mission' => $missionB->id_mission,
+        ]);
+
+        $createdConversationId = (int) ChatConversation::query()
+            ->where('type_conversation', 'group')
+            ->where('id_mission', $missionB->id_mission)
+            ->value('id_chat_conversation');
+
+        $this->assertGreaterThan(0, $createdConversationId);
+
+        $this->assertDatabaseHas('chat_conversation_participants', [
+            'id_chat_conversation' => $createdConversationId,
+            'id_utilisateur' => $user->id_utilisateur,
+        ]);
+
+        $missionIdsFromResponse = collect($response->json())
+            ->where('type', 'group')
+            ->pluck('missionId')
+            ->filter()
+            ->values()
+            ->all();
+
+        $this->assertContains((string) $missionA->id_mission, $missionIdsFromResponse);
+        $this->assertContains((string) $missionB->id_mission, $missionIdsFromResponse);
     }
 
     private function createDirectConversation(User $userA, User $userB): int

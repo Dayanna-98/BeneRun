@@ -305,48 +305,69 @@
 
             <div v-if="emergencyLoading" class="text-muted small">Chargement des urgences...</div>
             <div v-else-if="emergencyError" class="alert alert-danger small mb-0">{{ emergencyError }}</div>
-            <div v-else-if="emergencyItems.length === 0" class="text-muted small">Aucun message d'urgence reçu.</div>
+            <div v-else-if="activeEmergencyItems.length === 0 && pastEmergencyItems.length === 0" class="text-muted small">Aucun message d'urgence reçu.</div>
 
             <div v-else class="d-flex flex-column gap-3">
-              <div v-for="item in emergencyItems" :key="item.id" class="border rounded p-3">
-                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
-                  <div>
-                    <div class="fw-semibold small text-danger">Urgence {{ item.category || 'general' }}</div>
-                    <div class="small">
-                      <strong>{{ item.sender.fullName }}</strong> • {{ item.missionName }} • {{ item.eventName }}
+              <div v-if="activeEmergencyItems.length > 0" class="d-flex flex-column gap-3">
+                <div class="small fw-semibold text-danger">En cours</div>
+                <div v-for="item in activeEmergencyItems" :key="item.id" class="border rounded p-3">
+                  <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div>
+                      <div class="fw-semibold small text-danger">Urgence {{ item.categoryLabel || 'Générale' }}</div>
+                      <div class="small">
+                        <strong>{{ item.sender.fullName }}</strong> • {{ item.missionName }} • {{ item.eventName }}
+                      </div>
+                      <div class="x-small text-muted">Envoyé le {{ formatDateTime(item.sentAt) }}</div>
                     </div>
-                    <div class="x-small text-muted">Envoyé le {{ formatDateTime(item.sentAt) }}</div>
+                    <span class="badge" :class="item.owner ? 'text-bg-success' : 'text-bg-secondary'">
+                      {{ item.owner ? `Pris en charge par ${item.owner.fullName}` : 'Non attribué' }}
+                    </span>
                   </div>
-                  <span class="badge" :class="item.owner ? 'text-bg-success' : 'text-bg-secondary'">
-                    {{ item.owner ? `Pris en charge par ${item.owner.fullName}` : 'Non attribué' }}
-                  </span>
-                </div>
 
-                <div class="alert alert-danger small mb-2">{{ item.message }}</div>
+                  <div class="alert alert-danger small mb-2">{{ item.message }}</div>
 
-                <div class="small mb-2">
-                  <strong>Consultations:</strong>
-                  <span v-if="!item.views.length" class="text-muted"> Aucune consultation enregistrée.</span>
-                </div>
-                <div v-if="item.views.length" class="d-flex flex-column gap-1 mb-3">
-                  <div v-for="view in item.views" :key="`${item.id}-${view.viewer.id}-${view.viewedAt}`" class="x-small text-muted">
-                    {{ view.viewer.fullName }} a consulté le {{ formatDateTime(view.viewedAt) }}
+                  <div class="small mb-2">
+                    <strong>Consultations:</strong>
+                    <span v-if="!item.views.length" class="text-muted"> Aucune consultation enregistrée.</span>
+                  </div>
+                  <div v-if="item.views.length" class="d-flex flex-column gap-1 mb-3">
+                    <div v-for="view in item.views" :key="`${item.id}-${view.viewer.id}-${view.viewedAt}`" class="x-small text-muted">
+                      {{ view.viewer.fullName }} a consulté le {{ formatDateTime(view.viewedAt) }}
+                    </div>
+                  </div>
+
+                  <div class="d-flex gap-2">
+                    <button
+                      class="btn btn-outline-primary btn-sm"
+                      :disabled="emergencyProcessingId === item.id"
+                      @click="markEmergencyViewed(item)">
+                      Marquer comme consulté
+                    </button>
+                    <button
+                      class="btn btn-danger btn-sm"
+                      :disabled="emergencyProcessingId === item.id || (item.owner && item.owner.id !== String(user.id))"
+                      @click="takeEmergencyOwnership(item)">
+                      Prendre en charge
+                    </button>
                   </div>
                 </div>
+              </div>
 
-                <div class="d-flex gap-2">
-                  <button
-                    class="btn btn-outline-primary btn-sm"
-                    :disabled="emergencyProcessingId === item.id"
-                    @click="markEmergencyViewed(item)">
-                    Marquer comme consulté
-                  </button>
-                  <button
-                    class="btn btn-danger btn-sm"
-                    :disabled="emergencyProcessingId === item.id || (item.owner && item.owner.id !== String(user.id))"
-                    @click="takeEmergencyOwnership(item)">
-                    Prendre en charge
-                  </button>
+              <div v-if="pastEmergencyItems.length > 0" class="d-flex flex-column gap-3">
+                <div class="small fw-semibold text-muted">Passés</div>
+                <div v-for="item in pastEmergencyItems" :key="item.id" class="border rounded p-3 bg-light">
+                  <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div>
+                      <div class="fw-semibold small text-secondary">Urgence {{ item.categoryLabel || 'Générale' }}</div>
+                      <div class="small">
+                        <strong>{{ item.sender.fullName }}</strong> • {{ item.missionName }} • {{ item.eventName }}
+                      </div>
+                      <div class="x-small text-muted">Envoyé le {{ formatDateTime(item.sentAt) }}</div>
+                    </div>
+                    <span class="badge text-bg-secondary">Mission terminée</span>
+                  </div>
+
+                  <div class="alert alert-secondary small mb-0">{{ item.message }}</div>
                 </div>
               </div>
             </div>
@@ -370,13 +391,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Calendar, Award, TrendingUp, MapPin, Briefcase, Heart, Settings, Users, BarChart3, Shield, Star, FileText } from 'lucide-vue-next'
 import { getCurrentUser } from '@/utils/auth'
 import api from '@/services/api'
 import { missionService } from '@/services/missionService'
 import emergencyService from '@/services/emergencyService'
+import getEcho, { leaveEchoChannel } from '@/services/realtime'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -411,9 +433,6 @@ onMounted(async () => {
     dashLoading.value = false
   }
 
-  if (user.role === 'superadmin') {
-    await loadEmergencyMessages()
-  }
 })
 
 const isManager = computed(() =>
@@ -439,9 +458,41 @@ const emergencyItems = ref([])
 const emergencyLoading = ref(false)
 const emergencyError = ref('')
 const emergencyProcessingId = ref('')
+const emergencyChannelName = ref('')
+
+const normalizeMissionStatus = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+
+const isEmergencyMissionFinished = (item) => {
+  const normalizedStatus = normalizeMissionStatus(item?.missionStatus)
+  if (normalizedStatus === 'terminee') return true
+
+  if (!item?.missionDate) return false
+
+  const datePart = String(item.missionDate).slice(0, 10)
+  if (!datePart) return false
+
+  const endTime = String(item.missionEndTime || '23:59:59').slice(0, 8)
+  const endAt = new Date(`${datePart}T${endTime}`)
+  if (Number.isNaN(endAt.getTime())) return false
+
+  return endAt < new Date()
+}
+
+const activeEmergencyItems = computed(() =>
+  emergencyItems.value.filter((item) => !isEmergencyMissionFinished(item))
+)
+
+const pastEmergencyItems = computed(() =>
+  emergencyItems.value.filter((item) => isEmergencyMissionFinished(item))
+)
 
 const openEmergencyCount = computed(() =>
-  emergencyItems.value.filter((item) => !item.owner).length
+  activeEmergencyItems.value.filter((item) => !item.owner).length
 )
 
 const formatDateTime = (value) => {
@@ -475,6 +526,31 @@ const loadEmergencyMessages = async () => {
   } finally {
     emergencyLoading.value = false
   }
+}
+
+const bindEmergencyRealtime = () => {
+  if (user.role !== 'superadmin') return
+
+  const echo = getEcho()
+  if (!echo) return
+
+  const nextChannel = 'emergency.superadmins'
+  if (emergencyChannelName.value === nextChannel) return
+
+  if (emergencyChannelName.value) {
+    leaveEchoChannel(emergencyChannelName.value)
+  }
+
+  emergencyChannelName.value = nextChannel
+
+  echo.private(nextChannel)
+    .listen('.emergency.message.created', (event) => {
+      const nextEmergency = emergencyService.mapEmergencyPayload(event?.urgence)
+      if (!nextEmergency) return
+
+      replaceEmergency(nextEmergency)
+      toast.error('Nouveau message d\'urgence reçu.')
+    })
 }
 
 const replaceEmergency = (nextEmergency) => {
@@ -540,9 +616,16 @@ const formatDateShort = (date) =>
   new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
 onMounted(async () => {
-  if (user.role === 'superadmin') {
-    await loadEmergencyMessages()
-  }
+  if (user.role !== 'superadmin') return
+
+  await loadEmergencyMessages()
+  bindEmergencyRealtime()
+})
+
+onUnmounted(() => {
+  if (!emergencyChannelName.value) return
+  leaveEchoChannel(emergencyChannelName.value)
+  emergencyChannelName.value = ''
 })
 </script>
 

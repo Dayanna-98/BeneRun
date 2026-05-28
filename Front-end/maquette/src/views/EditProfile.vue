@@ -164,38 +164,97 @@ if (!currentUser.value) {
 const syncFormFromUser = (user) => {
   if (!user) return
 
-  form.firstName = user.firstName || ''
-  form.lastName = user.lastName || ''
+  // Handle both camelCase and snake_case variants
+  form.firstName = user.firstName || user.prenom_utilisateur || user.prenom || ''
+  form.lastName = user.lastName || user.nom_utilisateur || user.nom || ''
   form.email = user.email || ''
-  form.phone = user.phone || ''
-  form.address = user.address || ''
-  form.dateOfBirth = user.dateOfBirth || ''
-  form.role = user.role || 'volunteer'
-  form.hasLicense = !!user.hasLicense
-  form.isMotorized = !!user.isMotorized
-  form.hasVehicle = !!user.hasVehicle
-  form.bibSize = user.bibSize || ''
+  form.phone = user.phone || user.telephone_utilisateur || user.telephone || ''
+  form.address = user.address || user.adresse_utilisateur || user.adresse || ''
+  
+  // Date handling - convert various formats to YYYY-MM-DD for input type="date"
+  let dateValue = user.dateOfBirth || user.date_naissance_utilisateur || user.dateNaissance || ''
+  if (dateValue && typeof dateValue === 'object') {
+    // If it's a Date object or parsed date
+    dateValue = new Date(dateValue).toISOString().split('T')[0]
+  } else if (dateValue && typeof dateValue === 'string') {
+    // If it's already a string, try to parse it
+    if (!dateValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+      const parsed = new Date(dateValue)
+      if (!isNaN(parsed.getTime())) {
+        dateValue = parsed.toISOString().split('T')[0]
+      }
+    }
+  }
+  form.dateOfBirth = dateValue
+  
+  form.role = user.role || user.role_utilisateur || 'volunteer'
+  form.hasLicense = !!user.hasLicense || !!user.possede_permis_utilisateur
+  form.isMotorized = !!user.isMotorized || !!user.est_motorise_utilisateur
+  form.hasVehicle = !!user.hasVehicle || !!user.possede_vehicule_utilisateur
+  form.bibSize = user.bibSize || user.taille_tshirt_utilisateur || user.tailleShirt || ''
 
-  allergies.value = [...(user.allergies || [])]
-  healthIssues.value = [...(user.healthIssues || [])]
+  // Allergies and health issues
+  if (Array.isArray(user.allergies)) {
+    allergies.value = [...user.allergies]
+  } else if (typeof user.allergies_utilisateur === 'string') {
+    allergies.value = user.allergies_utilisateur.split(',').map(a => a.trim()).filter(a => a)
+  } else if (Array.isArray(user.allergies_utilisateur)) {
+    allergies.value = [...user.allergies_utilisateur]
+  } else {
+    allergies.value = []
+  }
+
+  if (Array.isArray(user.healthIssues)) {
+    healthIssues.value = [...user.healthIssues]
+  } else if (typeof user.problemes_sante_utilisateur === 'string') {
+    healthIssues.value = user.problemes_sante_utilisateur.split(',').map(h => h.trim()).filter(h => h)
+  } else if (Array.isArray(user.problemes_sante_utilisateur)) {
+    healthIssues.value = [...user.problemes_sante_utilisateur]
+  } else {
+    healthIssues.value = []
+  }
 }
 
 const form = reactive({
-  firstName: currentUser.value?.firstName || '',
-  lastName: currentUser.value?.lastName || '',
+  firstName: currentUser.value?.firstName || currentUser.value?.prenom_utilisateur || '',
+  lastName: currentUser.value?.lastName || currentUser.value?.nom_utilisateur || '',
   email: currentUser.value?.email || '',
-  phone: currentUser.value?.phone || '',
-  address: currentUser.value?.address || '',
-  dateOfBirth: currentUser.value?.dateOfBirth || '',
-  role: currentUser.value?.role || 'volunteer',
-  hasLicense: !!currentUser.value?.hasLicense,
-  isMotorized: !!currentUser.value?.isMotorized,
-  hasVehicle: !!currentUser.value?.hasVehicle,
-  bibSize: currentUser.value?.bibSize || '',
+  phone: currentUser.value?.phone || currentUser.value?.telephone_utilisateur || '',
+  address: currentUser.value?.address || currentUser.value?.adresse_utilisateur || '',
+  dateOfBirth: (() => {
+    let date = currentUser.value?.dateOfBirth || currentUser.value?.date_naissance_utilisateur || ''
+    if (date && typeof date === 'object') {
+      return new Date(date).toISOString().split('T')[0]
+    }
+    if (date && typeof date === 'string' && !date.match(/^\d{4}-\d{2}-\d{2}/)) {
+      const parsed = new Date(date)
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0]
+      }
+    }
+    return date
+  })(),
+  role: currentUser.value?.role || currentUser.value?.role_utilisateur || 'volunteer',
+  hasLicense: !!currentUser.value?.hasLicense || !!currentUser.value?.possede_permis_utilisateur,
+  isMotorized: !!currentUser.value?.isMotorized || !!currentUser.value?.est_motorise_utilisateur,
+  hasVehicle: !!currentUser.value?.hasVehicle || !!currentUser.value?.possede_vehicule_utilisateur,
+  bibSize: currentUser.value?.bibSize || currentUser.value?.taille_tshirt_utilisateur || '',
 })
 
-const allergies = ref([...(currentUser.value?.allergies || [])])
-const healthIssues = ref([...(currentUser.value?.healthIssues || [])])
+const allergies = ref(
+  Array.isArray(currentUser.value?.allergies) 
+    ? [...currentUser.value.allergies]
+    : typeof currentUser.value?.allergies_utilisateur === 'string'
+      ? currentUser.value.allergies_utilisateur.split(',').map(a => a.trim()).filter(a => a)
+      : []
+)
+const healthIssues = ref(
+  Array.isArray(currentUser.value?.healthIssues)
+    ? [...currentUser.value.healthIssues]
+    : typeof currentUser.value?.problemes_sante_utilisateur === 'string'
+      ? currentUser.value.problemes_sante_utilisateur.split(',').map(h => h.trim()).filter(h => h)
+      : []
+)
 const newAllergy = ref('')
 const newHealthIssue = ref('')
 const isLoading = ref(false)

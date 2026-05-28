@@ -6,12 +6,41 @@ use App\Models\Affectation;
 use App\Models\Mission;
 use App\Models\MissionEmergencyMessage;
 use App\Models\User;
+use App\Notifications\MissionEmergencyReceivedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class MissionEmergencyMessageTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_sending_urgence_notifies_superadmins_by_email(): void
+    {
+        Notification::fake();
+
+        $participant = User::factory()->create(['role_utilisateur' => 'bénévole']);
+        $superadmin = User::factory()->create(['role_utilisateur' => 'superadmin']);
+        $mission = Mission::factory()->create(['statut_mission' => 'En cours']);
+
+        Affectation::create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $participant->id_utilisateur,
+            'statut_affectation' => 'assigne',
+            'est_responsable' => false,
+            'date_affectation' => now(),
+        ]);
+
+        $this->actingAs($participant, 'sanctum')
+            ->postJson("/api/missions/{$mission->id_mission}/urgences", [
+                'id_utilisateur' => $participant->id_utilisateur,
+                'categorie_urgence' => 'medicale',
+                'message_urgence' => 'Bénévole blessé au point A',
+            ])
+            ->assertStatus(201);
+
+        Notification::assertSentTo($superadmin, MissionEmergencyReceivedNotification::class);
+    }
 
     public function test_participant_can_send_urgence_on_running_mission(): void
     {

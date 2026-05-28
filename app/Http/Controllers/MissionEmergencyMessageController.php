@@ -2,17 +2,90 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MissionEmergencyMessageCreated;
 use App\Models\Affectation;
 use App\Models\Mission;
 use App\Models\MissionEmergencyMessage;
 use App\Models\MissionEmergencyMessageView;
 use App\Models\User;
+use App\Notifications\MissionEmergencyReceivedNotification;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class MissionEmergencyMessageController extends Controller
 {
+    private function toFrenchCategoryLabel(?string $category): string
+    {
+        $normalized = str_replace(
+            ['-', '_', ' ', 'é', 'è', 'ê', 'ë', 'à', 'â', 'ä', 'î', 'ï', 'ô', 'ö', 'ù', 'û', 'ü', 'ç'],
+            ['', '', '', 'e', 'e', 'e', 'e', 'a', 'a', 'a', 'i', 'i', 'o', 'o', 'u', 'u', 'u', 'c'],
+            strtolower((string) $category)
+        );
+
+        return match ($normalized) {
+            'medical', 'medicale' => 'Médicale',
+            'security', 'securite' => 'Sécurité',
+            'logistics', 'logistique' => 'Logistique',
+            'other', 'autre' => 'Autre',
+            default => 'Générale',
+        };
+    }
+
+    private function buildFrontendDashboardUrl(): string
+    {
+        $frontendBaseUrl = rtrim((string) (env('FRONTEND_URL') ?: config('app.url')), '/');
+
+        return $frontendBaseUrl.'/dashboard';
+    }
+
+    private function notifySuperAdminsByEmail(MissionEmergencyMessage $urgence): void
+    {
+        $missionName = (string) ($urgence->mission?->titre_mission ?? ('Mission #'.$urgence->id_mission));
+        $eventName = (string) ($urgence->evenement?->nom_evenement ?? ('Evenement #'.$urgence->id_evenement));
+        $senderName = trim(((string) ($urgence->emetteur?->prenom_utilisateur ?? '')).' '.((string) ($urgence->emetteur?->nom_utilisateur ?? '')));
+        if ($senderName === '') {
+            $senderName = (string) ($urgence->emetteur?->email ?? 'Un participant');
+        }
+
+        $recipients = User::query()
+            ->whereNotNull('email')
+            ->get()
+            ->filter(function (User $user): bool {
+                $normalizedRole = str_replace(['-', '_', ' '], '', strtolower((string) $user->role_utilisateur));
+
+                return $normalizedRole === 'superadmin';
+            })
+            ->values();
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        $actionUrl = $this->buildFrontendDashboardUrl();
+        $category = $this->toFrenchCategoryLabel((string) ($urgence->categorie_urgence ?? 'general'));
+
+        foreach ($recipients as $recipient) {
+            try {
+                $recipient->notify(new MissionEmergencyReceivedNotification(
+                    senderName: $senderName,
+                    missionName: $missionName,
+                    eventName: $eventName,
+                    category: $category,
+                    messagePreview: (string) $urgence->message_urgence,
+                    actionUrl: $actionUrl,
+                ));
+            } catch (\Throwable $exception) {
+                Log::warning('Mission emergency email notification failed', [
+                    'urgence_id' => $urgence->id_mission_emergency_message,
+                    'recipient_user_id' => $recipient->id_utilisateur,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+    }
+
     private function normalizeMissionStatus(?string $status): string
     {
         return str_replace(['-', '_', ' '], '', strtolower((string) $status));
@@ -105,7 +178,7 @@ class MissionEmergencyMessageController extends Controller
 
         $urgences = MissionEmergencyMessage::with([
             'emetteur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
-            'mission:id_mission,titre_mission',
+            'mission:id_mission,titre_mission,statut_mission,date_mission,heure_fin_mission',
             'evenement:id_evenement,nom_evenement',
             'prisEnChargePar:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
             'consultations.utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
@@ -161,13 +234,20 @@ class MissionEmergencyMessageController extends Controller
             'message_urgence' => $validated['message_urgence'],
         ]);
 
+        $urgence->load([
+            'emetteur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+            'mission:id_mission,titre_mission,statut_mission,date_mission,heure_fin_mission',
+            'evenement:id_evenement,nom_evenement',
+            'prisEnChargePar:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+            'consultations.utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
+        ]);
+
+        broadcast(new MissionEmergencyMessageCreated($urgence));
+        $this->notifySuperAdminsByEmail($urgence);
+
         return response()->json([
             'message' => 'Message d\'urgence transmis aux superadmins.',
-            'urgence' => $urgence->load([
-                'emetteur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
-                'mission:id_mission,titre_mission',
-                'evenement:id_evenement,nom_evenement',
-            ]),
+            'urgence' => $urgence,
         ], 201);
     }
 
@@ -242,7 +322,7 @@ class MissionEmergencyMessageController extends Controller
 
         $urgence->load([
             'emetteur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
-            'mission:id_mission,titre_mission',
+            'mission:id_mission,titre_mission,statut_mission,date_mission,heure_fin_mission',
             'evenement:id_evenement,nom_evenement',
             'prisEnChargePar:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',
             'consultations.utilisateur:id_utilisateur,nom_utilisateur,prenom_utilisateur,email',

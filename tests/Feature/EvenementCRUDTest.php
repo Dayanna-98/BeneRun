@@ -204,4 +204,73 @@ class EvenementCRUDTest extends TestCase
             ->assertStatus(200)
             ->assertJsonCount(1);
     }
+
+    public function test_cannot_create_evenement_with_same_name_on_same_day(): void
+    {
+        $creator = User::factory()->create();
+
+        Evenement::factory()->create([
+            'nom_evenement' => 'Run Solidaire',
+            'date_debut_evenement' => '2026-07-10',
+            'date_fin_evenement' => '2026-07-10',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'rayon_localisation_evenement' => 500,
+            'cree_par_utilisateur_id' => $creator->id_utilisateur,
+        ]);
+
+        $payload = [
+            'nom_evenement' => 'Run Solidaire',
+            'description_evenement' => 'Deuxieme evenement meme nom meme jour',
+            'date_debut_evenement' => '2026-07-10',
+            'date_fin_evenement' => '2026-07-10',
+            'heure_debut_evenement' => '09:00',
+            'heure_fin_evenement' => '12:00',
+            'lieu_evenement' => 'Geneve',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'rayon_localisation_evenement' => 300,
+            'organisateur_evenement' => 'BeneRun',
+            'nombre_benevoles_requis' => 20,
+            'cree_par_utilisateur_id' => $creator->id_utilisateur,
+        ];
+
+        $this->postJson('/api/evenements', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['nom_evenement']);
+    }
+
+    public function test_cannot_update_evenement_to_duplicate_name_on_same_day(): void
+    {
+        $creator = User::factory()->create();
+
+        $target = Evenement::factory()->create([
+            'nom_evenement' => 'Evenement A',
+            'date_debut_evenement' => '2026-07-11',
+            'date_fin_evenement' => '2026-07-12',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'rayon_localisation_evenement' => 500,
+            'cree_par_utilisateur_id' => $creator->id_utilisateur,
+        ]);
+
+        Evenement::factory()->create([
+            'nom_evenement' => 'Evenement B',
+            'date_debut_evenement' => '2026-07-11',
+            'date_fin_evenement' => '2026-07-11',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'rayon_localisation_evenement' => 500,
+            'cree_par_utilisateur_id' => $creator->id_utilisateur,
+        ]);
+
+        $this->patchJson("/api/evenements/{$target->id_evenement}", [
+            'nom_evenement' => 'Evenement B',
+            'date_debut_evenement' => '2026-07-11',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['nom_evenement']);
+    }
 }

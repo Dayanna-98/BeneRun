@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Affectation;
+use App\Models\ChatConversation;
+use App\Models\ChatConversationParticipant;
 use App\Models\Mission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,12 +31,19 @@ class ChatMissionGroupTest extends TestCase
         $participant = User::factory()->create();
         $mission = Mission::factory()->create([
             'titre_mission' => 'Mission Eau',
+            'responsable_utilisateur_id' => $actor->id_utilisateur,
+        ]);
+
+        Affectation::factory()->create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $participant->id_utilisateur,
+            'statut_affectation' => 'assigne',
+            'est_responsable' => false,
         ]);
 
         $response = $this->actingAs($actor, 'sanctum')
             ->postJson('/api/conversations/mission', [
                 'mission_id' => $mission->id_mission,
-                'participant_ids' => [$participant->id_utilisateur],
             ])
             ->assertStatus(201)
             ->assertJsonPath('conversation.type', 'group')
@@ -65,9 +75,9 @@ class ChatMissionGroupTest extends TestCase
     public function test_mission_group_is_reused_and_name_can_be_updated(): void
     {
         $actor = User::factory()->create();
-        $participant = User::factory()->create();
         $mission = Mission::factory()->create([
             'titre_mission' => 'Mission Logistique',
+            'responsable_utilisateur_id' => $actor->id_utilisateur,
         ]);
 
         $first = $this->actingAs($actor, 'sanctum')
@@ -82,7 +92,6 @@ class ChatMissionGroupTest extends TestCase
             ->postJson('/api/conversations/mission', [
                 'mission_id' => $mission->id_mission,
                 'name' => 'Groupe officiel mission',
-                'participant_ids' => [$participant->id_utilisateur],
             ])
             ->assertStatus(200)
             ->assertJsonPath('conversation.id', (string) $conversationId)
@@ -91,7 +100,7 @@ class ChatMissionGroupTest extends TestCase
         $this->assertDatabaseCount('chat_conversations', 1);
         $this->assertDatabaseHas('chat_conversation_participants', [
             'id_chat_conversation' => $conversationId,
-            'id_utilisateur' => $participant->id_utilisateur,
+            'id_utilisateur' => $actor->id_utilisateur,
         ]);
     }
 
@@ -107,11 +116,13 @@ class ChatMissionGroupTest extends TestCase
             ->assertJsonValidationErrors(['mission_id']);
     }
 
-    public function test_participant_can_add_other_participant_to_group(): void
+    public function test_cannot_manually_add_participant_to_mission_group(): void
     {
         $actor = User::factory()->create();
         $newParticipant = User::factory()->create();
-        $mission = Mission::factory()->create();
+        $mission = Mission::factory()->create([
+            'responsable_utilisateur_id' => $actor->id_utilisateur,
+        ]);
 
         $created = $this->actingAs($actor, 'sanctum')
             ->postJson('/api/conversations/mission', [
@@ -125,13 +136,8 @@ class ChatMissionGroupTest extends TestCase
             ->postJson("/api/conversations/{$conversationId}/participants", [
                 'user_id' => $newParticipant->id_utilisateur,
             ])
-            ->assertStatus(200)
-            ->assertJsonPath('message', 'Participant ajoute au groupe.');
-
-        $this->assertDatabaseHas('chat_conversation_participants', [
-            'id_chat_conversation' => $conversationId,
-            'id_utilisateur' => $newParticipant->id_utilisateur,
-        ]);
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Les participants d\'un groupe mission sont synchronisés automatiquement.');
     }
 
     public function test_non_participant_cannot_add_participant_to_group(): void
@@ -139,18 +145,22 @@ class ChatMissionGroupTest extends TestCase
         $owner = User::factory()->create();
         $outsider = User::factory()->create();
         $target = User::factory()->create();
-        $mission = Mission::factory()->create();
 
-        $created = $this->actingAs($owner, 'sanctum')
-            ->postJson('/api/conversations/mission', [
-                'mission_id' => $mission->id_mission,
-            ])
-            ->assertStatus(201);
+        $conversation = ChatConversation::create([
+            'type_conversation' => 'group',
+            'titre_conversation' => 'Groupe libre',
+            'id_mission' => null,
+            'created_by_utilisateur_id' => $owner->id_utilisateur,
+        ]);
 
-        $conversationId = (int) $created->json('conversation.id');
+        ChatConversationParticipant::create([
+            'id_chat_conversation' => (int) $conversation->id_chat_conversation,
+            'id_utilisateur' => $owner->id_utilisateur,
+            'joined_at' => now(),
+        ]);
 
         $this->actingAs($outsider, 'sanctum')
-            ->postJson("/api/conversations/{$conversationId}/participants", [
+            ->postJson("/api/conversations/{$conversation->id_chat_conversation}/participants", [
                 'user_id' => $target->id_utilisateur,
             ])
             ->assertStatus(403)

@@ -94,7 +94,8 @@
                 :mission-point="mission.missionPoint"
                 :event-center="mission.eventCenter"
                 :radius-meters="mission.eventRadiusMeters"
-                :current-user-id="currentUser?.id || ''"
+                :current-user-id="currentUserId"
+                :current-user-role="currentUser?.role || ''"
                 :is-active-mission="isActiveMission"
                 :google-maps-url="mission.googleMapsUrl || mission.eventGoogleMapsUrl"
                 :participants="mission.volunteers || []"
@@ -335,6 +336,7 @@ const router = useRouter()
 const route  = useRoute()
 const toast = useToast()
 const currentUser = ref(getCurrentUser())
+const currentUserId = computed(() => String(currentUser.value?.id || currentUser.value?.id_utilisateur || ''))
 const currentUserCompetenceIds = ref([])
 const currentUserCompetenceNames = ref([])
 
@@ -414,6 +416,7 @@ const mapMissionFromApi = (rawMission, eventName, manager, currentVolunteersCoun
   volunteers: [],
   messages: [],
   emergencyMessages: [],
+  responsibleUserId: rawMission.responsable_utilisateur_id ? String(rawMission.responsable_utilisateur_id) : null,
 })
 
 const loadMissionDetails = async () => {
@@ -428,7 +431,7 @@ const loadMissionDetails = async () => {
       api.get('/users'),
       api.get('/affectations'),
       api.get('/postulations'),
-      currentUser.value?.id ? api.get(`/users/${currentUser.value.id}/competences`) : Promise.resolve({ data: [] }),
+      currentUserId.value ? api.get(`/users/${currentUserId.value}/competences`) : Promise.resolve({ data: [] }),
     ])
 
     const rawMission = missionResponse.data
@@ -454,7 +457,7 @@ const loadMissionDetails = async () => {
     )
     const currentUserPostulation = postulations.find((postulation) =>
       String(postulation.id_mission) === String(rawMission.id_mission)
-      && String(postulation.id_utilisateur) === String(currentUser.value?.id || '')
+      && String(postulation.id_utilisateur) === currentUserId.value
       && !['annule', 'refuse'].includes(String(postulation.statut_postulation || '').toLowerCase())
     )
 
@@ -484,7 +487,8 @@ const loadMissionDetails = async () => {
       currentVolunteersCount
     )
     mission.value.volunteers = participants
-    mission.value.isParticipant = missionAffectations.some((affectation) => String(affectation.id_utilisateur) === String(currentUser.value?.id || ''))
+    mission.value.isResponsible = String(rawMission.responsable_utilisateur_id || '') === currentUserId.value
+    mission.value.isParticipant = missionAffectations.some((affectation) => String(affectation.id_utilisateur) === currentUserId.value)
     mission.value.registrationStatus = currentUserPostulation?.statut_postulation || null
     mission.value.currentUserPostulationId = currentUserPostulation?.id_postulation ? String(currentUserPostulation.id_postulation) : null
     availableUsers.value = users.map((user) => ({
@@ -507,7 +511,7 @@ const normalizeMissionStatus = (status) => String(status || '').trim().toLowerCa
 const isActiveMission = computed(() =>
   !!mission.value
   && normalizeMissionStatus(mission.value.status) === 'en cours'
-  && !!mission.value.isParticipant
+  && (!!mission.value.isParticipant || !!mission.value.isResponsible)
 )
 
 const isMissionPast = computed(() => {
@@ -517,7 +521,7 @@ const isMissionPast = computed(() => {
 })
 
 const canCurrentUserRegister = computed(() => {
-  if (!mission.value || !currentUser.value?.id) return false
+  if (!mission.value || !currentUserId.value) return false
   if (isMissionPast.value) return false
   if (!mission.value.postable) return false
   if (missingRequiredSkills.value.length > 0) return false
@@ -635,7 +639,7 @@ const sendChatMessage = () => {
 const sendEmergencyMessage = async () => {
   emergencySendFeedback.value = ''
 
-  if (!emergencyCategory.value || !emergencyMessage.value.trim() || !mission.value?.id || !currentUser.value?.id) {
+  if (!emergencyCategory.value || !emergencyMessage.value.trim() || !mission.value?.id || !currentUserId.value) {
     toast.warning('Veuillez sélectionner une catégorie et écrire un message.')
     return
   }
@@ -643,7 +647,7 @@ const sendEmergencyMessage = async () => {
   try {
     const response = await emergencyService.sendMissionEmergency({
       missionId: mission.value.id,
-      senderUserId: currentUser.value.id,
+      senderUserId: currentUserId.value,
       category: emergencyCategory.value,
       message: emergencyMessage.value.trim(),
     })
@@ -692,7 +696,7 @@ const registerUserToMission = async (userId, successMessage) => {
       })
     }
 
-    if (String(userId) === String(currentUser.value?.id || '')) {
+    if (String(userId) === currentUserId.value) {
       mission.value.registrationStatus = postulation?.statut_postulation || 'accepte'
       mission.value.currentUserPostulationId = postulation?.id_postulation ? String(postulation.id_postulation) : mission.value.currentUserPostulationId
     }
@@ -708,7 +712,7 @@ const registerUserToMission = async (userId, successMessage) => {
 }
 
 const handleMissionRegistration = async () => {
-  if (!currentUser.value?.id || !canCurrentUserRegister.value) return
+  if (!currentUserId.value || !canCurrentUserRegister.value) return
 
   if (missingRequiredSkills.value.length > 0) {
     toast.warning(`Compétences requises manquantes: ${missingRequiredSkills.value.join(', ')}`)
@@ -725,7 +729,7 @@ const handleMissionRegistration = async () => {
   }
 
   const success = await registerUserToMission(
-    currentUser.value.id,
+    currentUserId.value,
     'Votre inscription à la mission est confirmée.'
   )
 

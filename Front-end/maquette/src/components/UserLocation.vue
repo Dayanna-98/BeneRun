@@ -103,9 +103,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { MapPin, X, Dot } from 'lucide-vue-next'
-import axios from 'axios'
+import api from '@/services/api'
 
 const isTracking = ref(false)
 const isLoading = ref(false)
@@ -114,7 +114,9 @@ const successMessage = ref(null)
 const currentLocation = ref(null)
 const nearbyVolunteers = ref([])
 const watchId = ref(null)
-const updateInterval = ref(null)
+const locationUpdateInterval = ref(null)
+const volunteersUpdateInterval = ref(null)
+const expirationUpdateInterval = ref(null)
 const expirationTime = ref('5:00')
 
 // Calculer le temps restant avant expiration
@@ -139,6 +141,11 @@ const updateExpirationTime = () => {
 // Obtenir la position actuelle
 const getPosition = () => {
   return new Promise((resolve, reject) => {
+    if (!window.isSecureContext) {
+      reject(new Error('La geolocalisation requiert HTTPS (ou localhost).'))
+      return
+    }
+
     if (!navigator.geolocation) {
       reject(new Error('Géolocalisation non disponible'))
       return
@@ -167,14 +174,18 @@ const getPosition = () => {
 // Envoyer la localisation au serveur
 const sendLocationToServer = async (location) => {
   try {
-    const response = await axios.post('/api/location', location)
+    const response = await api.post('/location', location)
     currentLocation.value = response.data.location
     successMessage.value = 'Position mise à jour'
     setTimeout(() => {
       successMessage.value = null
     }, 3000)
   } catch (err) {
-    error.value = 'Impossible de mettre à jour la position'
+    if (err.response?.status === 401) {
+      error.value = 'Session expiree. Reconnectez-vous.'
+    } else {
+      error.value = 'Impossible de mettre a jour la position'
+    }
     console.error(err)
   }
 }
@@ -182,7 +193,7 @@ const sendLocationToServer = async (location) => {
 // Récupérer les volontaires proches
 const fetchNearbyVolunteers = async () => {
   try {
-    const response = await axios.get('/api/locations')
+    const response = await api.get('/locations')
     nearbyVolunteers.value = response.data.locations || []
   } catch (err) {
     console.error('Erreur lors de la récupération des volontaires', err)
@@ -191,16 +202,31 @@ const fetchNearbyVolunteers = async () => {
 
 // Démarrer le suivi
 const startTracking = async () => {
+  if (isTracking.value) {
+    return
+  }
+
   error.value = null
   isLoading.value = true
 
   try {
     const location = await getPosition()
     await sendLocationToServer(location)
+    await fetchNearbyVolunteers()
     isTracking.value = true
 
+    if (locationUpdateInterval.value) {
+      clearInterval(locationUpdateInterval.value)
+    }
+    if (volunteersUpdateInterval.value) {
+      clearInterval(volunteersUpdateInterval.value)
+    }
+    if (expirationUpdateInterval.value) {
+      clearInterval(expirationUpdateInterval.value)
+    }
+
     // Mettre à jour la localisation toutes les 10 secondes
-    updateInterval.value = setInterval(async () => {
+    locationUpdateInterval.value = setInterval(async () => {
       try {
         const newLocation = await getPosition()
         await sendLocationToServer(newLocation)
@@ -211,14 +237,22 @@ const startTracking = async () => {
     }, 10000)
 
     // Mettre à jour les volontaires proches toutes les 5 secondes
-    setInterval(() => {
+    volunteersUpdateInterval.value = setInterval(() => {
       fetchNearbyVolunteers()
     }, 5000)
 
     // Mettre à jour le temps d'expiration
-    updateInterval.value = setInterval(updateExpirationTime, 1000)
+    expirationUpdateInterval.value = setInterval(updateExpirationTime, 1000)
   } catch (err) {
-    error.value = 'Impossible d\'accéder à votre localisation. Vérifiez les permissions.'
+    if (err?.code === 1) {
+      error.value = 'Acces a la geolocalisation refuse. Autorisez la localisation dans le navigateur.'
+    } else if (err?.code === 2) {
+      error.value = 'Position indisponible. Activez le GPS et reessayez.'
+    } else if (err?.code === 3) {
+      error.value = 'Delai depasse pour recuperer la position. Reessayez.'
+    } else {
+      error.value = err?.message || 'Impossible d\'acceder a votre localisation.'
+    }
     isTracking.value = false
   } finally {
     isLoading.value = false
@@ -231,12 +265,21 @@ const stopTracking = async () => {
   currentLocation.value = null
   nearbyVolunteers.value = []
 
-  if (updateInterval.value) {
-    clearInterval(updateInterval.value)
+  if (locationUpdateInterval.value) {
+    clearInterval(locationUpdateInterval.value)
+    locationUpdateInterval.value = null
+  }
+  if (volunteersUpdateInterval.value) {
+    clearInterval(volunteersUpdateInterval.value)
+    volunteersUpdateInterval.value = null
+  }
+  if (expirationUpdateInterval.value) {
+    clearInterval(expirationUpdateInterval.value)
+    expirationUpdateInterval.value = null
   }
 
   try {
-    await axios.delete('/api/location')
+    await api.delete('/location')
   } catch (err) {
     console.error('Erreur lors de la suppression de la localisation', err)
   }
@@ -279,8 +322,14 @@ const calculateDistance = (volunteer) => {
 
 // Nettoyer au démontage
 onUnmounted(() => {
-  if (updateInterval.value) {
-    clearInterval(updateInterval.value)
+  if (locationUpdateInterval.value) {
+    clearInterval(locationUpdateInterval.value)
+  }
+  if (volunteersUpdateInterval.value) {
+    clearInterval(volunteersUpdateInterval.value)
+  }
+  if (expirationUpdateInterval.value) {
+    clearInterval(expirationUpdateInterval.value)
   }
   if (watchId.value) {
     navigator.geolocation.clearWatch(watchId.value)

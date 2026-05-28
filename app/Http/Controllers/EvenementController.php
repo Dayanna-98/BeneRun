@@ -99,6 +99,14 @@ class EvenementController extends Controller
             'cree_par_utilisateur_id' => 'required|integer|exists:users,id_utilisateur',
         ]);
 
+        $duplicateResponse = $this->ensureUniqueEventNameOnStartDate(
+            (string) $validated['nom_evenement'],
+            (string) $validated['date_debut_evenement']
+        );
+        if ($duplicateResponse !== null) {
+            return $duplicateResponse;
+        }
+
         if (
             ! empty($validated['date_debut_evenement'])
             && ! empty($validated['date_fin_evenement'])
@@ -161,6 +169,13 @@ class EvenementController extends Controller
             'est_publie_evenement' => 'nullable|boolean',
             'cree_par_utilisateur_id' => 'sometimes|integer|exists:users,id_utilisateur',
         ]);
+
+        $eventName = (string) ($validated['nom_evenement'] ?? $event->nom_evenement);
+        $eventStartDate = (string) ($validated['date_debut_evenement'] ?? $event->date_debut_evenement);
+        $duplicateResponse = $this->ensureUniqueEventNameOnStartDate($eventName, $eventStartDate, (int) $event->id_evenement);
+        if ($duplicateResponse !== null) {
+            return $duplicateResponse;
+        }
 
         $startDate = $validated['date_debut_evenement'] ?? $event->date_debut_evenement;
         $endDate = $validated['date_fin_evenement'] ?? $event->date_fin_evenement;
@@ -227,6 +242,27 @@ class EvenementController extends Controller
         $eventStart = Carbon::parse("{$startDate} {$startTime}");
 
         return now()->greaterThanOrEqualTo($eventStart);
+    }
+
+    private function ensureUniqueEventNameOnStartDate(string $eventName, string $startDate, ?int $excludeEventId = null)
+    {
+        $query = Evenement::query()
+            ->where('nom_evenement', $eventName)
+            ->whereDate('date_debut_evenement', $startDate)
+            ->when($excludeEventId !== null, function ($builder) use ($excludeEventId) {
+                $builder->where('id_evenement', '!=', $excludeEventId);
+            });
+
+        if ($query->exists()) {
+            return response()->json([
+                'message' => 'Un evenement avec ce nom existe deja a cette date.',
+                'errors' => [
+                    'nom_evenement' => ['Un evenement avec ce nom existe deja a cette date.'],
+                ],
+            ], 422);
+        }
+
+        return null;
     }
 
     private function hydrateEventLocation(array $validated, ?Evenement $event = null): array

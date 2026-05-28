@@ -92,7 +92,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { MapPin, ArrowLeft, Users } from 'lucide-vue-next'
 import UserLocation from '@/components/UserLocation.vue'
-import axios from 'axios'
+import api from '@/services/api'
 import L from 'leaflet'
 
 const volunteers = ref([])
@@ -114,19 +114,26 @@ const initMap = () => {
 // Récupérer les volontaires
 const fetchVolunteers = async () => {
   try {
-    const response = await axios.get('/api/locations')
+    const response = await api.get('/locations')
     volunteers.value = response.data.locations || []
-
-    // Récupérer ma position
-    const meResponse = await axios.get('/api/location')
-    if (meResponse.data.location) {
-      currentLocation.value = meResponse.data.location
-    }
-
-    updateMarkers()
   } catch (err) {
     console.error('Erreur lors de la récupération des volontaires', err)
+    return
   }
+
+  try {
+    // Récupérer ma position (404 = pas encore partagee)
+    const meResponse = await api.get('/location')
+    currentLocation.value = meResponse.data.location || null
+  } catch (err) {
+    if (err.response?.status === 404) {
+      currentLocation.value = null
+    } else {
+      console.error('Erreur lors de la récupération de ma position', err)
+    }
+  }
+
+  updateMarkers()
 }
 
 // Mettre à jour les marqueurs sur la carte

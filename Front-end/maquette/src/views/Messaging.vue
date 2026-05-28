@@ -40,6 +40,7 @@
                 <button class="btn btn-sm filter-btn" :class="activeFilter === 'all' ? 'btn-dark' : 'btn-outline-secondary'" @click="activeFilter = 'all'">Tous</button>
                 <button class="btn btn-sm filter-btn" :class="activeFilter === 'direct' ? 'btn-dark' : 'btn-outline-secondary'" @click="activeFilter = 'direct'">Privé</button>
                 <button class="btn btn-sm filter-btn" :class="activeFilter === 'group' ? 'btn-dark' : 'btn-outline-secondary'" @click="activeFilter = 'group'">Groupes</button>
+                <button class="btn btn-sm filter-btn" :class="activeFilter === 'archived' ? 'btn-dark' : 'btn-outline-secondary'" @click="activeFilter = 'archived'">Archivées</button>
               </div>
 
               <div class="conversation-tools mb-2">
@@ -112,6 +113,15 @@
                       {{ selectedConversation.type === 'group' ? 'Groupe auto-créé depuis une mission' : 'Discussion 1:1' }}
                     </div>
                   </div>
+                  <button
+                    v-if="canUseEmergencyMessaging"
+                    type="button"
+                    class="btn btn-sm btn-danger"
+                    @click="toggleEmergencyPanel"
+                    :disabled="isSendingEmergencyMessage"
+                  >
+                    {{ showEmergencyPanel ? 'Fermer urgence' : 'Messagerie d\'urgence' }}
+                  </button>
                 </div>
 
                 <div v-if="selectedConversation.type === 'group'" class="px-3 py-2 border-bottom group-members-bar">
@@ -125,6 +135,45 @@
                     </span>
                   </div>
                   <div v-else class="x-small text-muted">Aucun membre pour l'instant.</div>
+                </div>
+
+                <div v-if="showEmergencyPanel && canUseEmergencyMessaging" class="px-3 py-2 border-bottom bg-danger-subtle">
+                  <div class="small fw-semibold text-danger-emphasis mb-1">Messagerie d'urgence</div>
+                  <p class="x-small text-danger-emphasis mb-2">Message envoyé aux superadmins pour la mission en cours.</p>
+
+                  <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button
+                      v-for="category in emergencyCategories"
+                      :key="category.value"
+                      type="button"
+                      class="btn btn-sm"
+                      :class="selectedEmergencyCategory === category.value ? 'btn-danger' : 'btn-outline-danger'"
+                      @click="selectedEmergencyCategory = category.value"
+                    >
+                      {{ category.label }}
+                    </button>
+                  </div>
+
+                  <textarea
+                    v-model="emergencyMessageDraft"
+                    class="form-control form-control-sm"
+                    rows="2"
+                    placeholder="Décrivez rapidement l'urgence..."
+                    :disabled="isSendingEmergencyMessage"
+                  ></textarea>
+
+                  <div class="d-flex justify-content-between align-items-center mt-2 gap-2 flex-wrap">
+                    <div v-if="emergencyMessageFeedback" class="x-small text-success">{{ emergencyMessageFeedback }}</div>
+                    <div v-if="emergencyMessageError" class="x-small text-danger">{{ emergencyMessageError }}</div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-danger ms-auto"
+                      :disabled="!canSubmitEmergencyMessage"
+                      @click="sendEmergencyMessage"
+                    >
+                      {{ isSendingEmergencyMessage ? 'Envoi...' : 'Envoyer alerte' }}
+                    </button>
+                  </div>
                 </div>
 
                 <div ref="messagesContainer" class="flex-grow-1 p-3 overflow-auto messages-scroll" role="log" aria-label="Fil de messages" aria-live="polite">
@@ -250,6 +299,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import userService from '@/services/userService'
 import chatApiService from '@/services/chatApiService'
+import api from '@/services/api'
+import emergencyService from '@/services/emergencyService'
 import getEcho, { leaveEchoChannel, destroyEcho } from '@/services/realtime'
 import { getCurrentUser } from '@/utils/auth'
 
@@ -279,6 +330,8 @@ const isLoadingOldMessages = ref(false)
 
 const users = ref([])
 const usersById = ref({})
+const missionById = ref({})
+const activeMissionIds = ref([])
 const conversations = ref([])
 const selectedConversationId = ref(null)
 const messages = ref([])
@@ -293,6 +346,21 @@ const CONVERSATION_POLL_MS = 30000
 const MESSAGES_POLL_MS = 15000
 const SEARCH_DEBOUNCE_MS = 500
 const MESSAGE_GROUP_TIME_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+const ACTIVE_ASSIGNMENT_STATUSES = ['assigne', 'confirme', 'present']
+
+const showEmergencyPanel = ref(false)
+const selectedEmergencyCategory = ref('other')
+const emergencyMessageDraft = ref('')
+const emergencyMessageFeedback = ref('')
+const emergencyMessageError = ref('')
+const isSendingEmergencyMessage = ref(false)
+
+const emergencyCategories = [
+  { value: 'medical', label: 'Médicale' },
+  { value: 'security', label: 'Sécurité' },
+  { value: 'logistics', label: 'Logistique' },
+  { value: 'other', label: 'Autre' },
+]
 
 // Utility: Debounce function
 const debounce = (func, wait) => {
@@ -326,6 +394,35 @@ const formatRelativeTime = (dateValue) => {
 const selectedConversation = computed(() =>
   conversations.value.find((conversation) => conversation.id === selectedConversationId.value) || null
 )
+
+const selectedConversationMissionId = computed(() => {
+  if (selectedConversation.value?.type !== 'group') return null
+  const rawId = String(selectedConversation.value?.missionId || '').trim()
+  return rawId || null
+})
+
+const canUseEmergencyMessaging = computed(() => {
+  if (!selectedConversationMissionId.value) return false
+  return activeMissionIds.value.includes(selectedConversationMissionId.value)
+})
+
+const canSubmitEmergencyMessage = computed(() => {
+  return canUseEmergencyMessaging.value
+    && !isSendingEmergencyMessage.value
+    && Boolean(selectedEmergencyCategory.value)
+    && Boolean(emergencyMessageDraft.value.trim())
+})
+
+const toggleEmergencyPanel = () => {
+  if (!canUseEmergencyMessaging.value) {
+    showEmergencyPanel.value = false
+    return
+  }
+
+  showEmergencyPanel.value = !showEmergencyPanel.value
+  emergencyMessageError.value = ''
+  emergencyMessageFeedback.value = ''
+}
 
 const totalUnreadCount = computed(() =>
   conversations.value.reduce((sum, conversation) => sum + Number(conversation.unreadCount || 0), 0)
@@ -381,7 +478,21 @@ const filteredConversations = computed(() => {
   const query = conversationSearch.value.trim().toLowerCase()
 
   return conversations.value.filter((conversation) => {
-    if (activeFilter.value !== 'all' && conversation.type !== activeFilter.value) {
+    const isArchived = isConversationArchived(conversation)
+
+    if (activeFilter.value === 'direct' && conversation.type !== 'direct') {
+      return false
+    }
+
+    if (activeFilter.value === 'group' && (conversation.type !== 'group' || isArchived)) {
+      return false
+    }
+
+    if (activeFilter.value === 'archived' && !isArchived) {
+      return false
+    }
+
+    if (activeFilter.value === 'all' && isArchived) {
       return false
     }
 
@@ -452,9 +563,160 @@ const formatDate = (dateValue) => {
   return formatRelativeTime(dateValue)
 }
 
+const normalizeDate = (value) => String(value || '').slice(0, 10)
+
+const toTime = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  return value.slice(0, 5)
+}
+
+const normalizeMissionStatus = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+
+const isMissionStatusActive = (status) => normalizeMissionStatus(status) === 'encours'
+const isMissionStatusFinished = (status) => normalizeMissionStatus(status) === 'terminee'
+
+const parseLocalDateTime = (dateValue, timeValue = '00:00') => {
+  const datePart = normalizeDate(dateValue)
+  if (!datePart) return null
+
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hours, minutes] = String(timeValue || '00:00').split(':').map(Number)
+
+  if ([year, month, day, hours, minutes].some(Number.isNaN)) return null
+
+  return new Date(year, month - 1, day, hours, minutes, 0, 0)
+}
+
+const missionStartDateTime = (mission) => {
+  if (!mission?.date) return null
+  return parseLocalDateTime(mission.date, mission.startTime || '00:00')
+}
+
+const missionEndDateTime = (mission) => {
+  if (!mission?.date) return null
+
+  const start = missionStartDateTime(mission)
+  const end = parseLocalDateTime(mission.date, mission.endTime || '23:59')
+  if (!end) return null
+
+  if (start && end < start) {
+    end.setDate(end.getDate() + 1)
+  }
+
+  return end
+}
+
+const isMissionActiveNow = (mission) => {
+  if (!mission) return false
+  if (isMissionStatusActive(mission.status)) return true
+
+  const start = missionStartDateTime(mission)
+  const end = missionEndDateTime(mission)
+  if (!start || !end) return false
+
+  const now = new Date()
+  return now >= start && now <= end
+}
+
+const isMissionFinishedNow = (mission) => {
+  if (!mission) return false
+  if (isMissionStatusFinished(mission.status)) return true
+
+  const end = missionEndDateTime(mission)
+  if (!end) return false
+
+  return new Date() > end
+}
+
+const isConversationArchived = (conversation) => {
+  if (!conversation || conversation.type !== 'group') return false
+
+  const missionId = String(conversation.missionId || '').trim()
+  if (!missionId) return false
+
+  return isMissionFinishedNow(missionById.value[missionId])
+}
+
+const loadActiveMissionIds = async () => {
+  if (!currentUserId) {
+    missionById.value = {}
+    activeMissionIds.value = []
+    return
+  }
+
+  try {
+    const [missionsResponse, affectationsResponse] = await Promise.all([
+      api.get('/missions'),
+      api.get('/affectations'),
+    ])
+
+    const missions = Array.isArray(missionsResponse.data) ? missionsResponse.data : []
+    missionById.value = missions.reduce((acc, mission) => {
+      const missionId = String(mission.id_mission || '').trim()
+      if (!missionId) return acc
+
+      acc[missionId] = {
+        id: missionId,
+        date: normalizeDate(mission.date_mission),
+        startTime: toTime(mission.heure_debut_mission),
+        endTime: toTime(mission.heure_fin_mission),
+        status: mission.statut_mission || '',
+      }
+
+      return acc
+    }, {})
+
+    const affectations = Array.isArray(affectationsResponse.data) ? affectationsResponse.data : []
+    const missionIds = affectations
+      .filter((affectation) => String(affectation.id_utilisateur || '') === currentUserId)
+      .filter((affectation) => ACTIVE_ASSIGNMENT_STATUSES.includes(String(affectation.statut_affectation || '').toLowerCase()))
+      .map((affectation) => String(affectation.id_mission || '').trim())
+      .filter(Boolean)
+
+    activeMissionIds.value = [...new Set(missionIds)]
+      .filter((missionId) => isMissionActiveNow(missionById.value[missionId]))
+  } catch {
+    missionById.value = {}
+    activeMissionIds.value = []
+  }
+}
+
 const formatDateFull = (dateValue) => {
   const date = new Date(dateValue)
   return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+const sendEmergencyMessage = async () => {
+  emergencyMessageFeedback.value = ''
+  emergencyMessageError.value = ''
+
+  if (!canSubmitEmergencyMessage.value || !selectedConversationMissionId.value || !currentUserId) {
+    emergencyMessageError.value = 'Impossible d\'envoyer le message d\'urgence pour cette mission.'
+    return
+  }
+
+  isSendingEmergencyMessage.value = true
+
+  try {
+    await emergencyService.sendMissionEmergency({
+      missionId: selectedConversationMissionId.value,
+      senderUserId: currentUserId,
+      category: selectedEmergencyCategory.value,
+      message: emergencyMessageDraft.value.trim(),
+    })
+
+    emergencyMessageDraft.value = ''
+    emergencyMessageFeedback.value = 'Message d\'urgence envoyé aux superadmins.'
+  } catch (error) {
+    emergencyMessageError.value = error.message || 'Envoi impossible pour le moment.'
+  } finally {
+    isSendingEmergencyMessage.value = false
+  }
 }
 
 const getUserDisplayName = (userId) => {
@@ -639,7 +901,10 @@ const runAutoRefreshConversations = async () => {
 
   try {
     isAutoSyncing.value = true
-    const rows = await chatApiService.listConversations()
+    const [rows] = await Promise.all([
+      chatApiService.listConversations(),
+      loadActiveMissionIds(),
+    ])
     mergeConversationList(rows)
   } catch {
     // Keep existing data if silent sync fails.
@@ -792,6 +1057,12 @@ const handleSendMessage = async () => {
       }
     }
 
+    // Keep composer clean after successful send.
+    draftMessage.value = ''
+    if (composerTextarea.value) {
+      composerTextarea.value.style.height = 'auto'
+    }
+
     await refreshConversations()
   } catch (error) {
     loadError.value = error.message || 'Impossible d\'envoyer le message.'
@@ -862,7 +1133,10 @@ const loadMessagingContext = async () => {
   loadError.value = ''
 
   try {
-    await refreshConversations()
+    await Promise.all([
+      refreshConversations(),
+      loadActiveMissionIds(),
+    ])
     await loadMessages()
     echo.value = getEcho()
     bindUserChannel()
@@ -909,6 +1183,14 @@ const openNewDiscussionModal = async () => {
 
 watch(selectedConversationId, async () => {
   await loadMessages()
+})
+
+watch(canUseEmergencyMessaging, (canUse) => {
+  if (canUse) return
+
+  showEmergencyPanel.value = false
+  emergencyMessageError.value = ''
+  emergencyMessageFeedback.value = ''
 })
 
 watch(openDirectModal, (isOpen) => {

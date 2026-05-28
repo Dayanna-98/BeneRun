@@ -184,4 +184,41 @@ class MissionPositionApiTest extends TestCase
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['id_utilisateur']);
     }
+
+    public function test_mission_responsible_can_read_and_write_positions_without_affectation(): void
+    {
+        $responsible = User::factory()->create([
+            'prenom_utilisateur' => 'Responsable',
+            'nom_utilisateur' => 'Mission',
+        ]);
+        $participant = User::factory()->create();
+
+        $mission = Mission::factory()->create([
+            'responsable_utilisateur_id' => $responsible->id_utilisateur,
+        ]);
+
+        $this->assignActiveParticipant($mission, $participant);
+
+        MissionPosition::create([
+            'id_mission' => $mission->id_mission,
+            'id_utilisateur' => $participant->id_utilisateur,
+            'latitude' => 46.2044,
+            'longitude' => 6.1432,
+        ]);
+
+        $this->actingAs($responsible, 'sanctum')->postJson("/api/missions/{$mission->id_mission}/positions", [
+            'latitude' => 46.21,
+            'longitude' => 6.15,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('message', 'Position mise à jour');
+
+        $response = $this->actingAs($responsible, 'sanctum')
+            ->getJson("/api/missions/{$mission->id_mission}/positions")
+            ->assertStatus(200);
+
+        $ids = collect($response->json())->pluck('id_utilisateur')->all();
+        $this->assertContains($responsible->id_utilisateur, $ids);
+        $this->assertContains($participant->id_utilisateur, $ids);
+    }
 }

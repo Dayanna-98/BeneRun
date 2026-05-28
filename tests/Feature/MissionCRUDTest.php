@@ -311,4 +311,84 @@ class MissionCRUDTest extends TestCase
             ->assertJsonCount(1)
             ->assertJsonFragment(['titre_mission' => 'Point de ravitaillement']);
     }
+
+    public function test_cannot_create_mission_with_same_title_on_same_day(): void
+    {
+        $creator = User::factory()->create();
+        $responsable = User::factory()->create();
+        $evenement = Evenement::factory()->create([
+            'cree_par_utilisateur_id' => $creator->id_utilisateur,
+            'date_debut_evenement' => '2026-08-01',
+            'date_fin_evenement' => '2026-08-02',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'rayon_localisation_evenement' => 500,
+            'nombre_benevoles_requis' => 100,
+        ]);
+
+        Mission::factory()->create([
+            'id_evenement' => $evenement->id_evenement,
+            'responsable_utilisateur_id' => $responsable->id_utilisateur,
+            'titre_mission' => 'Poste Eau',
+            'date_mission' => '2026-08-01',
+            'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2044,6.1432',
+        ]);
+
+        $payload = [
+            'id_evenement' => $evenement->id_evenement,
+            'responsable_utilisateur_id' => $responsable->id_utilisateur,
+            'titre_mission' => 'Poste Eau',
+            'type_mission' => 'logistique',
+            'description_mission' => 'Deuxieme mission homonyme le meme jour',
+            'date_mission' => '2026-08-01',
+            'heure_debut_mission' => '09:00',
+            'heure_fin_mission' => '12:00',
+            'lieu_mission' => 'Geneve',
+            'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'nombre_benevoles_max' => 10,
+        ];
+
+        $this->postJson('/api/missions', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['titre_mission']);
+    }
+
+    public function test_cannot_update_mission_to_duplicate_title_on_same_day(): void
+    {
+        $creator = User::factory()->create();
+        $responsable = User::factory()->create();
+        $evenement = Evenement::factory()->create([
+            'cree_par_utilisateur_id' => $creator->id_utilisateur,
+            'date_debut_evenement' => '2026-08-10',
+            'date_fin_evenement' => '2026-08-11',
+            'mode_localisation_evenement' => 'manual',
+            'google_maps_url_evenement' => 'https://www.google.com/maps?q=46.2044,6.1432',
+            'rayon_localisation_evenement' => 500,
+            'nombre_benevoles_requis' => 100,
+        ]);
+
+        $target = Mission::factory()->create([
+            'id_evenement' => $evenement->id_evenement,
+            'responsable_utilisateur_id' => $responsable->id_utilisateur,
+            'titre_mission' => 'Mission A',
+            'date_mission' => '2026-08-10',
+            'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2044,6.1432',
+        ]);
+
+        Mission::factory()->create([
+            'id_evenement' => $evenement->id_evenement,
+            'responsable_utilisateur_id' => $responsable->id_utilisateur,
+            'titre_mission' => 'Mission B',
+            'date_mission' => '2026-08-10',
+            'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2044,6.1432',
+        ]);
+
+        $this->patchJson("/api/missions/{$target->id_mission}", [
+            'titre_mission' => 'Mission B',
+            'date_mission' => '2026-08-10',
+            'google_maps_url_mission' => 'https://www.google.com/maps?q=46.2044,6.1432',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['titre_mission']);
+    }
 }

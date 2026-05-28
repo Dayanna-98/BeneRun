@@ -13,3 +13,9 @@ Broadcast::channel('chat.conversation.{conversationId}', function ($user, $conve
         ->where('id_utilisateur', (int) $user->id_utilisateur)
         ->exists();
 });
+
+Broadcast::channel('emergency.superadmins', function ($user) {
+    $role = str_replace(['-', '_', ' '], '', strtolower((string) ($user->role_utilisateur ?? '')));
+
+    return $role === 'superadmin';
+});

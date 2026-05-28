@@ -6,19 +6,28 @@
         <div class="small fw-semibold">
           {{ isActiveMission ? "Carte en temps réel" : "Localisation de la mission" }}
         </div>
-        <div v-if="isActiveMission" class="x-small text-muted">
+        <div v-if="missionId" class="x-small text-muted">
           {{ visibleParticipants.length }} participant{{ visibleParticipants.length !== 1 ? "s" : "" }} visible{{ visibleParticipants.length !== 1 ? "s" : "" }}
+          <span v-if="lastSyncLabel" :class="['sync-status', syncStatusClass]"> • {{ lastSyncLabel }}</span>
         </div>
       </div>
       <div class="d-flex align-items-center gap-2">
         <button
-          v-if="isActiveMission && currentUserId"
+          v-if="missionId"
           @click="toggleGps"
           :class="[`btn btn-sm d-flex align-items-center gap-1 px-2 py-1`, gpsActive ? `btn-success` : `btn-outline-secondary`]"
           style="font-size:11px;line-height:1.5"
         >
           <span :class="[`gps-dot`, gpsActive ? `gps-dot--active` : ``]"></span>
           {{ gpsActive ? "GPS actif" : "Partager ma position" }}
+        </button>
+        <button
+          v-if="missionId && isDebugUser"
+          @click="testGpsNow"
+          class="btn btn-sm btn-outline-primary px-2 py-1"
+          style="font-size:11px;line-height:1.5"
+        >
+          Tester GPS
         </button>
         <a
           v-if="externalLink"
@@ -58,6 +67,13 @@
       style="height:110px"
     >
       Aucune coordonnée disponible pour cette mission.
+    </div>
+
+    <div v-if="missionId && gpsDiagnostic" class="mt-2 alert alert-warning py-2 mb-0 small">
+      {{ gpsDiagnostic }}
+    </div>
+    <div v-if="missionId && apiDiagnostic" class="mt-2 alert alert-danger py-2 mb-0 small">
+      {{ apiDiagnostic }}
     </div>
 
     <!-- Liste des participants visibles -->
@@ -103,17 +119,25 @@ const props = defineProps({
   googleMapsUrl:   { type: String, default: '' },
   participants:    { type: Array, default: () => [] },
   liveLocationSharingEnabled: { type: Boolean, default: false },
+  currentUserRole: { type: String, default: '' },
 })
 
 const mapEl = ref(null)
 const gpsActive = ref(false)
 const visibleParticipants = ref([])
+const gpsDiagnostic = ref('')
+const apiDiagnostic = ref('')
+const lastSyncAt = ref(null)
+const syncClockTick = ref(Date.now())
 
 let L = null
 let leafletMap = null
 let pollInterval = null
 let watchId = null
 let lastPush = 0
+let hasCenteredOnSelf = false
+let localSelfPosition = null
+let syncClockInterval = null
 const participantMarkers = new Map()
 
 const center = computed(() => props.missionPoint || props.eventCenter)
@@ -151,6 +175,27 @@ const normalizedParticipantFallback = computed(() => {
 const effectiveCenter = computed(() => center.value || firstParticipantCenter.value)
 const hasCoords = computed(() => !!effectiveCenter.value)
 const fallbackEmbedUrl = computed(() => buildGoogleMapsEmbedUrl(props.googleMapsUrl))
+const localCurrentUserKey = computed(() => String(props.currentUserId || 'me'))
+const isDebugUser = computed(() => ['admin', 'superadmin'].includes(String(props.currentUserRole || '').toLowerCase()))
+const lastSyncLabel = computed(() => {
+  syncClockTick.value
+
+  if (!lastSyncAt.value) return ''
+
+  const diffSec = Math.max(0, Math.floor((Date.now() - lastSyncAt.value.getTime()) / 1000))
+  if (diffSec < 60) return `Synchro il y a ${diffSec}s`
+
+  const diffMin = Math.floor(diffSec / 60)
+  return `Synchro il y a ${diffMin} min`
+})
+const syncStatusClass = computed(() => {
+  syncClockTick.value
+
+  if (!lastSyncAt.value) return 'text-muted'
+
+  const diffSec = Math.max(0, Math.floor((Date.now() - lastSyncAt.value.getTime()) / 1000))
+  return diffSec > 30 ? 'text-warning' : 'text-muted'
+})
 
 const externalLink = computed(() => {
   if (props.googleMapsUrl) return props.googleMapsUrl
@@ -163,7 +208,7 @@ const initials = (name) => {
   return name.trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 }
 
-const isMe = (p) => String(p.id_utilisateur) === String(props.currentUserId)
+const isMe = (p) => String(p.id_utilisateur) === localCurrentUserKey.value
 
 const relativeTime = (ts) => {
   if (!ts) return ''
@@ -174,8 +219,7 @@ const relativeTime = (ts) => {
 }
 
 const getCurrentUserName = () => {
-  const currentId = String(props.currentUserId || '')
-  if (!currentId) return 'Vous'
+  const currentId = localCurrentUserKey.value
 
   const fromVisible = visibleParticipants.value.find((participant) => String(participant.id_utilisateur) === currentId)
   if (fromVisible?.name) return fromVisible.name
@@ -187,8 +231,7 @@ const getCurrentUserName = () => {
 }
 
 const upsertCurrentUserPositionLocally = (latitude, longitude) => {
-  const currentId = String(props.currentUserId || '')
-  if (!currentId) return
+  const currentId = localCurrentUserKey.value
 
   const lat = Number(latitude)
   const lng = Number(longitude)
@@ -202,12 +245,19 @@ const upsertCurrentUserPositionLocally = (latitude, longitude) => {
     updated_at: new Date().toISOString(),
   }
 
+  localSelfPosition = next
+
   const others = visibleParticipants.value.filter((participant) => String(participant.id_utilisateur) !== currentId)
   visibleParticipants.value = [next, ...others]
 
   if (!leafletMap && mapEl.value && effectiveCenter.value) {
     initMap().then(() => syncMarkers(visibleParticipants.value))
     return
+  }
+
+  if (leafletMap && !hasCenteredOnSelf) {
+    leafletMap.setView([lat, lng], Math.max(leafletMap.getZoom(), 15))
+    hasCenteredOnSelf = true
   }
 
   syncMarkers(visibleParticipants.value)
@@ -274,6 +324,10 @@ const fetchPositions = async () => {
     ])
   )
 
+  if (localSelfPosition) {
+    fallbackByUser.set(String(localSelfPosition.id_utilisateur), localSelfPosition)
+  }
+
   if (!props.missionId) {
     visibleParticipants.value = Array.from(fallbackByUser.values())
 
@@ -300,7 +354,16 @@ const fetchPositions = async () => {
     }
 
     syncMarkers(visibleParticipants.value)
-  } catch {
+    apiDiagnostic.value = ''
+    lastSyncAt.value = new Date()
+  } catch (error) {
+    const status = error?.response?.status
+    if (status === 403) {
+      apiDiagnostic.value = 'Acces refuse aux positions live pour cette mission (participant/responsable requis).'
+    } else if (status === 401) {
+      apiDiagnostic.value = 'Session expiree: reconnecte-toi puis reessaie.'
+    }
+
     visibleParticipants.value = Array.from(fallbackByUser.values())
 
     if (!leafletMap && mapEl.value && effectiveCenter.value) {
@@ -335,16 +398,55 @@ const syncMarkers = (positions) => {
 
 const toggleGps = () => { if (gpsActive.value) stopGps(); else startGps() }
 
+const formatGeolocationError = (error) => {
+  if (!error) return 'Erreur de geolocalisation inconnue.'
+
+  if (error.code === 1) {
+    return 'Geolocalisation refusee. Autorise la localisation dans ton navigateur.'
+  }
+
+  if (error.code === 2) {
+    return 'Position indisponible. Verifie GPS/reseau puis reessaie.'
+  }
+
+  if (error.code === 3) {
+    return 'Delai depasse pour recuperer la position. Reessaie.'
+  }
+
+  return error.message || 'Erreur de geolocalisation inconnue.'
+}
+
+const resetDiagnostics = () => {
+  gpsDiagnostic.value = ''
+  apiDiagnostic.value = ''
+}
+
 const startGps = () => {
-  if (!navigator.geolocation) return
+  resetDiagnostics()
+
+  if (!window.isSecureContext) {
+    gpsDiagnostic.value = 'Geolocalisation bloquee: cette page doit etre en HTTPS (ou localhost).'
+    return
+  }
+
+  if (!navigator.geolocation) {
+    gpsDiagnostic.value = 'Geolocalisation non disponible sur cet appareil/navigateur.'
+    return
+  }
+
   if (watchId !== null) return
+
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
       // Reflect the user's exact GPS point immediately on the map.
       upsertCurrentUserPositionLocally(pos.coords.latitude, pos.coords.longitude)
       pushPosition(pos.coords.latitude, pos.coords.longitude)
+      gpsDiagnostic.value = ''
     },
-    () => { gpsActive.value = false },
+    (error) => {
+      gpsDiagnostic.value = formatGeolocationError(error)
+      gpsActive.value = false
+    },
     { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
   )
   gpsActive.value = true
@@ -356,14 +458,14 @@ const stopGps = () => {
 }
 
 const ensurePollingState = async () => {
-  if (props.isActiveMission && props.missionId) {
+  if (props.missionId) {
     await fetchPositions()
 
     if (!pollInterval) {
       pollInterval = setInterval(fetchPositions, 15000)
     }
 
-    if (props.liveLocationSharingEnabled && props.currentUserId && !gpsActive.value) {
+    if (props.liveLocationSharingEnabled && !gpsActive.value) {
       startGps()
     }
 
@@ -384,16 +486,62 @@ const pushPosition = async (lat, lng) => {
   const now = Date.now()
   if (now - lastPush < 10000) return
   lastPush = now
-  if (!props.missionId || !props.currentUserId) return
+  if (!props.missionId) return
+  if (!props.currentUserId) {
+    apiDiagnostic.value = 'Identifiant utilisateur introuvable dans la session. Recharge la page ou reconnecte-toi.'
+    return
+  }
   try {
     await api.post(`/missions/${props.missionId}/positions`, {
       latitude: lat,
       longitude: lng,
     })
-  } catch { /* silencieux */ }
+    apiDiagnostic.value = ''
+    lastSyncAt.value = new Date()
+  } catch (error) {
+    const status = error?.response?.status
+    if (status === 401) {
+      apiDiagnostic.value = 'Session expiree: reconnecte-toi puis reessaie.'
+      return
+    }
+    if (status === 403) {
+      apiDiagnostic.value = 'Acces refuse a la position live pour cette mission (participant/responsable requis).'
+      return
+    }
+  }
+}
+
+const testGpsNow = () => {
+  resetDiagnostics()
+
+  if (!window.isSecureContext) {
+    gpsDiagnostic.value = 'Geolocalisation bloquee: cette page doit etre en HTTPS (ou localhost).'
+    return
+  }
+
+  if (!navigator.geolocation) {
+    gpsDiagnostic.value = 'Geolocalisation non disponible sur cet appareil/navigateur.'
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      upsertCurrentUserPositionLocally(pos.coords.latitude, pos.coords.longitude)
+      pushPosition(pos.coords.latitude, pos.coords.longitude)
+      gpsDiagnostic.value = ''
+    },
+    (error) => {
+      gpsDiagnostic.value = formatGeolocationError(error)
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+  )
 }
 
 onMounted(async () => {
+  syncClockInterval = setInterval(() => {
+    syncClockTick.value = Date.now()
+  }, 1000)
+
   await ensurePollingState()
 
   if (!leafletMap && hasCoords.value) {
@@ -411,7 +559,7 @@ watch(
 watch(
   () => props.liveLocationSharingEnabled,
   (enabled) => {
-    if (!props.isActiveMission || !props.missionId || !props.currentUserId) return
+    if (!props.missionId) return
 
     if (enabled) {
       startGps()
@@ -425,7 +573,7 @@ watch(
 watch(
   () => props.participants,
   async () => {
-    if (props.isActiveMission && props.missionId) {
+    if (props.missionId) {
       await fetchPositions()
       return
     }
@@ -446,6 +594,12 @@ onUnmounted(() => {
     pollInterval = null
   }
   if (leafletMap) { leafletMap.remove(); leafletMap = null }
+  if (syncClockInterval) {
+    clearInterval(syncClockInterval)
+    syncClockInterval = null
+  }
+  hasCenteredOnSelf = false
+  localSelfPosition = null
 })
 </script>
 
@@ -471,4 +625,8 @@ onUnmounted(() => {
 }
 .gps-dot--active { animation: gps-blink 1.2s ease-in-out infinite; }
 @keyframes gps-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+.sync-status {
+  font-weight: 600;
+}
 </style>

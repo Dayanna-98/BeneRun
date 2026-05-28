@@ -436,6 +436,11 @@ class PostulationController extends Controller
                 ->where('id_utilisateur', $postulation->id_utilisateur)
                 ->where('est_responsable', false)
                 ->update(['statut_affectation' => 'annule']);
+
+            $this->missionConversationService->syncAssignedParticipants(
+                (int) $postulation->id_mission,
+                (int) $postulation->id_utilisateur
+            );
         }
     }
 
