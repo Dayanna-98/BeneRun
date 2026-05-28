@@ -172,6 +172,46 @@ const relativeTime = (ts) => {
   return `il y a ${Math.floor(diff / 3600)} h`
 }
 
+const getCurrentUserName = () => {
+  const currentId = String(props.currentUserId || '')
+  if (!currentId) return 'Vous'
+
+  const fromVisible = visibleParticipants.value.find((participant) => String(participant.id_utilisateur) === currentId)
+  if (fromVisible?.name) return fromVisible.name
+
+  const fromFallback = normalizedParticipantFallback.value.find((participant) => String(participant.id_utilisateur) === currentId)
+  if (fromFallback?.name) return fromFallback.name
+
+  return 'Vous'
+}
+
+const upsertCurrentUserPositionLocally = (latitude, longitude) => {
+  const currentId = String(props.currentUserId || '')
+  if (!currentId) return
+
+  const lat = Number(latitude)
+  const lng = Number(longitude)
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return
+
+  const next = {
+    id_utilisateur: currentId,
+    name: getCurrentUserName(),
+    latitude: lat,
+    longitude: lng,
+    updated_at: new Date().toISOString(),
+  }
+
+  const others = visibleParticipants.value.filter((participant) => String(participant.id_utilisateur) !== currentId)
+  visibleParticipants.value = [next, ...others]
+
+  if (!leafletMap && mapEl.value && effectiveCenter.value) {
+    initMap().then(() => syncMarkers(visibleParticipants.value))
+    return
+  }
+
+  syncMarkers(visibleParticipants.value)
+}
+
 const createParticipantIcon = (name, isCurrent) => {
   const bg = isCurrent ? '#16a34a' : '#3b82f6'
   const html = `<div style="width:32px;height:32px;border-radius:50%;background:${bg};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;font-family:system-ui,sans-serif">${initials(name)}</div>`
@@ -297,7 +337,11 @@ const toggleGps = () => { if (gpsActive.value) stopGps(); else startGps() }
 const startGps = () => {
   if (!navigator.geolocation) return
   watchId = navigator.geolocation.watchPosition(
-    (pos) => pushPosition(pos.coords.latitude, pos.coords.longitude),
+    (pos) => {
+      // Reflect the user's exact GPS point immediately on the map.
+      upsertCurrentUserPositionLocally(pos.coords.latitude, pos.coords.longitude)
+      pushPosition(pos.coords.latitude, pos.coords.longitude)
+    },
     () => { gpsActive.value = false },
     { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
   )
