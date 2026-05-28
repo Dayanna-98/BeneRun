@@ -16,8 +16,8 @@ class MissionPositionController extends Controller
      */
     public function index($missionId)
     {
-        if (! $this->isMissionInProgress((int) $missionId)) {
-            return response()->json(['message' => 'La mission n\'est pas en cours.'], 403);
+        if (! $this->isMissionLiveLocationAvailable((int) $missionId)) {
+            return response()->json(['message' => 'Le suivi de position n\'est plus disponible pour cette mission.'], 403);
         }
 
         $user = request()->user();
@@ -52,20 +52,20 @@ class MissionPositionController extends Controller
      */
     public function store(Request $request, $missionId)
     {
-        if (! $this->isMissionInProgress((int) $missionId)) {
-            return response()->json(['message' => 'La mission n\'est pas en cours.'], 403);
+        $validated = $request->validate([
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'id_utilisateur' => 'prohibited',
+        ]);
+
+        if (! $this->isMissionLiveLocationAvailable((int) $missionId)) {
+            return response()->json(['message' => 'Le suivi de position n\'est plus disponible pour cette mission.'], 403);
         }
 
         $user = $request->user();
         if (! $user || ! $this->isActiveParticipantForMission((int) $user->id_utilisateur, (int) $missionId)) {
             return response()->json(['message' => 'Accès refusé à cette mission.'], 403);
         }
-
-        $validated = $request->validate([
-            'latitude' => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
-            'id_utilisateur' => 'prohibited',
-        ]);
 
         MissionPosition::updateOrCreate(
             [
@@ -90,11 +90,16 @@ class MissionPositionController extends Controller
             ->exists();
     }
 
-    private function isMissionInProgress(int $missionId): bool
+    private function isMissionLiveLocationAvailable(int $missionId): bool
     {
-        return Mission::query()
+        $status = Mission::query()
             ->where('id_mission', $missionId)
-            ->where('statut_mission', 'En cours')
-            ->exists();
+            ->value('statut_mission');
+
+        if (! is_string($status) || trim($status) === '') {
+            return false;
+        }
+
+        return ! in_array($status, ['Terminée', 'Annulée'], true);
     }
 }
